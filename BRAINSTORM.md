@@ -2196,10 +2196,418 @@ flowchart TD
 
 ---
 
-## Open Questions
-- [ ] What specific workflows/tasks should the first batch of agents handle?
-- [ ] Which OpenClaw version/fork to base on?
-- [ ] Host machine specs — bare metal or cloud VM?
-- [ ] What model(s) to use for workers vs reviewer?
-- [ ] Integration points with existing company systems (email, Slack, Git, databases)?
+## 13. Open Questions — Resolved
+
+### 13.1 First Batch of Agents & Kubex Identity Model
+
+**Question:** What specific workflows/tasks should the first batch of agents handle?
+
+**Decision:** Start with two Kubexes for MVP:
+
+1. **Orchestrator Kubex** — AI supervisor that receives tasks from human operators and dispatches them to worker Kubexes. Cannot perform work directly, only delegates.
+2. **Instagram Scraper Kubex** — Read-only data collection agent that scrapes public Instagram profiles and posts, returning structured JSON output.
+
+**Key Insight — Kubex Identity Model:** A Kubex is **not** a separate codebase or implementation. Every Kubex runs the same OpenClaw runtime from `agents/_base/`. What makes each Kubex unique is **configuration only**:
+
+| Layer | What Changes Per Kubex |
+|-------|----------------------|
+| **System prompt** | Role identity, behavioral rules, output format |
+| **Skills** | Tool definitions the agent can invoke (scraping, dispatching, etc.) |
+| **Config** | Model allowlist, budget, egress rules, secrets |
+| **Policy** | What actions it's allowed/blocked from doing |
+
+Deploying a new Kubex = write a `config.yaml` + system prompt + skill definitions, build from the shared base image, done. The `agents/` folder is mostly config, not code.
+
+**Orchestrator config:**
+
+```yaml
+# agents/orchestrator/config.yaml
+agent:
+  id: "orchestrator"
+  boundary: "platform"
+
+  prompt: |
+    You are the KubexClaw orchestrator. You receive tasks from
+    human operators and dispatch them to the appropriate worker
+    Kubexes. You monitor task progress, handle failures, and
+    report results back to the operator.
+    You NEVER perform tasks directly — you always delegate.
+
+  skills:
+    - "dispatch_task"
+    - "check_task_status"
+    - "request_activation"
+    - "report_result"
+
+  policy:
+    allowed_actions:
+      - "dispatch_task"
+      - "check_task_status"
+      - "request_activation"
+      - "report_result"
+    blocked_actions:
+      - "http_get"
+      - "http_post"
+      - "execute_code"
+```
+
+**Instagram Scraper config:**
+
+```yaml
+# agents/instagram-scraper/config.yaml
+agent:
+  id: "instagram-scraper"
+  boundary: "data-collection"
+
+  prompt: |
+    You are an Instagram data collection agent. Your job is to scrape
+    public Instagram profiles and posts based on task instructions.
+    You extract structured data (captions, hashtags, engagement metrics,
+    post timestamps, media URLs) and return clean JSON output.
+    You NEVER interact with accounts — no following, liking, or commenting.
+
+  skills:
+    - "scrape_profile"
+    - "scrape_posts"
+    - "scrape_hashtag"
+    - "extract_metrics"
+
+  models:
+    allowed:
+      - id: "claude-haiku-4-5"
+        tier: "light"
+      - id: "claude-sonnet-4-6"
+        tier: "standard"
+    default: "claude-haiku-4-5"
+
+  policy:
+    allowed_actions:
+      - "http_get"
+      - "write_output"
+    blocked_actions:
+      - "http_post"
+      - "send_email"
+      - "execute_code"
+    allowed_egress:
+      - "instagram.com"
+      - "i.instagram.com"
+      - "graph.instagram.com"
+
+  budget:
+    per_task_token_limit: 10000
+    daily_cost_limit_usd: 1.00
+```
+
+### 13.2 Gatekeeper Architecture — Lightweight Sidecar
+
+**Question:** Should the Gatekeeper be combined with the orchestrator?
+
+**Decision:** No. The Gatekeeper stays as a **separate lightweight sidecar container** — not a full-blown service, not combined with the orchestrator. It's a deterministic rules engine with zero AI/LLM dependencies.
+
+**Rationale:** If the orchestrator AI is compromised via prompt injection and the gatekeeper lives in the same container, the attacker could tamper with policy enforcement. The gatekeeper must be **external to the thing it's gating**.
+
+**Implementation:** A minimal FastAPI app (~50 lines of core logic for MVP) that:
+
+- Loads policy YAMLs on startup
+- Exposes a single endpoint: `POST /evaluate` → `{allow: true/false, reason: "..."}`
+- Logs every decision to stdout
+- Has zero LLM dependencies — pure deterministic checks
+
+```mermaid
+flowchart TD
+    subgraph mvp["MVP Deployment"]
+        subgraph orch-net["Orchestrator Network"]
+            ORCH["Orchestrator Kubex\nAI supervisor agent"]
+        end
+
+        subgraph gk-net["Gatekeeper Network"]
+            GK["Gatekeeper\nLightweight FastAPI\ndeterministic rules only\nno AI, no LLM calls"]
+        end
+
+        subgraph scraper-net["Scraper Network"]
+            IS["Instagram Scraper Kubex"]
+        end
+    end
+
+    ORCH -->|"action request"| GK
+    IS -->|"action request"| GK
+    GK -->|"allow/deny"| ORCH
+    GK -->|"allow/deny"| IS
+
+    style gk-net fill:#2d6a4f,stroke:#fff,color:#fff
+    style orch-net fill:#264653,stroke:#fff,color:#fff
+    style scraper-net fill:#1a1a2e,stroke:#e94560,color:#fff
+```
+
+### 13.3 Gatekeeper Rule Categories
+
+**Question:** What rules can the Gatekeeper enforce?
+
+**Decision:** The Gatekeeper evaluates **Structured Action Requests** against six rule categories. For MVP, start with categories 1-3 only (egress + action allowlist + budget). Layer the rest on later.
+
+**Action Request format:**
+
+```json
+{
+  "agent_id": "instagram-scraper",
+  "boundary": "data-collection",
+  "action": "http_get",
+  "target": "https://graph.instagram.com/v18.0/12345/media",
+  "parameters": { "fields": "caption,timestamp,like_count" },
+  "model_used": "claude-haiku-4-5",
+  "task_id": "task-0042",
+  "token_count_so_far": 3200
+}
+```
+
+**Rule categories:**
+
+| # | Category | What It Checks | MVP? |
+|---|----------|---------------|------|
+| 1 | **Egress / Network** | Allowed domains, HTTP methods, blocked URL patterns | Yes |
+| 2 | **Action Type** | Allowed/blocked actions, rate limits per action | Yes |
+| 3 | **Budget / Model** | Model allowlist, per-task token limit, daily cost cap | Yes |
+| 4 | **Inter-Agent Comms** | `accepts_from` allowlist, cross-boundary tier, message schema | Later |
+| 5 | **Output / Data** | Output schema enforcement, max size, PII filter, destination | Later |
+| 6 | **Behavioral** | Actions/min, chain depth, time-of-day, cooldown after failure | Later |
+
+**MVP policy example:**
+
+```yaml
+# agents/instagram-scraper/policies/policy.yaml
+agent_policy:
+  egress:
+    mode: "allowlist"
+    allowed:
+      - domain: "graph.instagram.com"
+        methods: ["GET"]
+      - domain: "i.instagram.com"
+        methods: ["GET"]
+      - domain: "instagram.com"
+        methods: ["GET"]
+        blocked_paths:
+          - "*/accounts/*"
+          - "*/api/v1/friendships/*"
+
+  actions:
+    allowed: ["http_get", "write_output", "parse_json"]
+    blocked: ["http_post", "http_put", "http_delete", "execute_code"]
+    rate_limits:
+      http_get: 100/task
+      write_output: 50/task
+
+  budget:
+    per_task_token_limit: 10000
+    daily_cost_limit_usd: 1.00
+```
+
+**Evaluation flow:**
+
+```mermaid
+flowchart TD
+    REQ["Incoming Action Request"] --> G1{"Global policy\nblocked?"}
+    G1 -->|"yes"| DENY1["DENY\n(global block)"]
+    G1 -->|"no"| B1{"Boundary policy\nblocked?"}
+    B1 -->|"yes"| DENY2["DENY\n(boundary block)"]
+    B1 -->|"no"| K1{"Kubex policy\nblocked?"}
+    K1 -->|"yes"| DENY3["DENY\n(agent block)"]
+    K1 -->|"no"| E1{"Egress allowed?"}
+    E1 -->|"no"| DENY4["DENY\n(egress violation)"]
+    E1 -->|"yes"| R1{"Rate limit OK?"}
+    R1 -->|"no"| DENY5["DENY\n(rate limit)"]
+    R1 -->|"yes"| BUD{"Budget OK?"}
+    BUD -->|"no"| DENY6["DENY\n(budget exceeded)"]
+    BUD -->|"yes"| ALLOW["ALLOW\n(log + pass through)"]
+
+    DENY1 & DENY2 & DENY3 & DENY4 & DENY5 & DENY6 -->|"all denials logged"| AUDIT[(Audit Log)]
+    ALLOW --> AUDIT
+
+    style ALLOW fill:#2d6a4f,stroke:#fff,color:#fff
+    style DENY1 fill:#9b2226,stroke:#fff,color:#fff
+    style DENY2 fill:#9b2226,stroke:#fff,color:#fff
+    style DENY3 fill:#9b2226,stroke:#fff,color:#fff
+    style DENY4 fill:#9b2226,stroke:#fff,color:#fff
+    style DENY5 fill:#9b2226,stroke:#fff,color:#fff
+    style DENY6 fill:#9b2226,stroke:#fff,color:#fff
+```
+
+### Action Items
+- [ ] Build lightweight Gatekeeper sidecar (FastAPI, `POST /evaluate`, YAML policy loader)
+- [ ] Define Structured Action Request schema in `kubex-common`
+- [ ] Write MVP policy files for orchestrator and instagram-scraper
+- [ ] Create `agents/orchestrator/config.yaml` with system prompt and skills
+- [ ] Create `agents/instagram-scraper/config.yaml` with system prompt and skills
+- [ ] Build Instagram scraper skills (`scrape_profile`, `scrape_posts`, `scrape_hashtag`, `extract_metrics`)
+- [ ] Define `agents/_base` Dockerfile with OpenClaw runtime + kubex-common
+
+---
+
+### 13.4 OpenClaw Versioning & Auto-Update
+
+**Question:** Which OpenClaw version/fork to base on?
+
+**Decision:** Use the **latest official OpenClaw release** (upstream, no fork). Pin the version in policy, and auto-update on mismatch via container replacement.
+
+**How it works:** Docker containers are immutable — you don't patch a running container. Instead:
+
+1. Policy specifies the required OpenClaw version per Kubex (or globally)
+2. On startup, the Kubex reports its OpenClaw version to the Gatekeeper
+3. If version mismatch, the Gatekeeper returns `VERSION_MISMATCH` to the Kubex Manager
+4. Kubex Manager **rebuilds the base image** with the correct OpenClaw version and **replaces** the container
+5. No live patching, no in-container updates — always a clean rebuild
+
+**Policy config:**
+
+```yaml
+# policies/global.yaml
+global:
+  openclaw:
+    version: "latest"           # or pin: "1.3.0"
+    auto_update: true           # rebuild on mismatch
+    update_strategy: "rolling"  # rolling | all-at-once
+```
+
+```yaml
+# agents/instagram-scraper/config.yaml (override if needed)
+agent:
+  openclaw:
+    version: "1.2.0"           # pin this agent to a specific version
+    auto_update: false          # don't auto-update, manual only
+```
+
+**Update flow:**
+
+```mermaid
+sequenceDiagram
+    participant KM as Kubex Manager
+    participant K as Kubex Container
+    participant GK as Gatekeeper
+
+    KM->>K: Start container
+    K->>GK: Health check (openclaw_version: "1.2.0")
+    GK->>GK: Policy requires "1.3.0"
+    GK->>KM: VERSION_MISMATCH (has: 1.2.0, needs: 1.3.0)
+    KM->>KM: Rebuild base image with openclaw 1.3.0
+    KM->>K: Stop old container
+    KM->>K: Start new container (openclaw 1.3.0)
+    K->>GK: Health check (openclaw_version: "1.3.0")
+    GK->>KM: VERSION_OK
+```
+
+**Version resolution order:**
+1. Per-Kubex `openclaw.version` (highest priority — overrides global)
+2. Global `openclaw.version`
+3. If both say `"latest"` → resolve to the newest published release at build time
+
+### Action Items
+- [ ] Add `openclaw.version` field to global policy schema and per-agent config schema
+- [ ] Implement version check in Gatekeeper health check endpoint
+- [ ] Implement auto-rebuild logic in Kubex Manager (pull new OpenClaw, rebuild base, replace container)
+- [ ] Pin OpenClaw version in `agents/_base/Dockerfile.base` as a build arg
+
+---
+
+### 13.5 Host Machine Specs & Resource Allocation
+
+**Question:** Host machine specs — bare metal or cloud VM?
+
+**Decision:** Bare metal workstation, **64GB RAM total**, **24GB reserved for the Docker cluster**.
+
+**MVP resource budget:**
+
+| Container | RAM Allocation | CPU Shares | Notes |
+|-----------|---------------|------------|-------|
+| Gatekeeper sidecar | 128MB | 0.25 CPU | Tiny FastAPI, no AI |
+| Orchestrator Kubex | 2GB | 1.0 CPU | OpenClaw + LLM API calls |
+| Instagram Scraper Kubex | 2GB | 1.0 CPU | OpenClaw + HTTP scraping |
+| Reviewer Kubex | 2GB | 1.0 CPU | OpenClaw + Codex API calls |
+| Redis | 512MB | 0.5 CPU | Message queue |
+| Fluent Bit | 128MB | 0.25 CPU | Log shipper |
+| **Total MVP** | **~7GB** | **4.0 CPU** | |
+| **Remaining headroom** | **~17GB** | | Room for 5-8 more Kubexes |
+
+```yaml
+# docker-compose.yml resource limits
+services:
+  gatekeeper:
+    deploy:
+      resources:
+        limits: { memory: 128M, cpus: '0.25' }
+  orchestrator:
+    deploy:
+      resources:
+        limits: { memory: 2G, cpus: '1.0' }
+  instagram-scraper:
+    deploy:
+      resources:
+        limits: { memory: 2G, cpus: '1.0' }
+  reviewer:
+    deploy:
+      resources:
+        limits: { memory: 2G, cpus: '1.0' }
+```
+
+24GB is comfortable for MVP and scales to ~12 concurrent Kubexes before needing more resources.
+
+---
+
+### 13.6 Model Strategy — Workers vs Reviewer
+
+**Question:** What model(s) to use for workers vs reviewer?
+
+**Decision:** **Split-provider strategy** — workers use Claude (Anthropic), reviewer uses Codex (OpenAI). This naturally enforces the zero model overlap rule from Section 1.
+
+| Role | Provider | Models | Tier |
+|------|----------|--------|------|
+| **Workers** (orchestrator, scraper, future agents) | Anthropic | `claude-haiku-4-5` (light), `claude-sonnet-4-6` (standard) | light → standard escalation |
+| **Reviewer** | OpenAI | `codex` | Single tier — review only |
+
+**Why this works:**
+
+- **Zero overlap guaranteed by design** — different providers, so a compromised worker prompt cannot influence the reviewer's model family
+- **Cost efficiency** — workers start on Haiku (cheap), escalate to Sonnet only when needed
+- **Reviewer independence** — Codex evaluates worker output with zero shared context or model biases
+- **Two API keys to manage** — Anthropic key (workers), OpenAI key (reviewer), scoped via per-Kubex secrets
+
+```mermaid
+flowchart TD
+    subgraph workers["Worker Kubexes — Anthropic Claude"]
+        ORCH["Orchestrator\nclaude-haiku-4-5 / claude-sonnet-4-6"]
+        IS["Instagram Scraper\nclaude-haiku-4-5 / claude-sonnet-4-6"]
+        FUTURE["Future agents...\nclaude-haiku-4-5 / claude-sonnet-4-6"]
+    end
+
+    subgraph reviewer["Reviewer Kubex — OpenAI Codex"]
+        REV["Reviewer\nopenai-codex\nzero overlap with workers"]
+    end
+
+    workers -->|"actions for review"| reviewer
+
+    style workers fill:#264653,stroke:#fff,color:#fff
+    style reviewer fill:#9b2226,stroke:#fff,color:#fff
+```
+
+**Secret scoping:**
+- Worker Kubexes get `ANTHROPIC_API_KEY` — never see the OpenAI key
+- Reviewer Kubex gets `OPENAI_API_KEY` — never sees the Anthropic key
+- Gatekeeper enforces that workers can only call Anthropic endpoints, reviewer can only call OpenAI endpoints
+
+### Action Items
+- [ ] Configure Anthropic API key as shared secret for worker boundary
+- [ ] Configure OpenAI API key as per-Kubex secret for reviewer
+- [ ] Add provider-level egress rules (workers → `api.anthropic.com` only, reviewer → `api.openai.com` only)
+- [ ] Define reviewer Kubex config with Codex model allowlist
+- [ ] Update model selector skill in `kubex-common` to support multi-provider (Anthropic + OpenAI)
+
+---
+
+### 13.7 Integration Points
+
+**Question:** Integration points with existing company systems?
+
+**Decision:** **Not for MVP.** No external system integrations (email, Slack, Git, databases) in the first deployment. The MVP is self-contained: orchestrator dispatches tasks to the Instagram scraper, results are written to local output. External integrations will be added as new Kubexes and boundaries are introduced.
+
+---
+
+## Open Questions (Remaining)
 - [ ] ClawControl — is it open source? Does it solve enough to replace our custom Kubex Manager?
