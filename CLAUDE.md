@@ -34,3 +34,35 @@ This project is developing an **Agent AI Pipeline** that will allow the company 
 - All Python code must pass linting (ruff) and formatting (black) checks in CI.
 - Type hints required for all public functions in `kubex-common`.
 - No `# type: ignore` without an explanatory comment.
+
+## Agent Team Strategy
+
+When using Claude Code sub-agents for implementation work, follow this three-tier delegation model to preserve the host context window:
+
+### Tier 1 — Host (Main Context)
+- **Role:** Dispatcher. Holds minimal state.
+- Reads only `MEMORY.md` for current status. Does NOT read docs, source files, or implementation plans.
+- Launches a Team Lead agent, then waits for a "done" signal + summary.
+- Records the summary into context only after the team finishes.
+- Can run multiple waves per session because context stays lean.
+
+### Tier 2 — Team Lead (Agent)
+- **Role:** Coordinator. Reads docs, plans work, manages workers.
+- Reads architecture docs, implementation plans, and existing code as needed.
+- Breaks work into tasks and spawns Worker agents for each.
+- Reviews worker output for correctness.
+- Commits code and updates `MEMORY.md` with progress.
+- Sends a concise summary back to the Host: files changed, tests status, blockers.
+
+### Tier 3 — Workers (Agents)
+- **Role:** Implementers. Each gets a single focused task.
+- Receives full instructions from the Team Lead (file paths, expected behavior, code patterns).
+- Reads target files before writing (mandatory — Write tool requires it).
+- Reports results back to the Team Lead.
+
+### Rules
+- Host MUST NOT read large files or docs — delegate that to the Team Lead.
+- Team Lead MUST commit after each completed stream and update `MEMORY.md`.
+- Worker prompts MUST be self-contained — include file paths and expected patterns, not doc references.
+- Use `mode: "bypassPermissions"` and `model: "sonnet"` for all sub-agents.
+- If a worker fails, the Team Lead retries or adjusts — do not escalate to Host unless blocked.

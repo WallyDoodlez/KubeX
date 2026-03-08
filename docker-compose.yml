@@ -29,7 +29,7 @@ services:
       - ./agents:/app/agents:ro
       - ./secrets/llm-api-keys.json:/app/secrets/llm-api-keys.json:ro
     environment:
-      - REDIS_URL=redis://gateway-svc:${REDIS_PASSWORD}@redis:6379
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
       - REGISTRY_URL=http://kubex-registry:8070
       - SERVICE_NAME=gateway
       - LLM_API_KEYS_PATH=/app/secrets/llm-api-keys.json
@@ -64,7 +64,7 @@ services:
       - ./agents:/app/agents:ro
       - ./skills:/app/skills:ro
     environment:
-      - REDIS_URL=redis://manager-svc:${REDIS_PASSWORD}@redis:6379/3
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/3
       - REGISTRY_URL=http://kubex-registry:8070
       - GATEWAY_URL=http://gateway:8080
       - MANAGER_TOKEN=${MANAGER_TOKEN}
@@ -93,7 +93,7 @@ services:
       dockerfile: services/broker/Dockerfile
     container_name: kubexclaw-broker
     environment:
-      - REDIS_URL=redis://broker-svc:${REDIS_PASSWORD}@redis:6379/0
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/0
       - SERVICE_NAME=kubex-broker
     networks:
       - kubex-internal
@@ -121,7 +121,7 @@ services:
     ports:
       - "8070:8070"
     environment:
-      - REDIS_URL=redis://registry-svc:${REDIS_PASSWORD}@redis:6379/2
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/2
       - SERVICE_NAME=kubex-registry
     networks:
       - kubex-internal
@@ -148,11 +148,9 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
-      - ./config/redis/users.acl:/etc/redis/users.acl:ro
     command: >
       redis-server
       --requirepass ${REDIS_PASSWORD}
-      --aclfile /etc/redis/users.acl
       --appendonly yes
       --appendfsync everysec
       --maxmemory 512mb

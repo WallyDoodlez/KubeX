@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "KubexClaw Gateway — policy engine, egress proxy, LLM reverse proxy"
 requires-python = ">=3.12"
 dependencies = [
-    "kubex-common @ file:../../libs/kubex-common",
+    "kubex-common",
     "docker>=7.0",
     "opensearch-py>=2.7",
 ]

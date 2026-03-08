@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "KubexClaw Broker — Redis Streams inter-agent message routing"
 requires-python = ">=3.12"
 dependencies = [
-    "kubex-common @ file:../../libs/kubex-common",
+    "kubex-common",
 ]
 
 [project.optional-dependencies]

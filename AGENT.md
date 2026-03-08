@@ -106,3 +106,57 @@ These are non-negotiable. Violations block the PR.
 - PR title: concise, imperative (e.g., "Add egress allowlist validation to Gateway")
 - Squash merge to keep history clean
 - Commit messages reference the relevant docs/ file if applicable
+
+## Agent Team Strategy
+
+Implementation work uses a three-tier delegation model to keep the host context window lean.
+
+### Architecture
+
+```mermaid
+flowchart TD
+    Host["Host (Main Context)\nDispatcher — minimal state"]
+    Lead["Team Lead (Agent)\nCoordinator — reads docs, manages workers"]
+    W1["Worker 1\nFocused task"]
+    W2["Worker 2\nFocused task"]
+    W3["Worker N\nFocused task"]
+
+    Host -->|"launch + wait"| Lead
+    Lead -->|"spawn tasks"| W1 & W2 & W3
+    W1 & W2 & W3 -->|"report results"| Lead
+    Lead -->|"done + summary"| Host
+    Lead -->|"commit + update MEMORY.md"| Repo["Git + MEMORY.md"]
+```
+
+### Tier 1 — Host (Main Context)
+- Reads only `MEMORY.md` for current project status.
+- Does NOT read docs, source files, or implementation plans into its own context.
+- Launches a Team Lead agent with a high-level task description (e.g., "Implement Wave 3").
+- Waits for the Team Lead to return a "done" signal with a concise summary.
+- Records the summary and moves to the next wave or reports to the user.
+
+### Tier 2 — Team Lead (Agent)
+- Reads architecture docs (`docs/*.md`), implementation plans (`IMPLEMENTATION-PLAN.md`), and existing source code.
+- Breaks the wave/task into independent streams and spawns Worker agents for each.
+- Reviews worker output — verifies files were created/modified correctly.
+- Commits code after each completed stream with descriptive commit messages.
+- Updates `MEMORY.md` with: what was done, git hash, any blockers.
+- Returns to Host: summary of changes, files touched, test results, open blockers.
+
+### Tier 3 — Workers (Agents)
+- Each worker receives a single, focused task from the Team Lead.
+- Worker prompts are self-contained: include exact file paths, expected code patterns, and acceptance criteria.
+- Workers MUST read target files before writing (Write tool safety requirement).
+- Workers report back to the Team Lead with results (success/failure + details).
+
+### Configuration Rules
+- All sub-agents use `mode: "bypassPermissions"` to avoid interactive prompts.
+- All sub-agents use `model: "sonnet"` for speed and cost efficiency.
+- Worker prompts must NOT reference docs by name — instead, the Team Lead extracts the relevant details and includes them directly in the prompt.
+- If a worker fails, the Team Lead retries with adjusted instructions. Only escalate to Host if fundamentally blocked (e.g., missing user decision).
+
+### Progress Recording Protocol
+- Team Lead commits after each completed stream (not at the end of all work).
+- Team Lead updates `MEMORY.md` after each commit with: stream name, status, git hash.
+- If the session compacts or crashes, `MEMORY.md` + git log provides full recovery context.
+- Blockers are logged in `MEMORY.md` under "Open Questions" so the user can address them.
