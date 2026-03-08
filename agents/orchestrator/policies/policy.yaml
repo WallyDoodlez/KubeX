@@ -1,0 +1,24 @@
+agent_policy:
+  actions:
+    allowed:
+      - "dispatch_task"
+      - "check_task_status"
+      - "cancel_task"
+      - "report_result"
+      - "request_user_input"
+      - "query_registry"
+      - "query_knowledge"
+      - "store_knowledge"
+      - "search_corpus"
+    blocked:
+      - "http_get"
+      - "http_post"
+      - "http_put"
+      - "http_delete"
+      - "execute_code"
+      - "send_email"
+  egress:
+    mode: "deny_all"
+  budget:
+    per_task_token_limit: 50000
+    daily_cost_limit_usd: 5.00

@@ -1,0 +1,23 @@
+agent_policy:
+  actions:
+    allowed:
+      - "report_result"
+    blocked:
+      - "http_get"
+      - "http_post"
+      - "http_put"
+      - "http_delete"
+      - "execute_code"
+      - "send_email"
+      - "dispatch_task"
+      - "write_output"
+      - "read_input"
+  egress:
+    mode: "deny_all"
+  models:
+    allowed:
+      - id: "o3-mini"
+        provider: "openai"
+  budget:
+    per_task_token_limit: 20000
+    daily_cost_limit_usd: 2.00

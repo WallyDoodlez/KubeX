@@ -1,0 +1,21 @@
+agent_policy:
+  actions:
+    allowed:
+      - "query_knowledge"
+      - "store_knowledge"
+      - "search_corpus"
+      - "report_result"
+      - "progress_update"
+    blocked:
+      - "http_get"
+      - "http_post"
+      - "http_put"
+      - "http_delete"
+      - "execute_code"
+      - "dispatch_task"
+      - "send_email"
+  egress:
+    mode: "deny_all"
+  budget:
+    per_task_token_limit: 5000
+    daily_cost_limit_usd: 2.00

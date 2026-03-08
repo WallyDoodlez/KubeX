@@ -1,0 +1,18 @@
+# KubexClaw Redis ACL — per-service access control
+# Passwords are placeholders — replace with strong passwords before deployment
+
+# Gateway: access to rate limits (db1) and budget tracking (db4)
+# Also needs pub/sub for progress streaming
+user gateway-svc on >gateway-password ~* &* +@all -@dangerous
+
+# Broker: access to message streams (db0)
+user broker-svc on >broker-password ~boundary:* ~dlq:* &* +@all -@dangerous
+
+# Registry: access to capability cache (db2)
+user registry-svc on >registry-password ~agent:* ~capability:* &* +@all -@dangerous
+
+# Kubex Manager: access to lifecycle events (db3)
+user manager-svc on >manager-password ~lifecycle:* ~kubex:* &* +@all -@dangerous
+
+# Default user (disabled for security)
+user default off

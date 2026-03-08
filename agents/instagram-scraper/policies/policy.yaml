@@ -1,0 +1,35 @@
+agent_policy:
+  egress:
+    mode: "allowlist"
+    allowed:
+      - domain: "graph.instagram.com"
+        methods: ["GET"]
+      - domain: "i.instagram.com"
+        methods: ["GET"]
+      - domain: "instagram.com"
+        methods: ["GET"]
+        blocked_paths:
+          - "*/accounts/*"
+          - "*/api/v1/friendships/*"
+  actions:
+    allowed:
+      - "http_get"
+      - "write_output"
+      - "report_result"
+      - "progress_update"
+      - "query_knowledge"
+      - "store_knowledge"
+      - "search_corpus"
+    blocked:
+      - "http_post"
+      - "http_put"
+      - "http_delete"
+      - "execute_code"
+      - "send_email"
+      - "dispatch_task"
+    rate_limits:
+      http_get: 100/task
+      write_output: 50/task
+  budget:
+    per_task_token_limit: 10000
+    daily_cost_limit_usd: 1.00

@@ -1,0 +1,18 @@
+boundary:
+  id: "default"
+  display_name: "Default Boundary"
+  description: "Single trust zone for all MVP agents"
+
+agents:
+  - orchestrator
+  - instagram-scraper
+  - knowledge
+  - reviewer
+
+policy:
+  max_agents: 10
+  shared_knowledge: true
+  cross_agent_comms: true
+
+networks:
+  - kubex-internal

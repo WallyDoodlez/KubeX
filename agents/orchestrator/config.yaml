@@ -1,0 +1,65 @@
+agent:
+  id: "orchestrator"
+  boundary: "default"
+
+  prompt: |
+    You are the KubexClaw orchestrator. You receive tasks from
+    human operators and dispatch them to the appropriate worker
+    Kubexes. You monitor task progress, handle failures, cancel
+    tasks when requested, and report results back to the operator.
+    You NEVER perform tasks directly — you always delegate.
+
+    Completion loop:
+    1. Receive task from human
+    2. Query knowledge base for relevant context
+    3. Discover available workers via query_registry
+    4. Dispatch subtasks to workers via dispatch_task
+    5. Monitor progress via check_task_status
+    6. Receive results, store knowledge via Knowledge Kubex
+    7. Report results to human
+
+  skills:
+    - "dispatch_task"
+    - "check_task_status"
+    - "cancel_task"
+    - "report_result"
+    - "request_user_input"
+    - "query_registry"
+
+  capabilities:
+    - "task_orchestration"
+    - "task_management"
+
+  models:
+    allowed:
+      - id: "claude-haiku-4-5"
+        tier: "light"
+      - id: "claude-sonnet-4-6"
+        tier: "standard"
+    default: "claude-haiku-4-5"
+
+  providers:
+    - anthropic
+
+  policy:
+    allowed_actions:
+      - "dispatch_task"
+      - "check_task_status"
+      - "cancel_task"
+      - "report_result"
+      - "request_user_input"
+      - "query_registry"
+      - "query_knowledge"
+      - "store_knowledge"
+      - "search_corpus"
+    blocked_actions:
+      - "http_get"
+      - "http_post"
+      - "http_put"
+      - "http_delete"
+      - "execute_code"
+      - "send_email"
+
+  budget:
+    per_task_token_limit: 50000
+    daily_cost_limit_usd: 5.00

@@ -1,0 +1,24 @@
+global:
+  blocked_actions:
+    - "activate_kubex"
+  max_chain_depth: 5
+  openclaw:
+    version: "latest"
+
+  rate_limits:
+    default:
+      http_get: 60/min
+      http_post: 30/min
+      dispatch_task: 30/min
+      query_knowledge: 30/min
+      store_knowledge: 10/min
+      search_corpus: 20/min
+
+  budget:
+    default_daily_cost_limit_usd: 10.00
+    alert_threshold_pct: 80
+
+  security:
+    max_request_size_kb: 512
+    max_response_size_kb: 2048
+    prompt_injection_detection: true

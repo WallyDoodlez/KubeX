@@ -1,0 +1,60 @@
+agent:
+  id: "instagram-scraper"
+  boundary: "default"
+
+  prompt: |
+    You are an Instagram data collection agent. Your job is to scrape
+    public Instagram profiles and posts based on task instructions.
+    You extract structured data (captions, hashtags, engagement metrics,
+    post timestamps, media URLs) and return clean JSON output.
+    You NEVER interact with accounts — no following, liking, or commenting.
+
+  skills:
+    - "scrape_profile"
+    - "scrape_posts"
+    - "scrape_hashtag"
+    - "extract_metrics"
+
+  capabilities:
+    - "scrape_instagram"
+    - "extract_metrics"
+
+  models:
+    allowed:
+      - id: "claude-haiku-4-5"
+        tier: "light"
+      - id: "claude-sonnet-4-6"
+        tier: "standard"
+    default: "claude-haiku-4-5"
+
+  providers:
+    - anthropic
+
+  policy:
+    allowed_actions:
+      - "http_get"
+      - "write_output"
+      - "report_result"
+      - "progress_update"
+      - "query_knowledge"
+      - "store_knowledge"
+      - "search_corpus"
+    blocked_actions:
+      - "http_post"
+      - "http_put"
+      - "http_delete"
+      - "send_email"
+      - "execute_code"
+      - "dispatch_task"
+    allowed_egress:
+      - "instagram.com"
+      - "i.instagram.com"
+      - "graph.instagram.com"
+
+  budget:
+    per_task_token_limit: 10000
+    daily_cost_limit_usd: 1.00
+
+  harness:
+    progress_buffer_ms: 500
+    progress_max_chunk_kb: 16

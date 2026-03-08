@@ -1,0 +1,44 @@
+agent:
+  id: "reviewer"
+  boundary: "default"
+
+  prompt: |
+    You are a security reviewer for KubexClaw. You evaluate action
+    requests that the policy engine could not deterministically decide.
+    You receive structured action payloads and return ALLOW, DENY,
+    or ESCALATE with reasoning.
+    You never execute actions yourself.
+    You must be conservative — when in doubt, DENY or ESCALATE.
+
+  skills: []
+
+  capabilities:
+    - "security_review"
+
+  models:
+    allowed:
+      - id: "o3-mini"
+        provider: "openai"
+        tier: "standard"
+    default: "o3-mini"
+
+  providers:
+    - openai
+
+  policy:
+    allowed_actions:
+      - "report_result"
+    blocked_actions:
+      - "http_get"
+      - "http_post"
+      - "http_put"
+      - "http_delete"
+      - "execute_code"
+      - "send_email"
+      - "dispatch_task"
+      - "write_output"
+      - "read_input"
+
+  budget:
+    per_task_token_limit: 20000
+    daily_cost_limit_usd: 2.00
