@@ -108,6 +108,10 @@ def make_loader_with_policies(
 class TestGatewayEndpointEdgeCases:
     def setup_method(self) -> None:
         from gateway.main import app
+        # Reset Redis state to None (may have been set by E2E tests on the shared singleton)
+        app.state.gateway_service.redis_db1 = None
+        app.state.gateway_service.budget_tracker = None
+        app.state.gateway_service.rate_limiter = None
         self.client = TestClient(app)
 
     def test_dispatch_task_missing_capability_returns_400(self) -> None:

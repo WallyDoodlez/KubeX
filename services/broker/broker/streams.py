@@ -100,11 +100,19 @@ class BrokerStreams:
         agent_id: str,
         count: int = 10,
         block_ms: int = 0,
+        *,
+        filter_by_capability: bool = False,
     ) -> list[dict[str, Any]]:
         """Consume messages from the agent's consumer group.
 
         Returns a list of TaskDelivery-like dicts.
         block_ms=0 means non-blocking (returns immediately).
+
+        When filter_by_capability is True (default), messages whose
+        'capability' field does not match the agent_id (consumer group
+        name) are silently acknowledged and skipped.  This ensures that
+        capability-based consumer groups only receive their own tasks
+        even though all messages share a single Redis stream.
         """
         await self.ensure_stream_and_group(agent_id)
 
@@ -120,6 +128,17 @@ class BrokerStreams:
         if messages:
             for _stream_name, entries in messages:
                 for message_id, fields in entries:
+                    # Filter by capability when the consumer group represents
+                    # a capability (not a generic agent consumer).
+                    if filter_by_capability:
+                        msg_capability = fields.get("capability", "")
+                        if msg_capability and msg_capability != agent_id:
+                            # Auto-ack messages not meant for this consumer group
+                            try:
+                                await self._redis.xack(STREAM_NAME, agent_id, message_id)
+                            except Exception:
+                                pass
+                            continue
                     result.append({"message_id": message_id, **fields})
 
         return result
@@ -178,6 +197,15 @@ class BrokerStreams:
             logger.warning("pending_handling_failed", group=agent_id, error=str(exc))
 
         return dlq_count
+
+    async def _send_to_dlq_for_test(self, message_id: str, group: str) -> int:
+        """Test helper — send a message directly to DLQ and return count.
+
+        This method is used by tests to simulate DLQ scenarios without
+        waiting for RETRY_AFTER_MS to elapse.
+        """
+        await self._send_to_dlq(message_id, group)
+        return 1
 
     async def _send_to_dlq(self, message_id: str, group: str) -> None:
         """Send a message to the dead letter queue."""

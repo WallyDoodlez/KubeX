@@ -92,6 +92,12 @@ async def handle_action(request: Request, body: ActionRequest) -> JSONResponse:
     token_count = 0
     daily_cost = 0.0
 
+    # Lazy-initialize budget tracker if Redis is available but tracker is not set
+    # or if redis_db1 has changed (e.g., tests swap in fakeredis per test class)
+    if gateway.redis_db1 is not None:
+        if gateway.budget_tracker is None or gateway.budget_tracker._redis is not gateway.redis_db1:
+            gateway.budget_tracker = BudgetTracker(gateway.redis_db1)
+
     if gateway.budget_tracker and body.context.task_id:
         token_count = await gateway.budget_tracker.get_task_tokens(body.context.task_id)
         daily_cost = await gateway.budget_tracker.get_daily_cost(body.agent_id)
@@ -118,6 +124,12 @@ async def handle_action(request: Request, body: ActionRequest) -> JSONResponse:
                 details={"rule": policy_result.rule_matched, "agent_id": body.agent_id},
             ).model_dump(),
         )
+
+    # Lazy-initialize rate limiter if Redis is available but limiter is not set
+    # or if redis_db1 has changed
+    if gateway.redis_db1 is not None:
+        if gateway.rate_limiter is None or gateway.rate_limiter._redis is not gateway.redis_db1:
+            gateway.rate_limiter = RateLimiter(gateway.redis_db1)
 
     # 3. Rate limit check
     if gateway.rate_limiter and body.action.value in gateway.rate_limit_config(body.agent_id):

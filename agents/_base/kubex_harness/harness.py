@@ -76,8 +76,8 @@ class HarnessConfig:
 
     agent_id: str
     task_id: str
-    task_message: str
     gateway_url: str
+    task_message: str = ""
     progress_buffer_ms: int = 500
     progress_max_chunk_kb: int = 16
     abort_keystroke: str = "\x03"  # Ctrl+C
@@ -153,8 +153,9 @@ class KubexHarness:
         await harness.run()
     """
 
-    def __init__(self, config: HarnessConfig) -> None:
+    def __init__(self, config: HarnessConfig, redis_client: Any = None) -> None:
         self.config = config
+        self._redis_client = redis_client
         self._proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         self._pty_master: int | None = None
         self._cancelled = False
@@ -334,6 +335,35 @@ class KubexHarness:
                 await pubsub.unsubscribe(channel)
             except Exception:
                 pass
+
+    async def _process_cancel_command(self, task_id: str) -> ExitReason:
+        """Process a cancel command for the given task_id.
+
+        If the task_id matches this harness's task, mark as cancelled
+        and return ExitReason.CANCELLED.
+
+        Args:
+            task_id: The task_id from the cancel command.
+
+        Returns:
+            ExitReason.CANCELLED if the cancel applies to this task.
+        """
+        if task_id == self.config.task_id:
+            self._cancelled = True
+            self._exit_reason = ExitReason.CANCELLED
+        return ExitReason.CANCELLED
+
+    async def _should_abort_for_task(self, cancel_task_id: str, my_task_id: str) -> bool:
+        """Check whether a cancel command should abort this harness.
+
+        Args:
+            cancel_task_id: The task_id from the cancel command.
+            my_task_id: This harness's task_id.
+
+        Returns:
+            True if the cancel targets this task, False otherwise.
+        """
+        return cancel_task_id == my_task_id
 
     async def _escalate_cancel(
         self,

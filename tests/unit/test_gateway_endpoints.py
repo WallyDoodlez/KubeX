@@ -165,6 +165,10 @@ class TestGatewayEndpoints:
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../services/gateway"))
         from fastapi.testclient import TestClient
         from gateway.main import app
+        # Reset Redis state to None (may have been set by E2E tests on the shared singleton)
+        app.state.gateway_service.redis_db1 = None
+        app.state.gateway_service.budget_tracker = None
+        app.state.gateway_service.rate_limiter = None
         self.client = TestClient(app)
 
     def test_health_endpoint(self) -> None:

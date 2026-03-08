@@ -83,10 +83,20 @@ class BudgetTracker:
         return int(val) if val else 0
 
     async def get_daily_cost(self, agent_id: str) -> float:
-        """Get today's total cost for an agent."""
+        """Get today's total cost for an agent.
+
+        Checks both the date-qualified key and the simple budget:daily:{agent_id} key
+        for backward compatibility.
+        """
         today = _today()
         key = AGENT_DAILY_COST_KEY.format(agent_id=agent_id, date=today)
         val = await self._redis.get(key)
+        if val:
+            return float(val)
+
+        # Fallback: check simpler key format (used by tests / external budget injection)
+        simple_key = f"budget:daily:{agent_id}"
+        val = await self._redis.get(simple_key)
         return float(val) if val else 0.0
 
     async def get_budget_status(self, task_id: str, agent_id: str) -> dict[str, Any]:

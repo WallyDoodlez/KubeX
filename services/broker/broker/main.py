@@ -72,7 +72,7 @@ async def consume_messages(
     - block_ms: how long to block waiting for messages (0 = non-blocking)
     """
     streams = _get_streams(request)
-    return await streams.consume(agent_id, count=count, block_ms=block_ms)
+    return await streams.consume(agent_id, count=count, block_ms=block_ms, filter_by_capability=True)
 
 
 @router.post("/messages/{message_id}/ack", status_code=204)
