@@ -82,36 +82,160 @@
 
 ---
 
-## 7. Package Structure (Monorepo)
+## 7. kubex-common API Surface
+
+`kubex-common` is the shared library that every service and agent depends on. It provides data contracts, base service infrastructure, pre-configured clients, and shared utilities. The module layout:
+
+```
+kubex_common/
+├── schemas/          # Pydantic v2 models
+│   ├── actions.py    # ActionRequest, ActionResponse, ActionType enum
+│   ├── envelope.py   # GatekeeperEnvelope, infrastructure metadata
+│   ├── config.py     # Agent config, skill manifest, boundary config models
+│   └── events.py     # Progress updates, lifecycle events, control messages
+├── service/          # Base service infrastructure
+│   ├── base.py       # KubexService base class (FastAPI app factory)
+│   ├── health.py     # /health endpoint factory
+│   └── middleware.py  # Shared middleware (request ID, structured logging)
+├── clients/          # Pre-configured client wrappers
+│   ├── redis.py      # Async Redis helper (DB-number aware, connection pool)
+│   └── http.py       # httpx client with retry, timeout defaults
+├── logging.py        # structlog configuration (JSON format, service context)
+├── constants.py      # Ports, Redis DB numbers, network names, rate limit defaults
+└── errors.py         # Shared error types, error response format
+```
+
+### Design Principles
+
+1. **KubexService base class handles boilerplate.** Config loading, structlog init, Redis connection pool, `/health` endpoint, and graceful shutdown are all handled by the base class. Infrastructure services subclass `KubexService` and add their own routes and logic.
+
+2. **Boundary rule: if only one service uses it, it does not belong in common.** Schemas go in common because multiple services validate the same request/response shapes. Pre-configured clients go in common because every service needs Redis and HTTP with consistent defaults. Policy engine logic stays in Gateway because only Gateway evaluates policies.
+
+3. **What stays OUT of kubex-common:**
+   - Gateway policy evaluation logic (Gateway-only)
+   - Broker routing and queue management (Broker-only)
+   - Kubex Manager Docker lifecycle operations (Manager-only)
+   - Registry capability matching algorithms (Registry-only)
+   - Per-service API route handlers
+
+```mermaid
+flowchart TD
+    KC["kubex-common"]
+
+    subgraph common["What goes IN common"]
+        SC[schemas/\nPydantic models]
+        SV[service/\nBase class + middleware]
+        CL[clients/\nRedis + HTTP wrappers]
+        UT[logging, constants, errors]
+    end
+
+    subgraph out["What stays OUT"]
+        PE[Policy evaluation\n→ Gateway only]
+        RQ[Routing + queues\n→ Broker only]
+        DL[Docker lifecycle\n→ Manager only]
+        CM[Capability matching\n→ Registry only]
+    end
+
+    KC --> SC & SV & CL & UT
+    PE & RQ & DL & CM -.-x|does NOT belong in| KC
+
+    style KC fill:#e76f51,stroke:#fff,color:#fff
+    style common fill:#2d6a4f,stroke:#fff,color:#fff
+    style out fill:#9b2226,stroke:#fff,color:#fff
+```
+
+### Action Items
+
+- [ ] Implement `KubexService` base class with config loading, structlog init, Redis pool, health endpoint, graceful shutdown
+- [ ] Implement `schemas/actions.py` — `ActionRequest`, `ActionResponse`, `ActionType` enum (per Section 16.2)
+- [ ] Implement `schemas/envelope.py` — `GatekeeperEnvelope` with infrastructure metadata fields
+- [ ] Implement `schemas/config.py` — agent config, skill manifest, boundary config models
+- [ ] Implement `schemas/events.py` — progress updates, lifecycle events, control messages
+- [ ] Implement `service/health.py` — `/health` endpoint factory returning service name, version, uptime, Redis connectivity
+- [ ] Implement `service/middleware.py` — request ID injection, structured logging middleware
+- [ ] Implement `clients/redis.py` — async Redis helper with DB-number selection and connection pooling
+- [ ] Implement `clients/http.py` — httpx client wrapper with retry policy and timeout defaults
+- [ ] Implement `logging.py` — structlog JSON configuration with service context binding
+- [ ] Implement `constants.py` — ports, Redis DB numbers (db0-db4), network names, rate limit defaults
+- [ ] Implement `errors.py` — shared error types and standardized error response format
+
+---
+
+## 8. Repository Structure (Monorepo)
 
 The project uses a **uv workspace** monorepo. Services depend on `kubex-common` via local path dependencies. Each service has its own `pyproject.toml`.
 
 ```
 kubexclaw/
-├── pyproject.toml              # root — uv workspace config
-├── uv.lock                     # single lockfile for entire workspace
+├── pyproject.toml            # Root — uv workspace definition
 ├── libs/
-│   └── kubex-common/
-│       └── pyproject.toml      # schemas, auth, audit, logging, metrics
+│   └── kubex-common/         # Shared package
+│       ├── pyproject.toml
+│       └── kubex_common/     # (module layout in Section 7 above)
 ├── services/
-│   ├── gateway/
-│   │   └── pyproject.toml      # FastAPI + httpx + redis + opensearch-py
+│   ├── gateway/              # Gateway service
+│   │   ├── pyproject.toml    # depends on kubex-common
+│   │   ├── gateway/
+│   │   └── tests/
 │   ├── kubex-manager/
-│   │   └── pyproject.toml      # FastAPI + docker SDK + redis
+│   │   ├── pyproject.toml
+│   │   ├── kubex_manager/
+│   │   └── tests/
 │   ├── broker/
-│   │   └── pyproject.toml      # FastAPI + redis
+│   │   ├── pyproject.toml
+│   │   ├── broker/
+│   │   └── tests/
 │   └── registry/
-│       └── pyproject.toml      # FastAPI + redis
-└── agents/
-    └── _base/                  # OpenClaw base image (config-only differentiation)
+│       ├── pyproject.toml
+│       ├── registry/
+│       └── tests/
+├── agents/                   # Config only, not code
+│   ├── _base/                # Shared base image (OpenClaw runtime + harness)
+│   │   └── Dockerfile
+│   ├── orchestrator/
+│   │   └── config.yaml
+│   ├── instagram-scraper/
+│   │   └── config.yaml
+│   └── knowledge/
+│       └── config.yaml
+├── skills/                   # Skill catalog
+│   ├── data-collection/
+│   │   └── web-scraping/
+│   │       └── skill.yaml
+│   └── knowledge/
+│       └── recall/
+│           └── skill.yaml
+├── policies/
+│   └── default-boundary.yaml
+├── tests/                    # Cross-service integration + E2E tests
+│   ├── integration/
+│   ├── e2e/
+│   └── chaos/
+├── docker-compose.yml        # Production/MVP
+├── docker-compose.dev.yml    # Dev environment
+├── docker-compose.test.yml   # Test environment
+└── docs/                     # Architecture docs
 ```
 
-> Details on the full repo layout are in [architecture.md](architecture.md).
+### Key Decisions
+
+- **`libs/` for shared packages, `services/` for deployable services.** Clear separation between library code (consumed as a dependency) and runnable services (each with their own Dockerfile and entry point).
+- **`agents/` is config-only.** Each agent is a `config.yaml` + system prompt, built from the `_base/` image. No agent-specific Python code — behavior comes from OpenClaw skills and config. Adding a new agent means adding a folder with a `config.yaml`.
+- **`skills/` is the skill catalog.** Skills are defined as YAML manifests and organized by domain. Agents reference skills by name in their `config.yaml`.
+- **`tests/` at root for cross-service tests.** Each service also has its own `tests/` directory for unit tests. Root-level `tests/` contains integration, E2E, and chaos tests that span multiple services (run against `docker-compose.test.yml` per CLAUDE.md).
+- **`policies/` separate from service code.** Policy files are testable independently — CLAUDE.md requires test fixtures that assert expected approve/deny/escalate outcomes for every policy change.
+- **uv workspaces for monorepo dependency management.** Single `uv.lock` at root. Services declare `kubex-common` as a local path dependency. `uv sync` resolves everything in one pass.
+
+> See [architecture.md](architecture.md) Section 12 for the full layout including post-MVP components (monitoring, logging, boundaries, deploy configs).
 
 ### Action Items
 
-- [ ] Create `pyproject.toml` for `kubex-common` with core dependencies
-- [ ] Create `pyproject.toml` for gateway service
-- [ ] Create `pyproject.toml` for kubex-manager service
+- [ ] Create root `pyproject.toml` with uv workspace definition listing `libs/*` and `services/*`
+- [ ] Create `pyproject.toml` for `kubex-common` with core dependencies (pydantic, httpx, redis, structlog)
+- [ ] Create `pyproject.toml` for each service (gateway, kubex-manager, broker, registry) with kubex-common dependency
 - [ ] Pin exact versions in `uv.lock` after initial dependency resolution
-- [ ] Set up uv workspace configuration in root `pyproject.toml`
+- [ ] Scaffold `agents/` directory with `_base/Dockerfile` and MVP agent configs (orchestrator, instagram-scraper, knowledge)
+- [ ] Scaffold `skills/` directory with initial skill manifests
+- [ ] Create `policies/default-boundary.yaml` with MVP policy rules
+- [ ] Set up `docker-compose.test.yml` for integration test environment
+- [ ] Verify local path dependency resolution works across all services with `uv sync`

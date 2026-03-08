@@ -61,6 +61,7 @@ Every section from the original BRAINSTORM.md has been extracted into the docs/ 
 | — | CLI Design | [docs/cli.md](docs/cli.md) | New (no original section) |
 | — | Skill Catalog | [docs/skill-catalog.md](docs/skill-catalog.md) | New (no original section) |
 | — | Management API Layer | [docs/api-layer.md](docs/api-layer.md) | New (no original section) |
+| — | Technology Stack & kubex-common API | [docs/tech-stack.md](docs/tech-stack.md) | New (no original section) |
 
 All 31 original sections (0–30) have been fully extracted. No sections remain unaccounted for.
 

@@ -378,157 +378,132 @@ sequenceDiagram
 
 ## 12. Repository Structure
 
-> **Note:** Updated to include OpenSearch + Fluent Bit in the stack.
+> **Note:** This section shows the full repo layout including post-MVP components. For the MVP-focused layout and `kubex-common` API surface details, see [tech-stack.md](tech-stack.md) Sections 7 and 8.
 
-**Decision:** Monorepo with a shared library (`kubex-common`). Every service and every agent depends on the shared library for schema contracts, auth primitives, and audit log format.
+**Decision:** Monorepo with a shared library (`kubex-common`). Every service and every agent depends on the shared library for schema contracts, base service infrastructure, and shared utilities.
 
 **Rationale:**
 - The Structured Action Request schema, audit log format, and auth primitives are shared across every component. If these drift between components, the system breaks.
 - A monorepo keeps the shared contract in one place — change once, all components pick it up.
 - Single `docker-compose.yml` at root for full-stack local dev.
 - Each service/agent has its own Dockerfile and can build/deploy independently.
-- Adding a new agent is just adding a folder — no touching infrastructure code.
+- Adding a new agent is just adding a folder with a `config.yaml` — no touching infrastructure code.
+- uv workspaces manage the monorepo — single `uv.lock` at root, local path dependencies between packages.
 
-### Layout
+### MVP Layout
+
+The MVP repo structure (what gets built first). See [tech-stack.md](tech-stack.md) Section 8 for details on each directory's purpose.
 
 ```
-openclaw/
-├── KubexClaw.md                    # Project index
-├── BRAINSTORM.md                    # Redirect (archived → archive/BRAINSTORM-v1.md)
-├── CLAUDE.md
-├── docker-compose.yml              # Full stack local dev
-├── docker-compose.dev.yml          # Dev overrides (hot reload, debug ports)
-│
-├── libs/                            # Shared Python packages
-│   └── kubex-common/                # THE shared contract library
+kubexclaw/
+├── pyproject.toml            # Root — uv workspace definition
+├── libs/
+│   └── kubex-common/         # Shared package (API surface in tech-stack.md Section 7)
 │       ├── pyproject.toml
-│       └── src/kubex_common/
-│           ├── schemas/             # All data contracts
-│           │   ├── action_request.py    # Canonical ActionRequest (Section 16.2)
-│           │   ├── action_response.py   # Standard response envelope
-│           │   ├── agent_capability.py  # Capability advertisement schema
-│           │   ├── skill_manifest.py    # Skill definition schema (Section 16.1)
-│           │   ├── gatekeeper_envelope.py # GatekeeperEnvelope (Section 16.2)
-│           │   ├── routing.py           # RoutedRequest, BrokeredRequest, TaskDelivery (Section 16.3)
-│           │   └── actions/             # Per-action typed parameter schemas (Section 16.2)
-│           │       ├── __init__.py
-│           │       ├── http.py          # http_get, http_post, http_put params
-│           │       ├── email.py         # send_email params
-│           │       ├── storage.py       # write_output, read_input params
-│           │       ├── code.py          # execute_code params
-│           │       ├── dispatch.py      # dispatch_task params
-│           │       ├── lifecycle.py     # activate_kubex params
-│           │       ├── registry.py      # query_registry params
-│           │       └── result.py        # report_result params
-│           ├── actions.py           # Global action vocabulary enum (ActionType)
-│           ├── enums.py             # Tiers, decisions, agent status
-│           ├── auth/                # Container identity verification
-│           ├── audit/               # Audit log writer (shared format)
-│           ├── config.py            # Shared config patterns
-│           ├── skills/              # Built-in skills (referenced by kubex config.yaml)
-│           │   ├── __init__.py
-│           │   ├── model_selector.py    # Auto-select model from allowlist (Section 1)
-│           │   └── knowledge.py         # recall + memorize tools for knowledge base (Section 27.15)
-│           ├── logging/             # Structured logging (Section 9)
-│           │   ├── __init__.py
-│           │   └── formatter.py     # Shared JSON log schema
-│           └── metrics/             # Observability (Section 9)
-│               ├── __init__.py
-│               └── prometheus.py    # /metrics endpoint exporter
+│       └── kubex_common/
+│           ├── schemas/      # ActionRequest, ActionResponse, GatekeeperEnvelope, config, events
+│           ├── service/      # KubexService base class, health endpoint, middleware
+│           ├── clients/      # Async Redis helper, httpx client wrapper
+│           ├── logging.py    # structlog JSON configuration
+│           ├── constants.py  # Ports, Redis DB numbers, network names
+│           └── errors.py     # Shared error types
+├── services/
+│   ├── gateway/              # Gateway service
+│   │   ├── pyproject.toml    # depends on kubex-common
+│   │   ├── gateway/
+│   │   └── tests/
+│   ├── kubex-manager/
+│   │   ├── pyproject.toml
+│   │   ├── kubex_manager/
+│   │   └── tests/
+│   ├── broker/
+│   │   ├── pyproject.toml
+│   │   ├── broker/
+│   │   └── tests/
+│   └── registry/
+│       ├── pyproject.toml
+│       ├── registry/
+│       └── tests/
+├── agents/                   # Config only — no agent-specific code
+│   ├── _base/
+│   │   └── Dockerfile
+│   ├── orchestrator/
+│   │   └── config.yaml
+│   ├── instagram-scraper/
+│   │   └── config.yaml
+│   └── knowledge/
+│       └── config.yaml
+├── skills/                   # Skill catalog (YAML manifests)
+│   ├── data-collection/
+│   │   └── web-scraping/
+│   │       └── skill.yaml
+│   └── knowledge/
+│       └── recall/
+│           └── skill.yaml
+├── policies/
+│   └── default-boundary.yaml
+├── tests/                    # Cross-service integration + E2E tests
+│   ├── integration/
+│   ├── e2e/
+│   └── chaos/
+├── docker-compose.yml        # Production/MVP
+├── docker-compose.dev.yml    # Dev environment
+├── docker-compose.test.yml   # Test environment
+└── docs/
+```
+
+### Full Layout (Post-MVP)
+
+Post-MVP additions layered on top of the MVP structure:
+
+```
+kubexclaw/
+├── ...                              # (MVP layout above)
 │
-├── services/                        # Infrastructure services (NOT agents)
-│   ├── gateway/                     # Unified Gateway — Policy Engine + Egress Proxy + Scheduler + Inbound Gate
-│   │   ├── Dockerfile
-│   │   ├── pyproject.toml           # depends on kubex-common
-│   │   ├── policies/               # YAML rule files
-│   │   ├── src/gateway/
-│   │   └── tests/
-│   │
-│   ├── kubex-manager/               # Docker lifecycle (create/start/stop/kill)
-│   │   ├── Dockerfile
-│   │   ├── pyproject.toml
-│   │   ├── src/kubex_manager/
-│   │   └── tests/
-│   │
-│   ├── kubex-broker/                # Inter-agent message routing
-│   │   ├── Dockerfile
-│   │   ├── pyproject.toml
-│   │   ├── src/kubex_broker/
-│   │   └── tests/
-│   │
-│   ├── kubex-registry/              # Agent discovery (capabilities, status)
-│   │   ├── Dockerfile
-│   │   ├── pyproject.toml
-│   │   ├── src/kubex_registry/
-│   │   └── tests/
-│   │
-│   └── command-center/              # KubexClaw Command Center (Section 10)
+├── services/
+│   ├── ...                          # (MVP services)
+│   └── command-center/              # KubexClaw Command Center (Section 10) — post-MVP
 │       ├── Dockerfile
-│       ├── pyproject.toml           # FastAPI backend
+│       ├── pyproject.toml
 │       ├── src/command_center/
 │       ├── frontend/                # Next.js frontend
-│       │   ├── package.json
-│       │   └── src/
 │       └── tests/
 │
-├── agents/                          # Worker Kubex agent definitions
-│   ├── _base/                       # Base Dockerfile + shared agent bootstrap
-│   │   ├── Dockerfile.base          # Common OpenClaw + kubex-common install
-│   │   └── entrypoint.sh
-│   │
-│   ├── email-agent/
-│   │   ├── Dockerfile               # FROM kubex-base
-│   │   ├── config.yaml              # OpenClaw config + capabilities declaration
-│   │   ├── skills/                  # Agent-specific OpenClaw skills
-│   │   └── policies/               # Agent-specific policy overrides
-│   │
+├── agents/
+│   ├── ...                          # (MVP agents)
+│   ├── email-agent/                 # Post-MVP agents
+│   │   └── config.yaml
 │   ├── code-agent/
-│   │   ├── Dockerfile
-│   │   ├── config.yaml
-│   │   ├── skills/
-│   │   └── policies/
-│   │
+│   │   └── config.yaml
 │   └── data-agent/
-│       ├── Dockerfile
-│       ├── config.yaml
-│       ├── skills/
-│       └── policies/
+│       └── config.yaml
 │
-├── policies/                        # Global policy rules (loaded by Gateway)
-│   ├── global.yaml                  # Rules that apply to ALL Kubexes
-│   ├── tiers.yaml                   # Tier definitions
-│   └── inter-agent.yaml             # Cross-boundary communication rules
+├── boundaries/                      # Kubex Boundary definitions (Section 11) — post-MVP
+│   ├── engineering.yaml
+│   ├── customer-support.yaml
+│   └── finance.yaml
 │
-├── boundaries/                      # Kubex Boundary definitions (Section 11)
-│   ├── engineering.yaml             # Engineering pod: code, review, deploy agents
-│   ├── customer-support.yaml        # Support pod: email, ticketing agents
-│   └── finance.yaml                 # Finance pod: reporting, invoicing agents
-│
-├── logging/                         # Central logging stack
+├── logging/                         # Central logging stack — post-MVP
 │   ├── opensearch/
-│   │   ├── opensearch.yml           # OpenSearch node config
-│   │   ├── dashboards.yml           # OpenSearch Dashboards config
-│   │   └── index-templates/         # Index mappings + ISM policies per log category
+│   │   ├── opensearch.yml
+│   │   ├── dashboards.yml
+│   │   └── index-templates/
 │   └── fluent-bit/
-│       ├── fluent-bit.conf          # Base Fluent Bit config
-│       └── parsers.conf             # JSON parser definitions
+│       ├── fluent-bit.conf
+│       └── parsers.conf
 │
-├── monitoring/                      # Metrics + live dashboards
+├── monitoring/                      # Metrics + dashboards — post-MVP
 │   ├── prometheus/
-│   │   └── prometheus.yml           # Scrape targets (all services + cAdvisor)
+│   │   └── prometheus.yml
 │   ├── grafana/
-│   │   ├── datasources.yml          # Prometheus + OpenSearch data sources
+│   │   ├── datasources.yml
 │   │   └── dashboards/
-│   │       └── swarm-overview.json  # KubexClaw Swarm Overview dashboard
 │   └── alerting/
-│       └── alert-rules.yml          # Grafana alert rule definitions
+│       └── alert-rules.yml
 │
-├── deploy/                          # Deployment configs beyond local dev
-│   ├── swarm/                       # Docker Swarm production configs
-│   └── scripts/                     # Helper scripts (init swarm, create secrets, etc.)
-│
-└── docs/                            # Architecture docs, runbooks
-    └── threat-model.md
+└── deploy/                          # Production deployment — post-MVP
+    ├── swarm/
+    └── scripts/
 ```
 
 ### Key Design Decisions
@@ -544,13 +519,13 @@ dependencies = [
 
 **`services/` vs `agents/` separation.** Services are infrastructure (they run the platform). Agents are workloads (they do business tasks). Different security posture, different lifecycle, different teams can own them independently.
 
-**`agents/_base/` base image.** All worker Kubexes share a base image with OpenClaw + kubex-common pre-installed. Individual agents layer on their skills and config. Adding a new agent is:
-1. Create a folder in `agents/`
-2. Write a `config.yaml` declaring capabilities
-3. Add any custom skills
-4. Write a thin Dockerfile that inherits from base
+**`agents/` is config-only (MVP decision).** Each agent is a `config.yaml` + system prompt, built from the `_base/` image. No agent-specific Python code — behavior comes from OpenClaw skills and configuration. This was simplified from the earlier layout that had per-agent Dockerfiles, skills directories, and policy overrides. Those can be added post-MVP when agents need more customization.
 
-**`policies/` at root + per-agent overrides.** Global rules live at root, agent-specific overrides live inside each agent's folder. Gateway loads both and merges them — agent rules can restrict but never relax global rules.
+**`skills/` is the skill catalog.** Skills are defined as YAML manifests organized by domain. Agents reference skills by name in their `config.yaml`. The catalog is separate from agent definitions — multiple agents can share the same skills.
+
+**`policies/` at root, separate from service code.** Policy files are testable independently — CLAUDE.md requires test fixtures that assert expected approve/deny/escalate outcomes for every policy change. MVP uses a single `default-boundary.yaml`; post-MVP adds per-boundary and per-agent overrides.
+
+**`tests/` at root for cross-service tests.** Each service has its own `tests/` for unit tests. Root `tests/` contains integration tests (run against `docker-compose.test.yml`), E2E tests, and chaos tests per CLAUDE.md testing standards.
 
 ### Dependency Graph
 
@@ -558,18 +533,15 @@ dependencies = [
 flowchart TD
     KC[libs/kubex-common] --> GW[services/gateway]
     KC --> KM[services/kubex-manager]
-    KC --> KB[services/kubex-broker]
-    KC --> KR[services/kubex-registry]
+    KC --> KB[services/broker]
+    KC --> KR[services/registry]
     KC --> BASE[agents/_base]
 
-    BASE --> EA[agents/email-agent]
-    BASE --> CA[agents/code-agent]
-    BASE --> DA[agents/data-agent]
+    BASE --> ORCH[agents/orchestrator]
+    BASE --> SCRAPER[agents/instagram-scraper]
+    BASE --> KNOW[agents/knowledge]
 
-    GP[policies/ global rules] --> GW
-    EA_P[agents/email-agent/policies/] --> GW
-    CA_P[agents/code-agent/policies/] --> GW
-    DA_P[agents/data-agent/policies/] --> GW
+    GP[policies/default-boundary.yaml] --> GW
 
     style KC fill:#e76f51,stroke:#fff,color:#fff
     style BASE fill:#264653,stroke:#fff,color:#fff
@@ -577,19 +549,24 @@ flowchart TD
     style KM fill:#2d6a4f,stroke:#fff,color:#fff
     style KB fill:#2d6a4f,stroke:#fff,color:#fff
     style KR fill:#2d6a4f,stroke:#fff,color:#fff
-    style EA fill:#1a1a2e,stroke:#e94560,color:#fff
-    style CA fill:#1a1a2e,stroke:#0f3460,color:#fff
-    style DA fill:#1a1a2e,stroke:#16213e,color:#fff
+    style ORCH fill:#1a1a2e,stroke:#e94560,color:#fff
+    style SCRAPER fill:#1a1a2e,stroke:#0f3460,color:#fff
+    style KNOW fill:#1a1a2e,stroke:#16213e,color:#fff
 ```
 
 ### Action Items
 - [x] Decide on monorepo vs polyrepo (monorepo with shared lib)
-- [ ] Scaffold the repo directory structure
-- [ ] Initialize `libs/kubex-common` with `pyproject.toml` and base schemas
+- [x] Define kubex-common API surface and module layout (see [tech-stack.md](tech-stack.md) Section 7)
+- [x] Define MVP repo structure with config-only agents (see [tech-stack.md](tech-stack.md) Section 8)
+- [ ] Scaffold the repo directory structure (MVP layout)
+- [ ] Initialize `libs/kubex-common` with `pyproject.toml` and module skeleton
+- [ ] Set up root `pyproject.toml` with uv workspace definition
 - [ ] Set up root `docker-compose.yml` skeleton (services + Redis + shared network)
-- [ ] Create `agents/_base/Dockerfile.base` with OpenClaw + kubex-common
-- [ ] Define the local dependency pattern and verify it works across services
+- [ ] Create `agents/_base/Dockerfile` with OpenClaw + kubex-common
+- [ ] Define the local dependency pattern and verify it works across services with `uv sync`
 - [ ] Set up a root-level test runner that can run all service tests
+- [ ] Scaffold `skills/` directory with initial skill manifests
+- [ ] Create `policies/default-boundary.yaml` with MVP policy rules
 
 ---
 
