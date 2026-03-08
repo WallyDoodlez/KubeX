@@ -5,11 +5,11 @@ WORKDIR /app
 # Install curl for healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-# Copy shared library
-COPY ../../libs/kubex-common /tmp/kubex-common
+# Copy shared library (build context is repo root)
+COPY libs/kubex-common /tmp/kubex-common
 
 # Copy service
-COPY . /app
+COPY services/gateway /app
 
 # Install dependencies
 RUN pip install --no-cache-dir /tmp/kubex-common && \

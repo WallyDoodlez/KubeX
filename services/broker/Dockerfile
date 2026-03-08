@@ -4,8 +4,9 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-COPY ../../libs/kubex-common /tmp/kubex-common
-COPY . /app
+# Copy shared library (build context is repo root)
+COPY libs/kubex-common /tmp/kubex-common
+COPY services/broker /app
 
 RUN pip install --no-cache-dir /tmp/kubex-common && \
     pip install --no-cache-dir -e . && \
