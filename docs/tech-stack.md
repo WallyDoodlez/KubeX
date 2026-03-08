@@ -64,6 +64,15 @@
 | Component | Version | Notes |
 |---|---|---|
 | OpenClaw | >= v2026.2.26 | Base runtime for all Kubexes; upstream (no fork); pinned per policy |
+| Node.js | >= 22 (LTS) | Required to run OpenClaw; base Docker image is `node:22-bookworm-slim` |
+
+**Installation method:** `npm install -g openclaw@2026.2.26` inside the `_base/Dockerfile`. No pre-built Docker image; Python 3.12 is layered on top of `node:22-bookworm-slim` for kubex-common and kubex-harness.
+
+**CLI binary:** `openclaw` — harness spawns `openclaw agent --local --message "<task>"`. OpenClaw's WebSocket Gateway runs on port 18789 internally within each agent container.
+
+**Skills:** Markdown files (`SKILL.md`) with YAML frontmatter — prose instructions injected into the agent's system prompt. Stored at `skills/<domain>/<name>/SKILL.md`. OpenClaw discovers skills from the workspace `skills/` directory, `~/.openclaw/skills/`, and bundled defaults.
+
+**MCP support:** Native via `mcp.json` config file placed in `~/.openclaw/`. OpenClaw handles the MCP protocol internally using `@modelcontextprotocol/sdk`. The Orchestrator's MCP Bridge server uses the official `mcp` Python SDK (Anthropic); OpenClaw connects to it via stdio transport.
 
 > See [agents.md](agents.md) for OpenClaw versioning, auto-update flow, and security audit results.
 

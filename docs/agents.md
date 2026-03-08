@@ -448,8 +448,9 @@ sequenceDiagram
 ### Action Items
 - [ ] Add `openclaw.version` field to global policy schema and per-agent config schema
 - [ ] Implement version check in Gateway health check endpoint
-- [ ] Implement auto-rebuild logic in Kubex Manager (pull new OpenClaw, rebuild base, replace container)
-- [ ] Pin OpenClaw version in `agents/_base/Dockerfile.base` as a build arg
+- [ ] Implement auto-rebuild logic in Kubex Manager (pull new OpenClaw npm version, rebuild base image, replace container)
+- [ ] Pin OpenClaw version in `agents/_base/Dockerfile` as a build arg: `ARG OPENCLAW_VERSION=2026.2.26` → `RUN npm install -g openclaw@${OPENCLAW_VERSION}`
+- [ ] Base image: `FROM node:22-bookworm-slim` — install OpenClaw via `npm install -g openclaw@<version>`, then layer Python 3.12 + kubex-common + kubex-harness on top
 
 ---
 

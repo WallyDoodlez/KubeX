@@ -228,17 +228,16 @@ Each service gets a minimal FastAPI app that boots, connects to Redis, and serve
 
 ### Stream 4B: Base Agent Image + kubex-harness
 
-- [ ] `agents/_base/Dockerfile` — Python 3.12, OpenClaw runtime (>= v2026.2.26), kubex-common installed, kubex-harness installed
+- [ ] `agents/_base/Dockerfile` — FROM `node:22-bookworm-slim`; install `openclaw@2026.2.26` via `npm install -g openclaw`; install Python 3.12 + kubex-common + kubex-harness alongside Node.js
 - [ ] `kubex-harness` entrypoint script:
-  - PTY spawn of CLI LLM
+  - PTY spawn of `openclaw agent --local --message "<task>"` (the `openclaw` npm binary)
   - stdout/stderr capture with chunk buffering (`KUBEX_PROGRESS_BUFFER_MS`, `KUBEX_PROGRESS_MAX_CHUNK_KB`)
   - `POST /tasks/{task_id}/progress` to Gateway
   - Redis `control:{agent_id}` subscription for cancel commands
   - Graceful cancellation escalation: keystroke → SIGTERM → SIGKILL with grace period
   - Final progress update with `exit_reason`
-- [ ] `agents/_base/entrypoint.sh` — bootstrap: load skills, invoke kubex-harness
-
-> **OPEN QUESTION for user:** The kubex-harness needs to spawn a CLI LLM (e.g., Claude Code). What exact CLI LLM binary will be available inside the container? Is it `claude` (Claude Code CLI)? How is it installed in the base image? What version/source?
+  - Auth via environment variables (e.g., `ANTHROPIC_API_KEY`) set by Kubex Manager; LLM provider URL overridden via `*_BASE_URL` env vars pointing to Gateway proxy
+- [ ] `agents/_base/entrypoint.sh` — bootstrap: write `~/.openclaw/openclaw.json` from mounted config, load skills into `~/.openclaw/skills/`, invoke kubex-harness
 
 ---
 
@@ -248,8 +247,9 @@ Each service gets a minimal FastAPI app that boots, connects to Redis, and serve
 
 ### Stream 5A: Orchestrator + MCP Bridge
 
-- [ ] `agents/orchestrator/Dockerfile` — extends base, pre-packages MCP bridge
-- [ ] MCP Bridge server (`agents/orchestrator/mcp-bridge/server.py`) — FastMCP or mcp-python
+- [ ] `agents/orchestrator/Dockerfile` — extends base, pre-packages MCP bridge; places `mcp.json` in `~/.openclaw/` so OpenClaw loads MCP servers on startup
+- [ ] MCP Bridge server (`agents/orchestrator/mcp-bridge/server.py`) — use official `mcp` Python SDK (Anthropic); OpenClaw connects to it via native MCP client support (no custom bridge SDK needed)
+- [ ] `agents/orchestrator/mcp.json` — MCP server config: `{ "mcpServers": { "kubex": { "command": "python", "args": ["-m", "mcp_bridge.server"], "transport": "stdio" } } }` placed in `~/.openclaw/` at container startup
 - [ ] MCP tools: `dispatch_task`, `check_task_status`, `cancel_task`, `subscribe_task_progress`, `get_task_progress`, `list_agents`, `query_knowledge`, `store_knowledge`, `report_result`, `request_user_input`
 - [ ] Gateway HTTP client (`mcp-bridge/client/gateway.py`) — sole connection to `http://gateway:8080`
 - [ ] SSE consumer for progress streaming
@@ -260,12 +260,11 @@ Each service gets a minimal FastAPI app that boots, connects to Redis, and serve
 ### Stream 5B: Worker Agents
 
 - [ ] Instagram Scraper agent — config already in Stream 2B, build Dockerfile extending _base
-- [ ] Scraper skills: `scrape_profile`, `scrape_posts`, `scrape_hashtag`, `extract_metrics` — these are OpenClaw tool definitions
+- [ ] Scraper skills: create `skills/data-collection/web-scraping/SKILL.md` — Markdown file with YAML frontmatter (`name`, `description`, `tools` referencing built-in OpenClaw tools like `web_fetch`, `web_search`) and prose instructions for the agent on how to scrape Instagram profiles, posts, hashtags, and extract metrics
 - [ ] Knowledge Kubex agent — config already in Stream 2B, build Dockerfile extending _base
-- [ ] Knowledge skills: `query_knowledge`, `store_knowledge`, `search_corpus` — OpenClaw tool definitions
+- [ ] Knowledge skills: create `skills/knowledge/recall/SKILL.md` — Markdown file with YAML frontmatter and prose instructions for query_knowledge, store_knowledge, search_corpus operations (uses built-in OpenClaw `memory` tools)
 - [ ] Reviewer agent — config already in Stream 2B, build Dockerfile extending _base
-
-> **OPEN QUESTION for user:** How do OpenClaw skills/tools get defined? Is there a specific format (Python functions with decorators? YAML + Python? Pure YAML?)? We need to understand the OpenClaw tool authoring model to implement the actual skill code.
+- [ ] Skills are Markdown files placed in `skills/<domain>/<name>/SKILL.md` — they are prose-based instruction manuals injected into the agent's system prompt, NOT executable code. They reference OpenClaw's 25 built-in tools (file, exec, web_search, web_fetch, memory, scheduling, comms, integrations, utilities) in their YAML frontmatter. Custom primitive tools beyond the built-ins require TypeScript plugins against `pi-mono` packages; for MVP the built-in tools suffice.
 
 ### Stream 5C: Knowledge Base Integration
 
@@ -303,47 +302,38 @@ Each service gets a minimal FastAPI app that boots, connects to Redis, and serve
 
 ---
 
-## Open Questions (Need User Input)
+## Resolved Questions
 
-These gaps need decisions before their respective waves can complete. Implementation proceeds on everything else.
+All open questions have been answered as of 2026-03-08. No blockers remain for Waves 4 or 5.
 
-### Q1: OpenClaw Tool Authoring Model (Blocks Wave 5B)
+### Q1: OpenClaw Tool Authoring Model — RESOLVED
 
-How are OpenClaw skills/tools authored? We need to know:
-- What format are tool definitions in? (Python decorators? YAML manifests? Both?)
-- Is there a specific SDK or base class for creating tools?
-- How does the OpenClaw runtime discover and load tools at startup?
-- Is there documentation or example code we can reference?
+**Answer:** Skills are **Markdown files** (`SKILL.md`) with YAML frontmatter. They are prose-based instruction manuals injected into the agent's system prompt at runtime — NOT executable code. Stored at `skills/<domain>/<name>/SKILL.md`. Three discovery locations: workspace `skills/`, `~/.openclaw/skills/`, bundled.
 
-**Impact:** Without this, we can scaffold everything but can't write the actual skill implementations (scraper tools, knowledge tools).
+Custom primitive tools beyond the 25 built-in ones require **TypeScript plugins** against the `pi-mono` packages. For MVP, the built-in tools (file, exec, web_search, web_fetch, memory, scheduling, comms, integrations, utilities) combined with custom skills suffice.
 
-### Q2: CLI LLM Binary in Base Image (Blocks Wave 4B)
+Our existing `skills/*.yaml` files in the repo are KubexClaw capability registry entries; each maps to an OpenClaw skill directory containing a `SKILL.md`.
 
-What CLI LLM runs inside the Orchestrator and worker containers?
-- Is it `claude` (Claude Code CLI)?
-- How is it installed? (npm? pip? Binary download?)
-- What version?
-- Does it need auth configuration inside the container, or does the `*_BASE_URL` env var + mounted CLI credentials suffice?
+### Q2: CLI LLM Binary in Base Image — RESOLVED
 
-**Impact:** The kubex-harness PTY spawn and the Orchestrator Dockerfile depend on knowing the exact binary and its configuration.
+**Answer:** The binary is `openclaw`, installed via `npm install -g openclaw`. The kubex-harness spawns:
+```
+openclaw agent --local --message "<task>"
+```
+Auth is via environment variables (e.g., `ANTHROPIC_API_KEY`). Provider URL is overridden via `*_BASE_URL` env vars pointing to the Gateway proxy (set by Kubex Manager). Base image requires Node.js >= 22.
 
-### Q3: OpenClaw Base Image Source (Blocks Wave 4B)
+### Q3: OpenClaw Base Image Source — RESOLVED
 
-The architecture references OpenClaw >= v2026.2.26:
-- Is there a public Docker image (`openclaw/openclaw:latest`)?
-- Or do we build from source?
-- What is the installation method?
+**Answer:** Install via npm in the Dockerfile:
+```dockerfile
+FROM node:22-bookworm-slim
+RUN npm install -g openclaw@2026.2.26
+```
+No pre-built Docker image or git submodule needed. Node.js >= 22 is the only runtime requirement. Python 3.12 is layered on top for kubex-common and kubex-harness.
 
-**Impact:** The `_base/Dockerfile` needs to install OpenClaw.
+### Q4: MCP Bridge SDK — RESOLVED
 
-### Q4: MCP Bridge SDK (Blocks Wave 5A)
-
-Which MCP server SDK to use for the MCP Bridge?
-- `mcp` (official Python SDK from Anthropic)?
-- `fastmcp`?
-- Something else?
-
-**Impact:** Minor — affects import style but not architecture. Defaulting to official `mcp` Python SDK unless directed otherwise.
+**Answer:** Use OpenClaw's **native MCP client support**. Configure MCP servers in `mcp.json` placed in the agent's `~/.openclaw/` directory at container startup. OpenClaw handles the MCP protocol internally using `@modelcontextprotocol/sdk`. No custom MCP SDK bridge is needed — the MCP Bridge server itself uses the official `mcp` Python SDK, and OpenClaw connects to it via stdio transport configured in `mcp.json`.
 
 ---
 
