@@ -1,1 +1,1 @@
-# placeholder
+"""Kubex Registry — Agent capability discovery."""

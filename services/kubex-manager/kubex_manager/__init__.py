@@ -1,1 +1,1 @@
-# placeholder
+"""Kubex Manager — Docker lifecycle management."""
