@@ -32,6 +32,9 @@ from unittest.mock import AsyncMock, MagicMock, patch, call
 
 import pytest
 
+# SIGKILL is not available on Windows; use the same fallback as the harness.
+_SIGKILL: int = getattr(signal, "SIGKILL", signal.SIGTERM)
+
 # ---------------------------------------------------------------------------
 # Path setup
 # ---------------------------------------------------------------------------
@@ -394,11 +397,14 @@ class TestHarnessCancelHandling:
         mock_proc.stdout.readline.return_value = b""
         mock_popen.return_value = mock_proc
 
-        mock_redis = AsyncMock()
-        mock_pubsub = AsyncMock()
+        # mock_redis.pubsub() is called synchronously in the harness (real redis pubsub()
+        # is not a coroutine), so use MagicMock for pubsub, AsyncMock for its methods.
+        mock_redis = MagicMock()
+        mock_pubsub = MagicMock()
         mock_redis.pubsub.return_value = mock_pubsub
         mock_pubsub.subscribe = AsyncMock()
-        mock_pubsub.listen = AsyncMock(return_value=aiter([]))  # empty channel
+        mock_pubsub.listen = MagicMock(return_value=aiter([]))  # empty channel
+        mock_pubsub.unsubscribe = AsyncMock()
         mock_redis_factory.return_value = mock_redis
 
         mock_response = MagicMock()
@@ -451,11 +457,13 @@ class TestHarnessCancelHandling:
             # Yield cancel message after a short sequence
             yield {"type": "message", "data": cancel_message}
 
-        mock_redis = AsyncMock()
-        mock_pubsub = AsyncMock()
+        # Use MagicMock for redis client since pubsub() is synchronous in real redis
+        mock_redis = MagicMock()
+        mock_pubsub = MagicMock()
         mock_redis.pubsub.return_value = mock_pubsub
         mock_pubsub.subscribe = AsyncMock()
         mock_pubsub.listen = MagicMock(return_value=mock_listen())
+        mock_pubsub.unsubscribe = AsyncMock()
         mock_redis_factory.return_value = mock_redis
 
         mock_response = MagicMock()
@@ -507,11 +515,13 @@ class TestHarnessCancelHandling:
         async def mock_listen():
             yield {"type": "message", "data": cancel_message}
 
-        mock_redis = AsyncMock()
-        mock_pubsub = AsyncMock()
+        # Use MagicMock for redis client since pubsub() is synchronous in real redis
+        mock_redis = MagicMock()
+        mock_pubsub = MagicMock()
         mock_redis.pubsub.return_value = mock_pubsub
         mock_pubsub.subscribe = AsyncMock()
         mock_pubsub.listen = MagicMock(return_value=mock_listen())
+        mock_pubsub.unsubscribe = AsyncMock()
         mock_redis_factory.return_value = mock_redis
 
         mock_response = MagicMock()
@@ -566,11 +576,13 @@ class TestHarnessCancelHandling:
         async def mock_listen():
             yield {"type": "message", "data": cancel_message}
 
-        mock_redis = AsyncMock()
-        mock_pubsub = AsyncMock()
+        # Use MagicMock for redis client since pubsub() is synchronous in real redis
+        mock_redis = MagicMock()
+        mock_pubsub = MagicMock()
         mock_redis.pubsub.return_value = mock_pubsub
         mock_pubsub.subscribe = AsyncMock()
         mock_pubsub.listen = MagicMock(return_value=mock_listen())
+        mock_pubsub.unsubscribe = AsyncMock()
         mock_redis_factory.return_value = mock_redis
 
         mock_response = MagicMock()
@@ -589,7 +601,7 @@ class TestHarnessCancelHandling:
                 kill_calls = mock_os_kill.call_args_list
                 sigkill_calls = [
                     c for c in kill_calls
-                    if c.args[1] == signal.SIGKILL
+                    if c.args[1] == _SIGKILL
                 ]
                 assert len(sigkill_calls) >= 1
 
@@ -622,11 +634,13 @@ class TestHarnessCancelHandling:
         async def mock_listen():
             yield {"type": "message", "data": cancel_message}
 
-        mock_redis = AsyncMock()
-        mock_pubsub = AsyncMock()
+        # Use MagicMock for redis client since pubsub() is synchronous in real redis
+        mock_redis = MagicMock()
+        mock_pubsub = MagicMock()
         mock_redis.pubsub.return_value = mock_pubsub
         mock_pubsub.subscribe = AsyncMock()
         mock_pubsub.listen = MagicMock(return_value=mock_listen())
+        mock_pubsub.unsubscribe = AsyncMock()
         mock_redis_factory.return_value = mock_redis
 
         posted_bodies: list[dict] = []
