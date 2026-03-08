@@ -31,6 +31,7 @@ services:
     environment:
       - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
       - REGISTRY_URL=http://kubex-registry:8070
+      - BROKER_URL=http://kubex-broker:8060
       - SERVICE_NAME=gateway
       - LLM_API_KEYS_PATH=/app/secrets/llm-api-keys.json
     networks:
@@ -67,7 +68,7 @@ services:
       - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/3
       - REGISTRY_URL=http://kubex-registry:8070
       - GATEWAY_URL=http://gateway:8080
-      - MANAGER_TOKEN=${MANAGER_TOKEN}
+      - KUBEX_MGMT_TOKEN=${MANAGER_TOKEN}
       - SERVICE_NAME=kubex-manager
     networks:
       - kubex-internal
