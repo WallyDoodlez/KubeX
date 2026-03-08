@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "kubex": {
+      "command": "python",
+      "args": ["-m", "mcp_bridge.server"],
+      "transport": "stdio",
+      "env": {
+        "GATEWAY_URL": "${GATEWAY_URL}",
+        "KUBEX_AGENT_ID": "${KUBEX_AGENT_ID}"
+      }
+    }
+  }
+}

@@ -152,6 +152,15 @@ async def handle_action(request: Request, body: ActionRequest) -> JSONResponse:
     if body.action in (ActionType.HTTP_GET, ActionType.HTTP_POST, ActionType.HTTP_PUT, ActionType.HTTP_DELETE):
         return await _handle_egress(request, body, gateway)
 
+    if body.action == ActionType.QUERY_KNOWLEDGE:
+        return await _handle_query_knowledge(request, body, gateway)
+
+    if body.action == ActionType.STORE_KNOWLEDGE:
+        return await _handle_store_knowledge(request, body, gateway)
+
+    if body.action == ActionType.SEARCH_CORPUS:
+        return await _handle_search_corpus(request, body, gateway)
+
     # For other action types (report_result, progress_update, etc.) — acknowledge
     return JSONResponse(
         status_code=200,
@@ -264,6 +273,237 @@ async def _handle_egress(request: Request, body: ActionRequest, gateway: "Gatewa
         return JSONResponse(
             status_code=502,
             content=ErrorResponse(error="EgressFailed", message=f"Egress request failed: {exc}").model_dump(),
+        )
+
+
+async def _handle_query_knowledge(request: Request, body: ActionRequest, gateway: "GatewayService") -> JSONResponse:
+    """Handle query_knowledge action — proxy to Graphiti search.
+
+    Spec: 'query_knowledge routes to Graphiti POST /search or GET /episodes'
+    Supports temporal queries via 'as_of' parameter (Graphiti valid_at filter).
+    Deducts estimated 500 tokens from task budget.
+    """
+    params = body.parameters or {}
+    query = params.get("query", "")
+    entity_types = params.get("entity_types")
+    as_of = params.get("as_of")
+
+    graphiti_url = getattr(gateway, "graphiti_url", os.environ.get("GRAPHITI_URL", "http://graphiti:8000"))
+
+    graphiti_payload: dict[str, Any] = {"query": query}
+    if entity_types:
+        graphiti_payload["entity_types"] = entity_types
+    if as_of:
+        graphiti_payload["valid_at"] = as_of
+        graphiti_payload["as_of"] = as_of
+
+    # Deduct estimated budget tokens for knowledge query (500 tokens estimated)
+    _QUERY_KNOWLEDGE_TOKEN_ESTIMATE = 500
+    task_id = body.context.task_id or "unknown"
+    if gateway.budget_tracker and task_id != "unknown":
+        try:
+            await gateway.budget_tracker.increment_tokens(
+                task_id=task_id,
+                agent_id=body.agent_id,
+                input_tokens=_QUERY_KNOWLEDGE_TOKEN_ESTIMATE,
+                output_tokens=0,
+                model="knowledge-query",
+            )
+        except Exception as exc:
+            logger.warning("query_knowledge_budget_deduction_failed", error=str(exc))
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(f"{graphiti_url}/search", json=graphiti_payload)
+            if resp.status_code == 404:
+                # Try alternative endpoint
+                resp = await client.get(f"{graphiti_url}/episodes", params={"q": query})
+
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            # Normalise response to KnowledgeQueryResult schema
+            results = data.get("results", data.get("episodes", []))
+            total = data.get("total", len(results))
+            return JSONResponse(
+                status_code=200,
+                content={"results": results, "total": total},
+            )
+        else:
+            return JSONResponse(
+                status_code=502,
+                content={"error": "GraphitiError", "message": f"Graphiti returned {resp.status_code}"},
+            )
+    except Exception as exc:
+        logger.error("query_knowledge_failed", error=str(exc))
+        return JSONResponse(
+            status_code=502,
+            content={"error": "GraphitiUnavailable", "message": str(exc)},
+        )
+
+
+async def _handle_store_knowledge(request: Request, body: ActionRequest, gateway: "GatewayService") -> JSONResponse:
+    """Handle store_knowledge action — two-step: OpenSearch index + Graphiti episode.
+
+    Spec: 'store_knowledge two-step: OpenSearch index + Graphiti episode'
+    Step 1: Index full content in OpenSearch for full-text retrieval.
+    Step 2: Write an episode to Graphiti for graph-based retrieval.
+    """
+    params = body.parameters or {}
+    content = params.get("content", "")
+    summary = params.get("summary", "")
+    source = params.get("source", {})
+
+    graphiti_url = getattr(gateway, "graphiti_url", os.environ.get("GRAPHITI_URL", "http://graphiti:8000"))
+    opensearch_url = getattr(gateway, "opensearch_url", os.environ.get("OPENSEARCH_URL", "http://opensearch:9200"))
+
+    doc_id = f"kn-{uuid.uuid4().hex[:12]}"
+    task_id = body.context.task_id or source.get("task_id", "unknown")
+    workflow_id = body.context.workflow_id or source.get("workflow_id", "unknown")
+    timestamp = datetime.now(UTC).isoformat()
+
+    opensearch_doc = {
+        "content": content,
+        "summary": summary,
+        "source_description": summary,
+        "task_id": task_id,
+        "workflow_id": workflow_id,
+        "timestamp": timestamp,
+        "agent_id": body.agent_id,
+    }
+
+    graphiti_episode = {
+        "content": content,
+        "summary": summary,
+        "source": {"task_id": task_id, "workflow_id": workflow_id, **source},
+        "valid_at": timestamp,
+    }
+
+    nodes_created = 0
+    edges_created = 0
+    opensearch_id = doc_id
+
+    # Deduct estimated budget tokens for knowledge store (1500 tokens estimated)
+    _STORE_KNOWLEDGE_TOKEN_ESTIMATE = 1500
+    store_task_id = body.context.task_id or source.get("task_id", "unknown")  # type: ignore[union-attr]
+    if gateway.budget_tracker and store_task_id != "unknown":
+        try:
+            await gateway.budget_tracker.increment_tokens(
+                task_id=store_task_id,
+                agent_id=body.agent_id,
+                input_tokens=_STORE_KNOWLEDGE_TOKEN_ESTIMATE,
+                output_tokens=0,
+                model="knowledge-store",
+            )
+        except Exception as exc:
+            logger.warning("store_knowledge_budget_deduction_failed", error=str(exc))
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Step 1: Index in OpenSearch
+            os_resp = await client.post(
+                f"{opensearch_url}/knowledge-corpus-shared-001/_doc/{doc_id}",
+                json=opensearch_doc,
+            )
+            if os_resp.status_code in (200, 201):
+                opensearch_id = os_resp.json().get("_id", doc_id)
+
+            # Step 2: Write episode to Graphiti
+            graphiti_resp = await client.post(f"{graphiti_url}/episodes", json=graphiti_episode)
+            if graphiti_resp.status_code in (200, 201):
+                graphiti_data = graphiti_resp.json()
+                nodes_created = graphiti_data.get("nodes_created", 1)
+                edges_created = graphiti_data.get("edges_created", 0)
+
+    except Exception as exc:
+        logger.error("store_knowledge_failed", error=str(exc))
+        return JSONResponse(
+            status_code=502,
+            content={"error": "KnowledgeStoreError", "message": str(exc)},
+        )
+
+    return JSONResponse(
+        status_code=201,
+        content={
+            "nodes_created": nodes_created,
+            "edges_created": edges_created,
+            "opensearch_id": opensearch_id,
+            "status": "stored",
+        },
+    )
+
+
+async def _handle_search_corpus(request: Request, body: ActionRequest, gateway: "GatewayService") -> JSONResponse:
+    """Handle search_corpus action — full-text search via OpenSearch.
+
+    Spec: 'search_corpus proxies to OpenSearch keyword/semantic search'
+    Supports date_from/date_to filters (range query on timestamp field).
+    Uses GET /_search with a JSON body (standard OpenSearch query DSL).
+    """
+    params = body.parameters or {}
+    query = params.get("query", "")
+    filters = params.get("filters", {})
+    limit = params.get("limit", 10)
+    date_from = params.get("date_from")
+    date_to = params.get("date_to")
+
+    opensearch_url = getattr(gateway, "opensearch_url", os.environ.get("OPENSEARCH_URL", "http://opensearch:9200"))
+
+    must_clauses: list[dict[str, Any]] = [
+        {"multi_match": {"query": query, "fields": ["content", "summary", "source_description"]}}
+    ]
+    for field_name, value in filters.items():
+        must_clauses.append({"term": {field_name: value}})
+
+    # Add date range filter if date_from or date_to are provided
+    if date_from or date_to:
+        range_filter: dict[str, Any] = {}
+        if date_from:
+            range_filter["gte"] = date_from
+        if date_to:
+            range_filter["lte"] = date_to
+        must_clauses.append({"range": {"timestamp": range_filter}})
+
+    search_body: dict[str, Any] = {
+        "query": {"bool": {"must": must_clauses}},
+        "size": limit,
+    }
+
+    search_url = f"{opensearch_url}/knowledge-corpus-shared-*/_search"
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Use GET with JSON body (OpenSearch supports GET /_search with body)
+            resp = await client.get(
+                search_url,
+                json=search_body,
+            )
+
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            hits = data.get("hits", {}).get("hits", [])
+            results = [
+                {
+                    "id": h.get("_id"),
+                    "score": h.get("_score"),
+                    **h.get("_source", {}),
+                }
+                for h in hits
+            ]
+            total = data.get("hits", {}).get("total", {}).get("value", len(results))
+            return JSONResponse(
+                status_code=200,
+                content={"documents": results, "results": results, "total": total},
+            )
+        else:
+            return JSONResponse(
+                status_code=502,
+                content={"error": "OpenSearchError", "message": f"OpenSearch returned {resp.status_code}"},
+            )
+    except Exception as exc:
+        logger.error("search_corpus_failed", error=str(exc))
+        return JSONResponse(
+            status_code=502,
+            content={"error": "OpenSearchUnavailable", "message": str(exc)},
         )
 
 
@@ -515,6 +755,10 @@ class GatewayService(KubexService):
         self.llm_proxy = LLMProxy()
         self.rate_limiter: RateLimiter | None = None
         self.budget_tracker: BudgetTracker | None = None
+
+        # Knowledge backend URLs (Wave 5C)
+        self.graphiti_url: str = os.environ.get("GRAPHITI_URL", "http://graphiti:8000")
+        self.opensearch_url: str = os.environ.get("OPENSEARCH_URL", "http://opensearch:9200")
 
         self.app.include_router(router)
         self.app.include_router(proxy_router)
