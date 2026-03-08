@@ -132,7 +132,7 @@ class TestKnowledgeModels:
     def test_store_params(self) -> None:
         params = KnowledgeStoreParams(
             content="Nike posts outperform",
-            summary="Nike engagement insight",
+            source_description="Nike engagement insight",
         )
         assert params.content is not None
 
