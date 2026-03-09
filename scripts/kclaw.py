@@ -25,7 +25,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-# ── Constants ───────────────────────────────────────────────────────
+# -- Constants -------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -39,7 +39,7 @@ CORE_SERVICES = ["redis", "gateway", "kubex-broker", "kubex-registry", "kubex-ma
 POLL_INTERVAL = 2  # seconds
 POLL_TIMEOUT = 60  # seconds
 
-# ── ANSI colors ─────────────────────────────────────────────────────
+# -- ANSI colors -----------------------------------------------------
 
 GREEN = "\033[32m"
 RED = "\033[31m"
@@ -70,7 +70,7 @@ def _header(msg: str) -> None:
     print(f"\n{BOLD}{msg}{RESET}")
 
 
-# ── .env loading ────────────────────────────────────────────────────
+# -- .env loading ----------------------------------------------------
 
 
 def _load_env() -> dict[str, str]:
@@ -93,7 +93,7 @@ def _get_manager_token() -> str:
     return os.environ.get("MANAGER_TOKEN", env.get("MANAGER_TOKEN", "changeme-manager-token"))
 
 
-# ── HTTP helpers (stdlib only) ──────────────────────────────────────
+# -- HTTP helpers (stdlib only) --------------------------------------
 
 
 def _http(
@@ -144,7 +144,7 @@ def _manager_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {_get_manager_token()}"}
 
 
-# ── Agent config loading ────────────────────────────────────────────
+# -- Agent config loading --------------------------------------------
 
 
 def _load_agent_config(agent_name: str) -> dict:
@@ -274,7 +274,7 @@ def _coerce(value: str) -> str | int | float | bool:
     return value
 
 
-# ── Commands ────────────────────────────────────────────────────────
+# -- Commands --------------------------------------------------------
 
 
 def cmd_up(args: argparse.Namespace) -> None:
@@ -327,7 +327,7 @@ def cmd_agents(args: argparse.Namespace) -> None:
 
     # Table header
     print(f"\n  {'ID':<25} {'Status':<12} {'Capabilities':<40} {'Boundary'}")
-    print(f"  {'─'*25} {'─'*12} {'─'*40} {'─'*10}")
+    print(f"  {'-'*25} {'-'*12} {'-'*40} {'-'*10}")
     for agent in body:
         agent_id = agent.get("agent_id", "?")
         status = agent.get("status", "?")
@@ -600,7 +600,7 @@ def cmd_status(args: argparse.Namespace) -> None:
         sc, body = resp
         if sc == 200 and isinstance(body, list) and body:
             print(f"\n  {'Kubex ID':<30} {'Agent':<20} {'Status':<12} {'Image'}")
-            print(f"  {'─'*30} {'─'*20} {'─'*12} {'─'*25}")
+            print(f"  {'-'*30} {'-'*20} {'-'*12} {'-'*25}")
             for k in body:
                 kid = k.get("kubex_id", "?")
                 aid = k.get("agent_id", "?")
@@ -699,7 +699,7 @@ def cmd_logs(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-# ── Main ────────────────────────────────────────────────────────────
+# -- Main ------------------------------------------------------------
 
 
 def main() -> None:
