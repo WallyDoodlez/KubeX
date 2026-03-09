@@ -31,12 +31,13 @@ agent:
 
   models:
     allowed:
-      - id: "claude-haiku-4-5"
-        tier: "light"
-    default: "claude-haiku-4-5"
+      - id: "gpt-5.2"
+        provider: "openai"
+        tier: "standard"
+    default: "gpt-5.2"
 
   providers:
-    - anthropic
+    - openai
 
   policy:
     allowed_actions:
