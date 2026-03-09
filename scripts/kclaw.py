@@ -558,7 +558,6 @@ def cmd_status(args: argparse.Namespace) -> None:
         ("Gateway", GATEWAY_URL),
         ("Registry", REGISTRY_URL),
         ("Kubex Manager", MANAGER_URL),
-        ("Broker", BROKER_URL),
     ]
 
     for name, url in services:
@@ -571,6 +570,16 @@ def cmd_status(args: argparse.Namespace) -> None:
                 _warn(f"{name:<20} {url} (HTTP {sc})")
         else:
             _fail(f"{name:<20} {url} (unreachable)")
+
+    # Broker is internal-only (no host port), check via docker exec
+    broker_result = subprocess.run(
+        'docker exec kubexclaw-broker curl -sf http://localhost:8060/health',
+        shell=True, capture_output=True, text=True,
+    )
+    if broker_result.returncode == 0:
+        _ok(f"{'Broker':<20} internal (healthy)")
+    else:
+        _fail(f"{'Broker':<20} internal (unreachable)")
 
     # Check Redis
     env = _load_env()
