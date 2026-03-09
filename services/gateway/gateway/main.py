@@ -617,23 +617,26 @@ async def cancel_task(task_id: str, request: Request) -> JSONResponse:
 
 @router.get("/tasks/{task_id}/result")
 async def get_task_result(task_id: str, request: Request) -> JSONResponse:
-    """Read task result from Redis."""
-    gateway: GatewayService = request.app.state.gateway_service
+    """Proxy task result request to the Broker service."""
+    broker_url = os.environ.get("BROKER_URL", "http://broker:8060")
 
-    if gateway.redis_db1 is None:
-        return JSONResponse(
-            status_code=503,
-            content=ErrorResponse(error="RedisUnavailable", message="Redis not connected").model_dump(),
-        )
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{broker_url}/tasks/{task_id}/result")
 
-    result_raw = await gateway.redis_db1.get(f"task:{task_id}:result")
-    if result_raw is None:
+        if resp.status_code == 200:
+            return JSONResponse(status_code=200, content=resp.json())
+
         return JSONResponse(
             status_code=404,
             content=ErrorResponse(error="TaskNotFound", message=f"No result for task: {task_id}").model_dump(),
         )
-
-    return JSONResponse(status_code=200, content=json.loads(result_raw))
+    except Exception as exc:
+        logger.error("result_proxy_failed", task_id=task_id, error=str(exc))
+        return JSONResponse(
+            status_code=502,
+            content=ErrorResponse(error="BrokerUnavailable", message=f"Failed to fetch result from Broker: {exc}").model_dump(),
+        )
 
 
 # ─────────────────────────────────────────────

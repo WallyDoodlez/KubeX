@@ -23,6 +23,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 
 # -- Constants -------------------------------------------------------
@@ -205,15 +206,30 @@ def _parse_simple_yaml(text: str) -> dict:
         if list_match:
             item_indent = len(list_match.group(1))
             value = list_match.group(2).strip().strip('"').strip("'")
-            # Find the parent dict and key
-            parent = stack[-1][1]
-            if current_key and current_key in parent:
-                if isinstance(parent[current_key], list):
-                    parent[current_key].append(_coerce(value))
+            # Find the parent dict that contains current_key.
+            # If an empty dict was speculatively created for a "key:" line,
+            # we need to look one level up and replace that dict with a list.
+            target_parent = None
+            for _, d in reversed(stack):
+                if current_key and current_key in d:
+                    target_parent = d
+                    break
+            if target_parent is None:
+                target_parent = stack[-1][1]
+
+            if current_key and current_key in target_parent:
+                if isinstance(target_parent[current_key], list):
+                    target_parent[current_key].append(_coerce(value))
+                elif isinstance(target_parent[current_key], dict) and not target_parent[current_key]:
+                    # Replace speculatively-created empty dict with list
+                    # Also pop it from the stack since it's no longer a mapping
+                    if len(stack) > 1 and stack[-1][1] is target_parent[current_key]:
+                        stack.pop()
+                    target_parent[current_key] = [_coerce(value)]
                 else:
-                    parent[current_key] = [_coerce(value)]
+                    target_parent[current_key] = [_coerce(value)]
             elif current_key:
-                parent[current_key] = [_coerce(value)]
+                target_parent[current_key] = [_coerce(value)]
             continue
 
         # Key: value pair
@@ -231,7 +247,7 @@ def _parse_simple_yaml(text: str) -> dict:
                 parent[key] = ""
                 continue
             elif value_str == "" or value_str == "":
-                # Nested mapping
+                # Nested mapping (may turn out to be a list — see list handler)
                 new_dict: dict = {}
                 parent = stack[-1][1]
                 parent[key] = new_dict
@@ -476,6 +492,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
     # Dispatch via Gateway /actions endpoint
     action_body = {
+        "request_id": str(uuid.uuid4()),
         "agent_id": "cli-user",
         "action": "dispatch_task",
         "parameters": {
@@ -486,7 +503,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
             "task_id": None,
             "workflow_id": f"cli-{int(time.time())}",
         },
-        "priority": 5,
+        "priority": "normal",
     }
 
     resp = _http_safe("POST", f"{GATEWAY_URL}/actions", data=action_body, timeout=15.0)
@@ -513,21 +530,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
     tick = 0
 
     while time.time() - start < POLL_TIMEOUT:
-        # Try Gateway first (it reads from Redis)
+        # Poll Gateway (proxies to Broker internally)
         resp = _http_safe("GET", f"{GATEWAY_URL}/tasks/{task_id}/result")
-        if resp:
-            sc, result_body = resp
-            if sc == 200:
-                print(f"\r  {GREEN}[OK]{RESET} Result received!          ")
-                print()
-                if isinstance(result_body, dict):
-                    print(json.dumps(result_body, indent=2))
-                else:
-                    print(result_body)
-                return
-
-        # Also try Broker endpoint
-        resp = _http_safe("GET", f"{BROKER_URL}/tasks/{task_id}/result")
         if resp:
             sc, result_body = resp
             if sc == 200:
@@ -621,29 +625,12 @@ def cmd_result(args: argparse.Namespace) -> None:
     task_id = args.task_id
     _header(f"Fetching result: {task_id}")
 
-    # Try Gateway
+    # Fetch via Gateway (proxies to Broker internally)
     resp = _http_safe("GET", f"{GATEWAY_URL}/tasks/{task_id}/result")
     if resp:
         sc, body = resp
         if sc == 200:
-            _ok("Result found (via Gateway)")
-            print()
-            if isinstance(body, dict):
-                print(json.dumps(body, indent=2))
-            else:
-                print(body)
-            return
-        elif sc == 404:
-            pass  # Try broker
-        else:
-            _warn(f"Gateway returned {sc}: {body}")
-
-    # Try Broker
-    resp = _http_safe("GET", f"{BROKER_URL}/tasks/{task_id}/result")
-    if resp:
-        sc, body = resp
-        if sc == 200:
-            _ok("Result found (via Broker)")
+            _ok("Result found")
             print()
             if isinstance(body, dict):
                 print(json.dumps(body, indent=2))
@@ -654,8 +641,10 @@ def cmd_result(args: argparse.Namespace) -> None:
             _warn("No result found for this task ID")
             print(f"\n  {DIM}The task may still be running or the ID may be incorrect.{RESET}")
             return
+        else:
+            _warn(f"Gateway returned {sc}: {body}")
 
-    _fail("Cannot reach Gateway or Broker to fetch result")
+    _fail("Cannot reach Gateway to fetch result")
     sys.exit(1)
 
 

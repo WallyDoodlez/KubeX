@@ -1,9 +1,8 @@
 # Instagram Scraper agent — extends the KubexClaw _base image
 # The _base image provides:
-#   - Node.js 22 + openclaw CLI
 #   - Python 3.12 + kubex-common + kubex-harness
-#   - entrypoint.sh bootstrap
-FROM kubex-base:latest
+#   - CMD: python -m kubex_harness.standalone (polls broker, calls LLM, stores results)
+FROM kubexclaw-base:latest
 
 # Copy agent config (mounted at runtime in production, baked in for builds)
 COPY agents/instagram-scraper/config.yaml /app/config.yaml
@@ -22,4 +21,4 @@ ENV KUBEX_AGENT_ID=instagram-scraper
 ENV GATEWAY_URL=http://gateway:8080
 ENV ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Inherits CMD from base image: python -m kubex_harness.standalone
