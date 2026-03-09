@@ -7,6 +7,7 @@ Registry integration, and lifecycle event publishing.
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -163,6 +164,14 @@ class KubexLifecycle:
         env["KUBEX_AGENT_ID"] = agent_id
         env["KUBEX_BOUNDARY"] = boundary
 
+        # Inject Broker URL for standalone harness task consumption
+        env["BROKER_URL"] = os.environ.get("BROKER_URL", "http://kubex-broker:8060")
+
+        # Inject capabilities for the standalone harness consumer groups
+        capabilities = agent_cfg.get("capabilities", [])
+        if capabilities:
+            env["KUBEX_CAPABILITIES"] = ",".join(capabilities)
+
         # Resource limits
         resource_limits = request.resource_limits
         mem_limit = resource_limits.get("memory", DEFAULT_MEM_LIMIT)
@@ -171,10 +180,12 @@ class KubexLifecycle:
 
         # Credential volumes (bind-mount read-only for each provider)
         volumes: dict[str, dict[str, str]] = {}
+        credentials_base = os.environ.get("KUBEX_CREDENTIALS_PATH", "/app/secrets/cli-credentials")
         for provider in providers:
-            host_path = f"secrets/cli-credentials/{provider}"
+            host_path = os.path.join(credentials_base, provider)
             container_path = f"/run/secrets/{provider}"
-            volumes[host_path] = {"bind": container_path, "mode": "ro"}
+            if os.path.isdir(host_path):
+                volumes[host_path] = {"bind": container_path, "mode": "ro"}
 
         # Create container via Docker SDK
         docker_client = docker.from_env()
@@ -182,7 +193,7 @@ class KubexLifecycle:
             image=request.image,
             labels=labels,
             environment=env,
-            network=NETWORK_INTERNAL,
+            network=os.environ.get("KUBEX_DOCKER_NETWORK", NETWORK_INTERNAL),
             mem_limit=mem_limit,
             nano_cpus=nano_cpus,
             volumes=volumes,

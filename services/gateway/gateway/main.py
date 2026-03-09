@@ -715,8 +715,8 @@ async def llm_proxy(provider: str, path: str, request: Request) -> StreamingResp
 
     # Return response (streaming or regular)
     response_headers = dict(response.headers)
-    # Strip hop-by-hop headers
-    for h in ("transfer-encoding", "connection", "keep-alive"):
+    # Strip hop-by-hop and content-length headers (JSONResponse sets its own)
+    for h in ("transfer-encoding", "connection", "keep-alive", "content-length", "content-encoding"):
         response_headers.pop(h, None)
 
     is_streaming = "text/event-stream" in response.headers.get("content-type", "")

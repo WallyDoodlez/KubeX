@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 # Provider base URLs
 PROVIDER_URLS = {
     "anthropic": "https://api.anthropic.com",
-    "openai": "https://api.openai.com",
+    "openai": "https://api.openai.com/v1",
     "google": "https://generativelanguage.googleapis.com",
 }
 

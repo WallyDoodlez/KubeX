@@ -69,6 +69,7 @@ services:
       - REGISTRY_URL=http://kubex-registry:8070
       - GATEWAY_URL=http://gateway:8080
       - KUBEX_MGMT_TOKEN=${MANAGER_TOKEN}
+      - KUBEX_DOCKER_NETWORK=openclaw_kubex-internal
       - SERVICE_NAME=kubex-manager
     networks:
       - kubex-internal
