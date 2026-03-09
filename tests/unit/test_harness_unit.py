@@ -825,3 +825,103 @@ class _no_httpx_calls:
 
     async def __aexit__(self, *args: Any) -> None:
         self._patcher.stop()
+
+
+# ===========================================================================
+# Standalone — Skill Injection
+# ===========================================================================
+
+from kubex_harness.standalone import _load_skill_files, StandaloneConfig
+
+
+class TestSkillInjection:
+    """Tests for skill file loading and system prompt injection."""
+
+    def test_load_skill_files_nonexistent_dir(self, tmp_path: Any) -> None:
+        """Returns empty string when skills directory doesn't exist."""
+        result = _load_skill_files(str(tmp_path / "does-not-exist"))
+        assert result == ""
+
+    def test_load_skill_files_empty_dir(self, tmp_path: Any) -> None:
+        """Returns empty string when directory exists but has no .md files."""
+        result = _load_skill_files(str(tmp_path))
+        assert result == ""
+
+    def test_load_skill_files_single_md(self, tmp_path: Any) -> None:
+        """Loads a single .md file and includes it in output."""
+        skill_file = tmp_path / "SKILL.md"
+        skill_file.write_text("# My Skill\nDo stuff.", encoding="utf-8")
+        result = _load_skill_files(str(tmp_path))
+        assert "## Loaded Skills" in result
+        assert "# My Skill" in result
+        assert "Do stuff." in result
+
+    def test_load_skill_files_nested_dirs(self, tmp_path: Any) -> None:
+        """Loads .md files from nested subdirectories."""
+        sub = tmp_path / "category" / "subcategory"
+        sub.mkdir(parents=True)
+        (sub / "SKILL.md").write_text("nested skill content", encoding="utf-8")
+        result = _load_skill_files(str(tmp_path))
+        assert "nested skill content" in result
+        assert "category" in result  # relative path shown in header
+
+    def test_load_skill_files_ignores_non_md(self, tmp_path: Any) -> None:
+        """Only loads .md files, ignores .py, .txt, etc."""
+        (tmp_path / "SKILL.md").write_text("good", encoding="utf-8")
+        (tmp_path / "script.py").write_text("bad", encoding="utf-8")
+        (tmp_path / "notes.txt").write_text("bad", encoding="utf-8")
+        result = _load_skill_files(str(tmp_path))
+        assert "good" in result
+        assert "bad" not in result
+
+    def test_load_skill_files_multiple_sorted(self, tmp_path: Any) -> None:
+        """Multiple .md files are loaded in sorted order."""
+        (tmp_path / "b.md").write_text("second", encoding="utf-8")
+        (tmp_path / "a.md").write_text("first", encoding="utf-8")
+        result = _load_skill_files(str(tmp_path))
+        a_pos = result.index("first")
+        b_pos = result.index("second")
+        assert a_pos < b_pos
+
+    def test_config_injects_skills_into_prompt(self, tmp_path: Any) -> None:
+        """StandaloneConfig appends skill content to the system prompt."""
+        skill_file = tmp_path / "SKILL.md"
+        skill_file.write_text("# Scraping Instructions\nScrape carefully.", encoding="utf-8")
+        env = {
+            "KUBEX_AGENT_ID": "test-agent",
+            "GATEWAY_URL": "http://gateway:8080",
+            "KUBEX_SKILLS_DIR": str(tmp_path),
+        }
+        with patch.dict(os.environ, env, clear=False):
+            config = StandaloneConfig()
+        assert "KubexClaw worker agent" in config.system_prompt
+        assert "# Scraping Instructions" in config.system_prompt
+        assert "Scrape carefully." in config.system_prompt
+
+    def test_config_no_skills_dir_uses_base_prompt(self) -> None:
+        """When skills dir doesn't exist, system prompt is just the base prompt."""
+        env = {
+            "KUBEX_AGENT_ID": "test-agent",
+            "GATEWAY_URL": "http://gateway:8080",
+            "KUBEX_SKILLS_DIR": "/nonexistent/skills/path",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            config = StandaloneConfig()
+        assert config.system_prompt == (
+            "You are a KubexClaw worker agent. Complete the task described in the user message. "
+            "Be concise and return structured results when possible."
+        )
+
+    def test_config_custom_prompt_plus_skills(self, tmp_path: Any) -> None:
+        """Custom KUBEX_AGENT_PROMPT is used as base, skills appended after."""
+        (tmp_path / "recall.md").write_text("recall instructions", encoding="utf-8")
+        env = {
+            "KUBEX_AGENT_ID": "knowledge",
+            "GATEWAY_URL": "http://gateway:8080",
+            "KUBEX_AGENT_PROMPT": "You are the knowledge agent.",
+            "KUBEX_SKILLS_DIR": str(tmp_path),
+        }
+        with patch.dict(os.environ, env, clear=False):
+            config = StandaloneConfig()
+        assert config.system_prompt.startswith("You are the knowledge agent.")
+        assert "recall instructions" in config.system_prompt

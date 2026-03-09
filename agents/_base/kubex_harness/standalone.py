@@ -21,7 +21,8 @@ Optional env vars:
   KUBEX_AGENT_PROMPT   — system prompt for the LLM (from config.yaml)
   KUBEX_CAPABILITIES   — comma-separated capability list to consume
   KUBEX_POLL_INTERVAL  — seconds between broker polls (default 2)
-  KUBEX_MODEL          — model to request (default gpt-4o)
+  KUBEX_MODEL          — model to request (default gpt-5.2)
+  KUBEX_SKILLS_DIR     — directory to scan for skill .md files (default /app/skills)
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ import logging
 import os
 import signal
 import sys
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -61,12 +63,17 @@ class StandaloneConfig:
             "OPENAI_BASE_URL",
             f"{self.gateway_url}/v1/proxy/openai",
         )
-        self.system_prompt = os.environ.get("KUBEX_AGENT_PROMPT", DEFAULT_SYSTEM_PROMPT)
         self.capabilities = _parse_capabilities(
             os.environ.get("KUBEX_CAPABILITIES", self.agent_id)
         )
         self.poll_interval = float(os.environ.get("KUBEX_POLL_INTERVAL", str(DEFAULT_POLL_INTERVAL)))
         self.model = os.environ.get("KUBEX_MODEL", DEFAULT_MODEL)
+
+        # Build system prompt: base prompt + injected skill content
+        base_prompt = os.environ.get("KUBEX_AGENT_PROMPT", DEFAULT_SYSTEM_PROMPT)
+        skills_dir = os.environ.get("KUBEX_SKILLS_DIR", "/app/skills")
+        skill_content = _load_skill_files(skills_dir)
+        self.system_prompt = base_prompt + skill_content
 
 
 def _require_env(key: str) -> str:
@@ -79,6 +86,38 @@ def _require_env(key: str) -> str:
 def _parse_capabilities(raw: str) -> list[str]:
     """Parse comma-separated capability list."""
     return [c.strip() for c in raw.split(",") if c.strip()]
+
+
+def _load_skill_files(skills_dir: str = "/app/skills") -> str:
+    """Scan skills_dir recursively for *.md files and return their concatenated content.
+
+    Each skill file is separated by a header showing its relative path.
+    Returns an empty string if the directory doesn't exist or contains no .md files.
+    """
+    skills_path = Path(skills_dir)
+    if not skills_path.is_dir():
+        logger.debug("Skills directory not found: %s", skills_dir)
+        return ""
+
+    md_files = sorted(skills_path.rglob("*.md"))
+    if not md_files:
+        logger.debug("No skill .md files found in %s", skills_dir)
+        return ""
+
+    parts: list[str] = []
+    for md_file in md_files:
+        rel = md_file.relative_to(skills_path)
+        try:
+            content = md_file.read_text(encoding="utf-8")
+            parts.append(f"\n--- Skill: {rel} ---\n{content}")
+            logger.info("Loaded skill file: %s", rel)
+        except OSError:
+            logger.warning("Failed to read skill file: %s", md_file)
+
+    if not parts:
+        return ""
+
+    return "\n\n## Loaded Skills\n" + "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
