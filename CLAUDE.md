@@ -30,6 +30,9 @@ This project is developing an **Agent AI Pipeline** that will allow the company 
 - Test files follow the naming convention: `tests/{unit,integration,e2e,chaos}/test_*.py`.
 - Use pytest as the test framework. No other test runners.
 
+## Feature Implementation Workflow
+- All new features must follow the `implement-feature` skill workflow (see `skills/development/implement-feature/SKILL.md`). Write failing tests first, implement to make them pass, verify no regressions.
+
 ## Code Quality
 - All Python code must pass linting (ruff) and formatting (black) checks in CI.
 - Type hints required for all public functions in `kubex-common`.

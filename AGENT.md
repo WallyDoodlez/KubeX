@@ -101,6 +101,18 @@ These are non-negotiable. Violations block the PR.
 - ~~Gatekeeper~~ → use "Gateway" or "Policy Engine"
 - ~~API Gateway~~ → use "Gateway"
 
+## Feature Implementation Workflow
+
+All feature implementation **must** follow the `implement-feature` skill workflow (see `skills/development/implement-feature/SKILL.md`). No exceptions.
+
+The mandatory sequence is:
+1. **Red tests first** -- write E2E/integration/unit tests that skip or fail because the feature does not exist yet. Commit them separately.
+2. **Implement** -- write the minimum code to make the tests pass. Follow existing patterns. Security first.
+3. **Green verification** -- run the full test suite. All new tests pass, all existing tests still pass. Zero regressions.
+4. **Commit** -- implementation gets its own commit with a test count summary.
+
+Skipping this workflow (e.g., writing code without tests, or writing tests after the code) is not permitted.
+
 ## Git Workflow
 - Branch from `main`, PR back to `main`
 - PR title: concise, imperative (e.g., "Add egress allowlist validation to Gateway")
