@@ -146,9 +146,9 @@ Run the full test suite and verify everything passes.
    - Kubex Manager / Broker: 80%
    - Agent skills: 70%
 
-## Phase 4: Commit
+## Phase 4: Commit & Record
 
-Separate commits for tests and implementation preserve the red-green history.
+Separate commits for tests and implementation preserve the red-green history. Always commit completed work and update the progress file.
 
 ### Commit Structure
 
@@ -169,12 +169,24 @@ Wave 4: Kubex Manager + Base Agent Harness (4A, 4B)
 - 124 total new tests, 400 total project tests
 ```
 
-### What NOT to Do
+### Commit Rules
 
+- **Always commit when done.** Every completed phase (red tests, implementation) gets its own commit immediately. Do not leave uncommitted work.
 - Do not combine red tests and implementation in one commit
 - Do not commit with failing tests (except the intentional red test commit where new tests skip/xfail)
 - Do not skip the test run ("it looks right" is not verification)
 - Do not delete tests that are hard to pass -- fix the code instead
+
+### Record Progress
+
+After committing, **always update MEMORY.md** with what was accomplished:
+
+1. **Update the implementation status** section with the new feature, commit hash, and test counts
+2. **Update the git history** section with the new commit(s)
+3. **Record any key decisions or learnings** that would help future sessions
+4. **Update any remaining items** lists to reflect what was completed
+
+This ensures the next session can pick up exactly where you left off without re-reading the entire codebase.
 
 ## Quick Reference
 
