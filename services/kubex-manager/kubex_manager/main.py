@@ -145,6 +145,12 @@ async def create_kubex(body: CreateKubexBody, request: Request) -> JSONResponse:
         lifecycle._redis = redis
         await lifecycle._publish_lifecycle_event(record, action="created")
 
+    # Auto-start: start the container and register with Registry
+    try:
+        record = await lifecycle.start_kubex(record.kubex_id)
+    except Exception as exc:
+        logger.warning("auto_start_failed", kubex_id=record.kubex_id, error=str(exc))
+
     return JSONResponse(
         status_code=201,
         content=_record_to_dict(record),

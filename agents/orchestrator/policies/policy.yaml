@@ -15,7 +15,6 @@ agent_policy:
       - "http_post"
       - "http_put"
       - "http_delete"
-      - "execute_code"
       - "send_email"
   egress:
     mode: "deny_all"

@@ -17,10 +17,10 @@ agent:
 
   models:
     allowed:
-      - id: "gpt-5.2"
+      - id: "o3-mini"
         provider: "openai"
         tier: "standard"
-    default: "gpt-5.2"
+    default: "o3-mini"
 
   providers:
     - openai

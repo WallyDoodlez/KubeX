@@ -245,15 +245,16 @@ class TestPolicyEngineAgentActions:
         assert result.decision == PolicyDecision.DENY
         assert result.rule_matched == "agent.actions.blocked"
 
-    def test_action_not_in_allowed_list_is_denied(self) -> None:
+    def test_action_not_in_allowed_list_is_escalated(self) -> None:
+        """Actions not in allowed list AND not in blocked list are escalated for review."""
         req = make_request(
             agent_id="scraper",
             action=ActionType.DISPATCH_TASK,
             target=None,
         )
         result = self.engine.evaluate(req)
-        assert result.decision == PolicyDecision.DENY
-        assert result.rule_matched == "agent.actions.allowed"
+        assert result.decision == PolicyDecision.ESCALATE
+        assert result.rule_matched == "agent.actions.escalate"
 
     def test_allowed_action_passes_action_check(self) -> None:
         req = make_request(

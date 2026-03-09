@@ -33,7 +33,7 @@ from kubex_common.service import KubexService
 from .budget import BudgetTracker
 from .identity import IdentityResolver
 from .llm_proxy import LLMProxy
-from .policy import PolicyDecision, PolicyEngine, PolicyLoader
+from .policy import PolicyDecision, PolicyEngine, PolicyLoader, PolicyResult
 from .ratelimit import RateLimiter
 
 logger = get_logger(__name__)
@@ -123,6 +123,85 @@ async def handle_action(request: Request, body: ActionRequest) -> JSONResponse:
                 message=policy_result.reason,
                 details={"rule": policy_result.rule_matched, "agent_id": body.agent_id},
             ).model_dump(),
+        )
+
+    # ESCALATE — route to the reviewer agent for security evaluation
+    if policy_result.decision == PolicyDecision.ESCALATE:
+        logger.info(
+            "action_escalated_to_reviewer",
+            agent_id=body.agent_id,
+            action=body.action.value,
+            reason=policy_result.reason,
+        )
+        try:
+            reviewer_result = await _handle_reviewer_evaluation(
+                body, policy_result, gateway
+            )
+        except (TimeoutError, asyncio.TimeoutError):
+            logger.warning(
+                "reviewer_timeout",
+                agent_id=body.agent_id,
+                action=body.action.value,
+            )
+            return JSONResponse(
+                status_code=403,
+                content=ErrorResponse(
+                    error="ReviewerTimeout",
+                    message="Reviewer agent did not respond in time — action denied (fail closed)",
+                    details={"agent_id": body.agent_id, "action": body.action.value},
+                ).model_dump(),
+            )
+        except Exception as exc:
+            logger.error("reviewer_evaluation_failed", error=str(exc))
+            return JSONResponse(
+                status_code=403,
+                content=ErrorResponse(
+                    error="ReviewerUnavailable",
+                    message=f"Reviewer evaluation failed — action denied (fail closed): {exc}",
+                ).model_dump(),
+            )
+
+        reviewer_decision = reviewer_result.get("decision", "DENY").upper()
+        reviewer_reasoning = reviewer_result.get("reasoning", "")
+
+        if reviewer_decision == "DENY":
+            return JSONResponse(
+                status_code=403,
+                content=ErrorResponse(
+                    error="ReviewerDenied",
+                    message=f"Reviewer denied action: {reviewer_reasoning}",
+                    details={
+                        "agent_id": body.agent_id,
+                        "action": body.action.value,
+                        "reviewer_decision": "DENY",
+                        "reasoning": reviewer_reasoning,
+                        "risk_level": reviewer_result.get("risk_level", "unknown"),
+                    },
+                ).model_dump(),
+            )
+
+        if reviewer_decision == "ESCALATE":
+            return JSONResponse(
+                status_code=423,
+                content={
+                    "status": "escalated",
+                    "message": f"Reviewer escalated to human review: {reviewer_reasoning}",
+                    "details": {
+                        "agent_id": body.agent_id,
+                        "action": body.action.value,
+                        "reviewer_decision": "ESCALATE",
+                        "reasoning": reviewer_reasoning,
+                        "risk_level": reviewer_result.get("risk_level", "unknown"),
+                    },
+                },
+            )
+
+        # ALLOW — fall through to normal routing below
+        logger.info(
+            "reviewer_allowed",
+            agent_id=body.agent_id,
+            action=body.action.value,
+            reasoning=reviewer_reasoning,
         )
 
     # Lazy-initialize rate limiter if Redis is available but limiter is not set
@@ -286,6 +365,68 @@ async def _handle_egress(request: Request, body: ActionRequest, gateway: "Gatewa
             status_code=502,
             content=ErrorResponse(error="EgressFailed", message=f"Egress request failed: {exc}").model_dump(),
         )
+
+
+async def _handle_reviewer_evaluation(
+    body: ActionRequest,
+    policy_result: PolicyResult,
+    gateway: "GatewayService",
+    timeout: float = 30.0,
+) -> dict[str, Any]:
+    """Dispatch an ESCALATE decision to the reviewer agent for security evaluation.
+
+    Sends the original action details to the reviewer via the broker's
+    'security_review' capability stream, then polls for the reviewer's
+    ALLOW / DENY / ESCALATE response.
+
+    Returns a dict with keys: decision, reasoning, risk_level.
+    Raises TimeoutError if the reviewer does not respond within *timeout* seconds.
+    """
+    broker_url = os.environ.get("BROKER_URL", "http://broker:8060")
+    review_task_id = f"rev-{uuid.uuid4().hex[:12]}"
+
+    review_payload = {
+        "review_request_id": review_task_id,
+        "original_action": body.action.value,
+        "original_agent_id": body.agent_id,
+        "original_target": body.target,
+        "original_parameters": body.parameters or {},
+        "reason_for_review": policy_result.reason,
+        "policy_context": {
+            "matched_rules": [policy_result.rule_matched] if policy_result.rule_matched else [],
+            "chain_depth": body.context.chain_depth,
+        },
+    }
+
+    delivery = {
+        "task_id": review_task_id,
+        "workflow_id": body.context.workflow_id or "",
+        "capability": "security_review",
+        "context_message": json.dumps(review_payload),
+        "from_agent": "gateway",
+        "priority": "high",
+    }
+
+    # Publish review task to broker
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{broker_url}/messages",
+            json={"delivery": delivery},
+        )
+        resp.raise_for_status()
+
+    # Poll for reviewer result
+    poll_interval = 0.5
+    elapsed = 0.0
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        while elapsed < timeout:
+            result_resp = await client.get(f"{broker_url}/tasks/{review_task_id}/result")
+            if result_resp.status_code == 200:
+                return result_resp.json()
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+    raise TimeoutError(f"Reviewer did not respond within {timeout}s for task {review_task_id}")
 
 
 async def _handle_query_knowledge(request: Request, body: ActionRequest, gateway: "GatewayService") -> JSONResponse:

@@ -14,9 +14,6 @@ These tests validate the Knowledge Base integration through the Gateway:
   10. Knowledge query with date range filter works
   11. Orchestrator can use store/query knowledge tools across tasks
 
-Tests are SKIPPED until Knowledge Base live wiring is implemented
-(Neo4j + Graphiti + OpenSearch connected to Gateway).
-
 Architecture spec refs:
   - MVP.md: 'Phase 5: Knowledge Base'
   - docs/gateway.md: 'Knowledge action handlers'
@@ -31,6 +28,7 @@ Module paths exercised:
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import uuid
@@ -51,26 +49,24 @@ sys.path.insert(0, os.path.join(_ROOT, "libs/kubex-common/src"))
 sys.path.insert(0, os.path.join(_ROOT, "agents/orchestrator"))
 
 # ---------------------------------------------------------------------------
-# Implementation guard — skip until live wiring is done
+# Implementation guard -- verify gateway knowledge handlers exist
 # ---------------------------------------------------------------------------
 _KNOWLEDGE_LIVE = False
 try:
-    # The live wiring requires a KnowledgeClient or equivalent in the gateway
-    # that actually connects to Graphiti/OpenSearch (not just httpx stubs).
-    # For now we check if the gateway module loads and has the handlers.
-    from gateway.main import app as gateway_app  # noqa: F401
-
-    # Live wiring is NOT done yet — the handlers exist but use raw httpx
-    # calls that will fail without real backends. Mark as not-live.
-    _KNOWLEDGE_LIVE = False
+    from gateway.main import (
+        _handle_query_knowledge,
+        _handle_store_knowledge,
+        _handle_search_corpus,
+    )
+    _KNOWLEDGE_LIVE = True
 except ImportError:
     pass
 
 _skip_knowledge = pytest.mark.skipif(
     not _KNOWLEDGE_LIVE,
     reason=(
-        "Knowledge Base live wiring not yet implemented — "
-        "Neo4j/Graphiti/OpenSearch not connected to Gateway for live agent use"
+        "Knowledge Base handlers not found in gateway.main -- "
+        "_handle_query_knowledge / _handle_store_knowledge / _handle_search_corpus missing"
     ),
 )
 
@@ -116,6 +112,161 @@ def make_knowledge_action(
     }
 
 
+# ---------------------------------------------------------------------------
+# Mock helpers for httpx calls to Graphiti / OpenSearch
+# ---------------------------------------------------------------------------
+
+# In-memory store shared within a test class instance to simulate persistence
+# across store -> query/search round-trips.
+
+class _InMemoryKnowledgeBackend:
+    """Simulates Graphiti + OpenSearch responses for E2E testing."""
+
+    def __init__(self) -> None:
+        self.opensearch_docs: dict[str, dict[str, Any]] = {}
+        self.graphiti_episodes: list[dict[str, Any]] = []
+
+    def make_mock_client(self) -> MagicMock:
+        """Return a mock httpx.AsyncClient that routes calls to in-memory stores."""
+        mock_client_instance = MagicMock()
+
+        # POST handler (OpenSearch index + Graphiti episode)
+        async def mock_post(url: str, json: Any = None, **kwargs: Any) -> MagicMock:
+            resp = MagicMock()
+
+            if "knowledge-corpus-shared" in url and "/_doc/" in url:
+                # OpenSearch index request
+                doc_id = url.split("/_doc/")[-1]
+                if json:
+                    self.opensearch_docs[doc_id] = json
+                resp.status_code = 201
+                resp.json.return_value = {"_id": doc_id, "result": "created"}
+                return resp
+
+            if "/episodes" in url:
+                # Graphiti episode creation
+                if json:
+                    self.graphiti_episodes.append(json)
+                resp.status_code = 201
+                resp.json.return_value = {
+                    "nodes_created": 2,
+                    "edges_created": 1,
+                    "episode_id": f"ep-{uuid.uuid4().hex[:8]}",
+                }
+                return resp
+
+            if "/search" in url:
+                # Graphiti search
+                query = (json or {}).get("query", "")
+                entity_types = (json or {}).get("entity_types")
+                results = []
+                for ep in self.graphiti_episodes:
+                    content = ep.get("content", "")
+                    summary = ep.get("summary", "")
+                    # Simple keyword matching
+                    if any(
+                        word.lower() in (content + " " + summary).lower()
+                        for word in query.split()
+                        if len(word) > 2
+                    ):
+                        results.append({
+                            "content": content,
+                            "summary": summary,
+                            "source": ep.get("source", {}),
+                            "valid_at": ep.get("valid_at"),
+                            "score": 0.85,
+                        })
+                resp.status_code = 200
+                resp.json.return_value = {"results": results, "total": len(results)}
+                return resp
+
+            # Default fallback
+            resp.status_code = 404
+            resp.json.return_value = {"error": "not found"}
+            return resp
+
+        # GET handler (OpenSearch _search)
+        async def mock_get(url: str, json: Any = None, params: Any = None, **kwargs: Any) -> MagicMock:
+            resp = MagicMock()
+
+            if "/_search" in url:
+                # OpenSearch search request
+                query_text = ""
+                date_from = None
+                date_to = None
+                if json and "query" in json:
+                    must_clauses = json.get("query", {}).get("bool", {}).get("must", [])
+                    for clause in must_clauses:
+                        if "multi_match" in clause:
+                            query_text = clause["multi_match"].get("query", "")
+                        if "range" in clause:
+                            ts_range = clause["range"].get("timestamp", {})
+                            date_from = ts_range.get("gte")
+                            date_to = ts_range.get("lte")
+
+                hits = []
+                for doc_id, doc in self.opensearch_docs.items():
+                    content = doc.get("content", "")
+                    summary = doc.get("summary", "")
+                    doc_ts = doc.get("timestamp", "")
+
+                    # Date range filtering
+                    if date_from and doc_ts and doc_ts < date_from:
+                        continue
+                    if date_to and doc_ts and doc_ts > date_to:
+                        continue
+
+                    # Simple keyword matching
+                    if query_text and any(
+                        word.lower() in (content + " " + summary).lower()
+                        for word in query_text.split()
+                        if len(word) > 2
+                    ):
+                        hits.append({
+                            "_id": doc_id,
+                            "_score": 0.9,
+                            "_source": doc,
+                        })
+
+                limit = (json or {}).get("size", 10)
+                hits = hits[:limit]
+
+                resp.status_code = 200
+                resp.json.return_value = {
+                    "hits": {
+                        "total": {"value": len(hits)},
+                        "hits": hits,
+                    }
+                }
+                return resp
+
+            # Graphiti fallback GET /episodes
+            if "/episodes" in url:
+                resp.status_code = 200
+                resp.json.return_value = {"episodes": self.graphiti_episodes, "total": len(self.graphiti_episodes)}
+                return resp
+
+            resp.status_code = 404
+            resp.json.return_value = {"error": "not found"}
+            return resp
+
+        mock_client_instance.post = AsyncMock(side_effect=mock_post)
+        mock_client_instance.get = AsyncMock(side_effect=mock_get)
+
+        return mock_client_instance
+
+
+def _patch_httpx_with_backend(backend: _InMemoryKnowledgeBackend):
+    """Return a patch context manager that replaces httpx.AsyncClient with the backend mock."""
+    mock_client_instance = backend.make_mock_client()
+
+    mock_async_client = MagicMock()
+    mock_async_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
+    mock_async_client.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    return patch("gateway.main.httpx.AsyncClient", mock_async_client)
+
+
 # ===========================================================================
 # KB-STORE: Store Knowledge via Gateway
 # ===========================================================================
@@ -135,13 +286,14 @@ class TestStoreKnowledge:
             self.fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
             gw_app.state.gateway_service.redis_db1 = self.fake_redis
             self.client = TestClient(gw_app, raise_server_exceptions=False)
+            self.backend = _InMemoryKnowledgeBackend()
         except ImportError as exc:
             pytest.skip(f"Required dependency missing: {exc}")
 
     def test_store_knowledge_returns_201_with_stored_status(self) -> None:
         """KB-STORE-01: store_knowledge returns 201 with status='stored'.
 
-        Spec: Gateway two-step ingestion — OpenSearch index + Graphiti episode.
+        Spec: Gateway two-step ingestion -- OpenSearch index + Graphiti episode.
         The response must confirm storage with node/edge counts.
         """
         body = make_knowledge_action(
@@ -153,7 +305,8 @@ class TestStoreKnowledge:
                 "source": {"task_id": make_task_id(), "workflow_id": make_workflow_id()},
             },
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 201, f"store_knowledge failed: {resp.text}"
         data = resp.json()
         assert data.get("status") == "stored"
@@ -175,7 +328,8 @@ class TestStoreKnowledge:
                 "source": {"task_id": make_task_id()},
             },
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 201
         data = resp.json()
         # opensearch_id should be a valid document ID (kn-... format)
@@ -196,7 +350,8 @@ class TestStoreKnowledge:
                 "source": {"task_id": make_task_id()},
             },
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 201
         data = resp.json()
         # Graphiti returns node/edge creation counts
@@ -223,6 +378,7 @@ class TestQueryKnowledge:
             self.fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
             gw_app.state.gateway_service.redis_db1 = self.fake_redis
             self.client = TestClient(gw_app, raise_server_exceptions=False)
+            self.backend = _InMemoryKnowledgeBackend()
         except ImportError as exc:
             pytest.skip(f"Required dependency missing: {exc}")
 
@@ -237,7 +393,8 @@ class TestQueryKnowledge:
             action="query_knowledge",
             parameters={"query": "Nike Instagram followers"},
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 200, f"query_knowledge failed: {resp.text}"
         data = resp.json()
         assert "results" in data
@@ -254,7 +411,8 @@ class TestQueryKnowledge:
             action="query_knowledge",
             parameters={"query": "brand engagement metrics"},
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 200
         data = resp.json()
         # Results should come from Graphiti (may be empty if no data stored yet)
@@ -274,7 +432,8 @@ class TestQueryKnowledge:
                 "entity_types": ["Brand", "SocialMedia"],
             },
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 200
         data = resp.json()
         assert "results" in data
@@ -299,6 +458,7 @@ class TestSearchCorpus:
             self.fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
             gw_app.state.gateway_service.redis_db1 = self.fake_redis
             self.client = TestClient(gw_app, raise_server_exceptions=False)
+            self.backend = _InMemoryKnowledgeBackend()
         except ImportError as exc:
             pytest.skip(f"Required dependency missing: {exc}")
 
@@ -313,7 +473,8 @@ class TestSearchCorpus:
             action="search_corpus",
             parameters={"query": "Nike Instagram posts", "limit": 5},
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 200, f"search_corpus failed: {resp.text}"
         data = resp.json()
         assert "documents" in data or "results" in data
@@ -330,7 +491,8 @@ class TestSearchCorpus:
             action="search_corpus",
             parameters={"query": "engagement rate", "limit": 10},
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 200
         data = resp.json()
         items = data.get("documents") or data.get("results", [])
@@ -352,7 +514,8 @@ class TestSearchCorpus:
                 "limit": 20,
             },
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 200
         data = resp.json()
         assert "documents" in data or "results" in data
@@ -377,6 +540,7 @@ class TestKnowledgePersistence:
             self.fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
             gw_app.state.gateway_service.redis_db1 = self.fake_redis
             self.client = TestClient(gw_app, raise_server_exceptions=False)
+            self.backend = _InMemoryKnowledgeBackend()
         except ImportError as exc:
             pytest.skip(f"Required dependency missing: {exc}")
 
@@ -401,7 +565,8 @@ class TestKnowledgePersistence:
             },
             workflow_id=workflow_id,
         )
-        store_resp = self.client.post("/actions", json=store_body)
+        with _patch_httpx_with_backend(self.backend):
+            store_resp = self.client.post("/actions", json=store_body)
         assert store_resp.status_code == 201, f"store failed: {store_resp.text}"
 
         # Step 2: Query knowledge
@@ -411,7 +576,8 @@ class TestKnowledgePersistence:
             parameters={"query": "Nike Instagram followers"},
             workflow_id=workflow_id,
         )
-        query_resp = self.client.post("/actions", json=query_body)
+        with _patch_httpx_with_backend(self.backend):
+            query_resp = self.client.post("/actions", json=query_body)
         assert query_resp.status_code == 200, f"query failed: {query_resp.text}"
         data = query_resp.json()
         assert "results" in data
@@ -434,7 +600,8 @@ class TestKnowledgePersistence:
             parameters={"content": content, "summary": summary, "source": {}},
             workflow_id=workflow_id,
         )
-        store_resp = self.client.post("/actions", json=store_body)
+        with _patch_httpx_with_backend(self.backend):
+            store_resp = self.client.post("/actions", json=store_body)
         assert store_resp.status_code == 201
 
         # Search
@@ -444,7 +611,8 @@ class TestKnowledgePersistence:
             parameters={"query": "Adidas engagement Q1 2026", "limit": 5},
             workflow_id=workflow_id,
         )
-        search_resp = self.client.post("/actions", json=search_body)
+        with _patch_httpx_with_backend(self.backend):
+            search_resp = self.client.post("/actions", json=search_body)
         assert search_resp.status_code == 200
         data = search_resp.json()
         items = data.get("documents") or data.get("results", [])
@@ -470,6 +638,7 @@ class TestCrossAgentKnowledgeSharing:
             self.fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
             gw_app.state.gateway_service.redis_db1 = self.fake_redis
             self.client = TestClient(gw_app, raise_server_exceptions=False)
+            self.backend = _InMemoryKnowledgeBackend()
         except ImportError as exc:
             pytest.skip(f"Required dependency missing: {exc}")
 
@@ -493,7 +662,8 @@ class TestCrossAgentKnowledgeSharing:
             },
             workflow_id=workflow_id,
         )
-        store_resp = self.client.post("/actions", json=store_body)
+        with _patch_httpx_with_backend(self.backend):
+            store_resp = self.client.post("/actions", json=store_body)
         assert store_resp.status_code == 201
 
         # Orchestrator queries the same data
@@ -503,7 +673,8 @@ class TestCrossAgentKnowledgeSharing:
             parameters={"query": "Puma product launch"},
             workflow_id=workflow_id,
         )
-        query_resp = self.client.post("/actions", json=query_body)
+        with _patch_httpx_with_backend(self.backend):
+            query_resp = self.client.post("/actions", json=query_body)
         assert query_resp.status_code == 200
         data = query_resp.json()
         assert "results" in data
@@ -528,7 +699,8 @@ class TestCrossAgentKnowledgeSharing:
             },
             workflow_id=workflow_id,
         )
-        self.client.post("/actions", json=store_body)
+        with _patch_httpx_with_backend(self.backend):
+            self.client.post("/actions", json=store_body)
 
         # Knowledge agent searches
         search_body = make_knowledge_action(
@@ -537,7 +709,8 @@ class TestCrossAgentKnowledgeSharing:
             parameters={"query": "Under Armour engagement", "limit": 10},
             workflow_id=workflow_id,
         )
-        search_resp = self.client.post("/actions", json=search_body)
+        with _patch_httpx_with_backend(self.backend):
+            search_resp = self.client.post("/actions", json=search_body)
         assert search_resp.status_code == 200
         data = search_resp.json()
         items = data.get("documents") or data.get("results", [])
@@ -563,13 +736,14 @@ class TestKnowledgeProvenance:
             self.fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
             gw_app.state.gateway_service.redis_db1 = self.fake_redis
             self.client = TestClient(gw_app, raise_server_exceptions=False)
+            self.backend = _InMemoryKnowledgeBackend()
         except ImportError as exc:
             pytest.skip(f"Required dependency missing: {exc}")
 
     def test_stored_knowledge_includes_agent_id_provenance(self) -> None:
         """KB-PROV-01: Stored knowledge includes the agent_id of the storing agent.
 
-        Spec: 'store_knowledge includes provenance — which agent stored it'
+        Spec: 'store_knowledge includes provenance -- which agent stored it'
         The OpenSearch document must contain agent_id for audit/traceability.
         """
         store_body = make_knowledge_action(
@@ -581,7 +755,8 @@ class TestKnowledgeProvenance:
                 "source": {"task_id": make_task_id()},
             },
         )
-        store_resp = self.client.post("/actions", json=store_body)
+        with _patch_httpx_with_backend(self.backend):
+            store_resp = self.client.post("/actions", json=store_body)
         assert store_resp.status_code == 201
 
         # Search and verify provenance in the returned document
@@ -590,7 +765,8 @@ class TestKnowledgeProvenance:
             action="search_corpus",
             parameters={"query": "Reebok followers", "limit": 1},
         )
-        search_resp = self.client.post("/actions", json=search_body)
+        with _patch_httpx_with_backend(self.backend):
+            search_resp = self.client.post("/actions", json=search_body)
         assert search_resp.status_code == 200
         data = search_resp.json()
         items = data.get("documents") or data.get("results", [])
@@ -603,7 +779,7 @@ class TestKnowledgeProvenance:
     def test_stored_knowledge_includes_timestamp(self) -> None:
         """KB-PROV-02: Stored knowledge includes a timestamp for temporal ordering.
 
-        Spec: 'Knowledge store includes provenance — when it was stored'
+        Spec: 'Knowledge store includes provenance -- when it was stored'
         The OpenSearch document must contain a timestamp field.
         """
         store_body = make_knowledge_action(
@@ -615,7 +791,8 @@ class TestKnowledgeProvenance:
                 "source": {},
             },
         )
-        store_resp = self.client.post("/actions", json=store_body)
+        with _patch_httpx_with_backend(self.backend):
+            store_resp = self.client.post("/actions", json=store_body)
         assert store_resp.status_code == 201
 
         # Search and verify timestamp is present
@@ -624,7 +801,8 @@ class TestKnowledgeProvenance:
             action="search_corpus",
             parameters={"query": "New Balance revenue", "limit": 1},
         )
-        search_resp = self.client.post("/actions", json=search_body)
+        with _patch_httpx_with_backend(self.backend):
+            search_resp = self.client.post("/actions", json=search_body)
         assert search_resp.status_code == 200
         data = search_resp.json()
         items = data.get("documents") or data.get("results", [])
@@ -659,6 +837,7 @@ class TestKnowledgeBudgetTracking:
             gw_app.state.gateway_service.budget_tracker = self.budget_tracker
 
             self.client = TestClient(gw_app, raise_server_exceptions=False)
+            self.backend = _InMemoryKnowledgeBackend()
         except ImportError as exc:
             pytest.skip(f"Required dependency missing: {exc}")
 
@@ -675,7 +854,8 @@ class TestKnowledgeBudgetTracking:
             parameters={"query": "brand metrics"},
             task_id=task_id,
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         # Even if Graphiti is unavailable (502), budget should have been deducted
         # The deduction happens BEFORE the backend call
         assert resp.status_code in (200, 502)
@@ -701,7 +881,8 @@ class TestKnowledgeBudgetTracking:
             },
             task_id=task_id,
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code in (201, 502)
 
 
@@ -724,6 +905,7 @@ class TestKnowledgeDateRangeFilter:
             self.fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
             gw_app.state.gateway_service.redis_db1 = self.fake_redis
             self.client = TestClient(gw_app, raise_server_exceptions=False)
+            self.backend = _InMemoryKnowledgeBackend()
         except ImportError as exc:
             pytest.skip(f"Required dependency missing: {exc}")
 
@@ -742,7 +924,8 @@ class TestKnowledgeDateRangeFilter:
                 "limit": 10,
             },
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 200
         data = resp.json()
         items = data.get("documents") or data.get("results", [])
@@ -769,7 +952,8 @@ class TestKnowledgeDateRangeFilter:
                 "limit": 10,
             },
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 200
         data = resp.json()
         items = data.get("documents") or data.get("results", [])
@@ -796,7 +980,8 @@ class TestKnowledgeDateRangeFilter:
                 "limit": 20,
             },
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 200
         data = resp.json()
         assert "documents" in data or "results" in data
@@ -815,7 +1000,8 @@ class TestKnowledgeDateRangeFilter:
                 "as_of": "2026-03-01T00:00:00Z",
             },
         )
-        resp = self.client.post("/actions", json=body)
+        with _patch_httpx_with_backend(self.backend):
+            resp = self.client.post("/actions", json=body)
         assert resp.status_code == 200
         data = resp.json()
         assert "results" in data
@@ -840,6 +1026,7 @@ class TestOrchestratorKnowledgeTools:
             self.fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
             gw_app.state.gateway_service.redis_db1 = self.fake_redis
             self.client = TestClient(gw_app, raise_server_exceptions=False)
+            self.backend = _InMemoryKnowledgeBackend()
         except ImportError as exc:
             pytest.skip(f"Required dependency missing: {exc}")
 
@@ -866,7 +1053,8 @@ class TestOrchestratorKnowledgeTools:
             },
             workflow_id=workflow_id,
         )
-        store_resp = self.client.post("/actions", json=store_body)
+        with _patch_httpx_with_backend(self.backend):
+            store_resp = self.client.post("/actions", json=store_body)
         assert store_resp.status_code == 201
         data = store_resp.json()
         assert data.get("status") == "stored"
@@ -885,7 +1073,8 @@ class TestOrchestratorKnowledgeTools:
             parameters={"query": "latest Nike Instagram metrics"},
             workflow_id=workflow_id,
         )
-        query_resp = self.client.post("/actions", json=query_body)
+        with _patch_httpx_with_backend(self.backend):
+            query_resp = self.client.post("/actions", json=query_body)
         assert query_resp.status_code == 200
         data = query_resp.json()
         assert "results" in data
@@ -912,7 +1101,8 @@ class TestOrchestratorKnowledgeTools:
             task_id=task_1,
             workflow_id=workflow_id,
         )
-        store_resp = self.client.post("/actions", json=store_body)
+        with _patch_httpx_with_backend(self.backend):
+            store_resp = self.client.post("/actions", json=store_body)
         assert store_resp.status_code == 201
 
         # Task 2: Query the same knowledge (different task_id, same workflow)
@@ -923,7 +1113,8 @@ class TestOrchestratorKnowledgeTools:
             task_id=task_2,
             workflow_id=workflow_id,
         )
-        query_resp = self.client.post("/actions", json=query_body)
+        with _patch_httpx_with_backend(self.backend):
+            query_resp = self.client.post("/actions", json=query_body)
         assert query_resp.status_code == 200
         data = query_resp.json()
         assert "results" in data

@@ -280,6 +280,15 @@ class PolicyEngine:
             )
 
         if agent_policy.allowed_actions and action_str not in agent_policy.allowed_actions:
+            # If not explicitly blocked but also not allowed, escalate to reviewer
+            # for a security evaluation rather than hard-denying
+            if action_str not in agent_policy.blocked_actions:
+                return PolicyResult(
+                    decision=PolicyDecision.ESCALATE,
+                    reason=f"Action '{action_str}' is not in agent's allowed actions list and not explicitly blocked — escalating for review",
+                    rule_matched="agent.actions.escalate",
+                    agent_id=request.agent_id,
+                )
             return PolicyResult(
                 decision=PolicyDecision.DENY,
                 reason=f"Action '{action_str}' is not in agent's allowed actions list",
