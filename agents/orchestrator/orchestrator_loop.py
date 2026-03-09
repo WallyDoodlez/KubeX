@@ -469,18 +469,22 @@ class OrchestratorAgent(StandaloneAgent):
         self, client: httpx.AsyncClient, args: dict[str, Any], task_id: str
     ) -> dict[str, Any]:
         """POST /actions to dispatch a task to a worker agent."""
+        import uuid as _uuid
+
         gateway_url = self.config.gateway_url
+        sub_task_id = f"sub-{_uuid.uuid4().hex[:12]}"
         payload = {
+            "request_id": str(_uuid.uuid4()),
             "agent_id": self.config.agent_id,
             "action": "dispatch_task",
             "parameters": {
                 "capability": args["capability"],
                 "context_message": args["context_message"],
             },
-            "context": {},
+            "context": {"task_id": sub_task_id, "workflow_id": task_id},
+            "priority": "normal",
         }
         if args.get("workflow_id"):
-            payload["parameters"]["workflow_id"] = args["workflow_id"]
             payload["context"]["workflow_id"] = args["workflow_id"]
 
         resp = await client.post(

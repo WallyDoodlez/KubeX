@@ -819,7 +819,7 @@ class TestKubexRegistryHelpers:
             boundary="default",
             container_id="c1",
             status="running",
-            config={"agent": {"skills": ["cap-a"]}},
+            config={"agent": {"capabilities": ["cap-a"]}},
             image="test:latest",
         )
 
@@ -829,6 +829,7 @@ class TestKubexRegistryHelpers:
         assert len(post_calls) == 1
         call_body = post_calls[0].kwargs.get("json") or post_calls[0][1].get("json", {})
         assert call_body["agent_id"] == "my-agent"
+        assert call_body["capabilities"] == ["cap-a"]
         assert "running" in str(call_body)
 
     @patch("kubex_manager.lifecycle.httpx.AsyncClient")

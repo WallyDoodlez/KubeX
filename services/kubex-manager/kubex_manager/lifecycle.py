@@ -393,7 +393,7 @@ class KubexLifecycle:
     async def _register_with_registry(self, record: KubexRecord) -> None:
         """POST /agents to the Registry to register the agent."""
         agent_cfg = record.config.get("agent", {})
-        capabilities: list[str] = agent_cfg.get("skills", [])
+        capabilities: list[str] = agent_cfg.get("capabilities", [])
 
         payload = {
             "agent_id": record.agent_id,

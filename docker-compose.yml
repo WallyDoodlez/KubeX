@@ -268,6 +268,10 @@ services:
       - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
       - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
       - GATEWAY_URL=http://gateway:8080
+      - BROKER_URL=http://kubex-broker:8060
+      - REGISTRY_URL=http://kubex-registry:8070
+      - KUBEX_AGENT_ID=orchestrator
+      - KUBEX_CAPABILITIES=task_orchestration,task_management
     networks:
       - kubex-internal
     depends_on:
@@ -278,8 +282,6 @@ services:
         limits:
           memory: 2048M
           cpus: '1.0'
-    # Orchestrator idles until triggered via docker exec. It's a long-running
-    # container that hosts the MCP bridge; work starts when a user attaches
-    # an interactive OpenClaw session (e.g. docker exec -it orchestrator claude).
-    command: ["tail", "-f", "/dev/null"]
+    # Orchestrator runs the tool-use loop: polls broker, uses function calling
+    # to coordinate worker agents via Gateway/Registry/Broker
     restart: unless-stopped
