@@ -173,7 +173,102 @@ Graceful shutdown ensures in-flight tasks complete and no work is silently lost:
 - [ ] Configure Docker `stop_timeout: 60` on all Kubex containers
 - [ ] Implement `draining` health status in `kubex-common` health endpoint
 
-### 19.3 Configuration
+### 19.3 Dynamic Skill Injection (Stem Cell Model)
+
+Kubex Manager uses a **stem cell deployment model**: every Kubex is created from the same universal `kubexclaw-base` Docker image. There are no per-agent Dockerfiles or baked-in dependencies. What makes each Kubex unique is the set of skill files injected at spawn time.
+
+#### How It Works
+
+When a spawn request arrives (via `POST /kubex` or `POST /api/v1/agents`), Kubex Manager:
+
+1. **Resolves the requested skills** from the spawn payload (e.g., `skills: ["web-scraping", "data-analysis"]`)
+2. **Checks policy authorization** — the Policy Engine determines which skills the requesting boundary/agent is allowed to receive. Disallowed skills are rejected before the container is created.
+3. **Assembles the skill bundle** — collects the `AGENTS.md` files for each approved skill from the skill catalog directory (`skills/<category>/<skill-name>/`)
+4. **Mounts skill files into the container** at `/app/skills/` as read-only bind mounts. Each skill's `AGENTS.md` becomes available for the harness to load into the LLM system prompt.
+5. **Injects agent configuration** — capabilities (union of all skills' action lists), policy constraints (most restrictive wins), model preferences, and resource limits are written to the container's `config.yaml`
+6. **Creates the container** from `kubexclaw-base` with the mounted skills, config, Docker labels, and network attachments
+
+#### Spawn Request Payload
+
+```yaml
+# POST /api/v1/agents
+{
+  "name": "research-agent-03",
+  "boundary": "data-collection",
+  "skills": ["web-scraping", "research"],
+  "model_preferences": {
+    "primary": "anthropic/claude-sonnet",
+    "fallback": "openai/gpt-4o"
+  },
+  "resource_overrides": {          # Optional, capped by policy
+    "memory": "2Gi",
+    "cpu": "1.0"
+  }
+}
+```
+
+#### Skill Injection Flow
+
+```mermaid
+sequenceDiagram
+    participant CC as Command Center
+    participant KM as Kubex Manager
+    participant PE as Policy Engine
+    participant SC as Skill Catalog
+    participant D as Docker Engine
+    participant K as Kubex Container
+
+    CC->>KM: POST /api/v1/agents (skills: [A, B])
+    KM->>PE: Can this boundary receive skills A, B?
+    PE-->>KM: Allowed: [A, B] / Denied: []
+
+    KM->>SC: Resolve skill A (AGENTS.md, skill.yaml)
+    KM->>SC: Resolve skill B (AGENTS.md, skill.yaml)
+    SC-->>KM: Skill bundles
+
+    KM->>KM: Merge capabilities (union of actions)
+    KM->>KM: Merge policies (most restrictive wins)
+    KM->>KM: Compute resource limits
+    KM->>KM: Generate config.yaml
+
+    KM->>D: docker create kubexclaw-base<br/>mount /app/skills/A.md, /app/skills/B.md<br/>mount config.yaml, set labels
+    D-->>KM: container ID
+    KM->>D: docker start
+    D->>K: Start container
+
+    Note over K: Harness loads /app/skills/*.md<br/>into LLM system prompt
+    K->>K: Generic stem cell becomes<br/>specialized agent
+```
+
+#### Why Stem Cell, Not Per-Agent Images
+
+| Concern | Per-Agent Dockerfiles (old) | Stem Cell + Skill Injection (current) |
+|---------|---------------------------|---------------------------------------|
+| New agent type | Build a new Docker image | Mount different skill files — no build needed |
+| Image sprawl | N images for N agent types | 1 image (`kubexclaw-base`) for all agents |
+| Skill portability | Skills baked into specific images | Any Kubex can pick up any skill at spawn time |
+| Security updates | Rebuild every image | Rebuild one base image, redeploy |
+| Policy control | Per-image, hard to enforce uniformly | Kubex Manager gates which skills are allowed per boundary |
+| Startup time | Pull unique image per agent type | Same image cached, only skill files differ |
+
+#### Policy Gating
+
+The Policy Engine controls skill injection at two levels:
+
+- **Boundary-level skill allowlists** — a boundary can declare which skills its Kubexes are permitted to use. A spawn request for a disallowed skill is rejected with a `403 Forbidden` and a reason explaining the policy violation.
+- **Global skill blocklists** — the operator can globally block a skill (e.g., during a security incident) so that no new Kubex can receive it, regardless of boundary.
+
+Skills already mounted on running Kubexes are not retroactively removed by policy changes — the Kubex must be restarted or killed for the new policy to take effect.
+
+- [ ] Implement skill resolution and policy gating in spawn handler
+- [ ] Implement `/app/skills/` bind mount assembly from skill catalog
+- [ ] Implement config.yaml generation from merged skill manifests
+- [ ] Add boundary-level skill allowlists to policy schema
+- [ ] Add global skill blocklist support
+
+---
+
+### 19.4 Configuration
 
 | Method | Path | Purpose | Called By |
 |---|---|---|---|
@@ -183,9 +278,9 @@ Graceful shutdown ensures in-flight tasks complete and no work is silently lost:
 | `PUT /kubex/{id}/skills` | Update skill allocation (triggers restart) | Command Center |
 | `GET /skills` | List all available skills (kubex-common built-ins + custom) | Command Center |
 
-Skill loading ties to Section 16.4 — `kubex_common.skills.*` for built-ins, `skills.*` for agent-specific. `PUT /kubex/{id}/skills` updates the Kubex's `config.yaml` skills list and triggers a restart to load the new set.
+Skill loading ties to Section 16.4 — `kubex_common.skills.*` for built-ins, `skills.*` for agent-specific. `PUT /kubex/{id}/skills` updates the Kubex's `config.yaml` skills list and triggers a restart to load the new set. Under the stem cell model (Section 19.3), updating skills means remounting different `.md` files at `/app/skills/` — the container image itself does not change.
 
-### 19.4 Policy
+### 19.5 Policy
 
 All policy configuration — including model allowlists, rate limits, action permissions, tier assignments — is managed through policy endpoints. Policy is the single source of truth for "what is this Kubex allowed to do."
 
@@ -200,7 +295,7 @@ All policy configuration — including model allowlists, rate limits, action per
 
 Policy covers: action permissions, model allowlists, rate limit thresholds, tier assignments, inter-agent communication rules, egress allowlists/blocklists.
 
-### 19.5 Egress Control
+### 19.6 Egress Control
 
 | Method | Path | Purpose | Called By |
 |---|---|---|---|
@@ -211,7 +306,7 @@ Policy covers: action permissions, model allowlists, rate limit thresholds, tier
 
 Maps to the Gateway's Egress Proxy (Section 13.9). Each Kubex has an allowlist of external APIs it can call. Global defaults apply unless overridden per-Kubex.
 
-### 19.6 Boundary Management
+### 19.7 Boundary Management
 
 | Method | Path | Purpose | Called By |
 |---|---|---|---|
@@ -220,7 +315,7 @@ Maps to the Gateway's Egress Proxy (Section 13.9). Each Kubex has an allowlist o
 | `GET /boundary/{name}/policy` | Get boundary-specific policy rules | Command Center, Gateway |
 | `PUT /boundary/{name}/policy` | Update boundary policy rules | Command Center |
 
-### 19.7 Secrets Management
+### 19.8 Secrets Management
 
 | Method | Path | Purpose | Called By |
 |---|---|---|---|
@@ -231,7 +326,7 @@ Maps to the Gateway's Egress Proxy (Section 13.9). Each Kubex has an allowlist o
 
 Secret values are **never returned** via the API. Only key names and metadata (last rotated, created by). Ties into Section 17.5 — evaluate `openclaw secrets` integration for per-Kubex secrets management.
 
-### 19.8 OpenClaw Instance Management
+### 19.9 OpenClaw Instance Management
 
 Each Kubex runs an OpenClaw instance. These endpoints manage the OpenClaw runtime inside each container.
 
@@ -243,7 +338,7 @@ Each Kubex runs an OpenClaw instance. These endpoints manage the OpenClaw runtim
 | `POST /kubex/{id}/openclaw/security-audit` | Trigger `openclaw security audit` (Section 17.5) | Command Center |
 | `GET /kubex/{id}/openclaw/security-audit` | Get latest security audit results | Command Center |
 
-### 19.9 Approval Queue (Human-in-the-Loop)
+### 19.10 Approval Queue (Human-in-the-Loop)
 
 High-tier actions require human approval (Section 3). Command Center is where approvals happen.
 
@@ -257,7 +352,7 @@ High-tier actions require human approval (Section 3). Command Center is where ap
 
 Approval requests include the frozen execution plan (Section 17 — adopt `system.run.prepare` pattern). What was approved is exactly what executes — no changes between approval and execution.
 
-### 19.10 Mission Control & Observability
+### 19.11 Mission Control & Observability
 
 Real-time monitoring and activity feeds for each Kubex and the swarm as a whole.
 
@@ -299,7 +394,7 @@ Real-time monitoring and activity feeds for each Kubex and the swarm as a whole.
 | `GET /broker/dead-letters` | List failed/undeliverable messages | Command Center |
 | `POST /broker/dead-letters/{id}/retry` | Retry a dead letter message | Command Center |
 
-### 19.11 API Summary
+### 19.12 API Summary
 
 ```mermaid
 graph TD
@@ -325,7 +420,7 @@ graph TD
 
 **Total: ~61 endpoints** across 11 categories. The Gateway only calls lifecycle endpoints (`POST /kubex` for `activate_kubex` actions) and reads policy/egress for enforcement. Command Center has full access to everything.
 
-### 19.12 Action Items
+### 19.13 Action Items
 
 - [ ] Generate OpenAPI 3.0 spec for all endpoints
 - [ ] Implement Kubex lifecycle endpoints (MVP priority)

@@ -19,6 +19,14 @@ This project is developing an **Agent AI Pipeline** that will allow the company 
 - Prompt injection defense is a first-class architectural concern.
 - Human-in-the-loop is mandatory for high-risk actions.
 
+## Agent Design Philosophy — Stem Cell Kubex
+- Every Kubex is a stem cell: one universal base image, specialized at spawn time via skills + config.
+- Capable by default, constrained by policy. Don't hardcode limitations into agent images.
+- Skills are markdown files injected into the LLM prompt. Any Kubex can pick up any skill.
+- If an agent needs runtime tools or dependencies, it requests the action through the policy pipeline (allowed/blocked/ESCALATE).
+- No per-agent Dockerfiles — Kubex Manager injects skills + config dynamically at spawn.
+- New capabilities = new skill files, not new Docker builds.
+
 ## Testing Standards
 - Every PR must include tests for changed code. No exceptions.
 - `kubex-common` changes require unit tests (minimum 90% coverage on changed code).

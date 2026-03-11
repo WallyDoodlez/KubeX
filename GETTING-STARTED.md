@@ -219,6 +219,30 @@ The CLI will poll for the result and display it when complete (timeout: 60s).
 
 ## 6. Agent System
 
+### The Stem Cell Model
+
+Kubexes follow a **stem cell architecture**: every agent starts as the same universal base image (`agents/_base/`) and is specialized at spawn time through configuration and skill injection. There are no per-agent Dockerfiles in the target architecture -- a new agent is just a `config.yaml` + skill files (Markdown), and any Kubex can run any combination of skills.
+
+```mermaid
+flowchart LR
+    BASE["Universal Base Image\nagents/_base/"] --> SPAWN["Spawn-Time Injection"]
+    SPAWN --> CFG["config.yaml\nIdentity, capabilities,\nmodel, policy, budget"]
+    SPAWN --> SKILLS["Skills (.md files)\nAppended to system prompt\nPortable across agents"]
+    SPAWN --> POLICY["Policy Pipeline\nRuntime needs requested\nvia ActionRequest"]
+    CFG --> KUBEX["Specialized Kubex\nReady to work"]
+    SKILLS --> KUBEX
+    POLICY --> KUBEX
+```
+
+**Key properties:**
+- **Universal base** -- every Kubex runs the same OpenClaw runtime and harness code
+- **Skills are portable** -- write a `.md` file describing a capability and any Kubex can use it; no code changes needed
+- **Config-only differentiation** -- identity, capabilities, model selection, and policy are all declared in `config.yaml`
+- **Runtime needs via policy** -- agents request actions (HTTP calls, code execution, etc.) through the Gateway policy pipeline; they do not get blanket permissions baked into the image
+- **No API keys in containers** -- the Gateway proxies all LLM calls and injects credentials transparently
+
+> **Note:** The current implementation still uses per-agent Dockerfiles (see `agents/*/Dockerfile`). This is transitional -- each Dockerfile copies the same base harness and differs only in which `config.yaml` and skills are included. The target architecture replaces these with a single image and mount-based configuration.
+
 ### How Agents Work
 
 Agents are Docker containers running the **standalone harness** (`agents/_base/kubex_harness/standalone.py`). Each agent:

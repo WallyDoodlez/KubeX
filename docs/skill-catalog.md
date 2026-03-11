@@ -4,6 +4,42 @@ Skills are the building blocks of KubexClaw agents. Each skill defines what an a
 
 ---
 
+## The Stem Cell Principle
+
+Skills are the **primary differentiation mechanism** for Kubexes. Every Kubex starts from the same universal `kubexclaw-base` Docker image — a blank stem cell with no specialized behavior. What transforms a generic stem cell into a web scraper, a code reviewer, or a research analyst is the set of skill Markdown files injected into its `/app/skills/` directory at spawn time.
+
+This means:
+
+- **No per-agent Docker images.** Creating a new agent type never requires building a new container image. You write a skill (a Markdown file plus an optional manifest), and any Kubex can pick it up.
+- **Portable by design.** Skills are not tied to a specific Kubex instance. The same `web-scraping` skill can run on any Kubex in any boundary. Move a skill from one agent to another by changing the spawn request — no rebuild, no redeploy of images.
+- **Policy-gated injection.** The Kubex Manager controls which skills a Kubex is allowed to receive. Boundary-level allowlists and global blocklists ensure that skill assignment respects security policy. See [kubex-manager.md Section 19.3](kubex-manager.md#193-dynamic-skill-injection-stem-cell-model) for the injection flow.
+- **System prompt is the differentiator.** At runtime, the agent harness loads all `.md` files from `/app/skills/` and injects them into the LLM's system prompt. This is how the LLM knows what it is, what it can do, and how to behave. The skill file is the agent's identity.
+
+```mermaid
+flowchart LR
+    subgraph "Skill Catalog"
+        S1[web-scraping<br/>AGENTS.md]
+        S2[data-analysis<br/>AGENTS.md]
+        S3[code-review<br/>AGENTS.md]
+        S4[research<br/>AGENTS.md]
+    end
+
+    BASE[kubexclaw-base<br/>stem cell image]
+
+    subgraph "Spawn: mount skills"
+        BASE --> K1[Kubex A<br/>web-scraping + research]
+        BASE --> K2[Kubex B<br/>data-analysis]
+        BASE --> K3[Kubex C<br/>code-review]
+    end
+
+    S1 -.->|mounted| K1
+    S4 -.->|mounted| K1
+    S2 -.->|mounted| K2
+    S3 -.->|mounted| K3
+```
+
+---
+
 ## 1. Skill Manifest Schema
 
 Every skill is defined by a `skill.yaml` manifest file. This is the single source of truth for the skill's identity, requirements, capabilities, policies, composition rules, and user-configurable options.
@@ -579,21 +615,34 @@ Kubex Manager checks version compatibility at deploy time:
 
 ## 7. Skill Loading at Runtime
 
-When Kubex Manager deploys an agent, it assembles the runtime configuration from the skill manifest:
+When Kubex Manager deploys an agent, it creates a container from the universal `kubexclaw-base` image and mounts the requested skill files into it. No custom Docker image is built — the base image is always the same. The skill files are what differentiate the agent.
+
+The Kubex Manager assembles the runtime configuration from the skill manifests:
+
+1. **Policy check** — Kubex Manager asks the Policy Engine whether the requesting boundary is allowed to use the requested skills. Denied skills are rejected before any container is created.
+2. **Skill resolution** — For each approved skill, Kubex Manager locates the `AGENTS.md` and `skill.yaml` in the skill catalog directory.
+3. **Config assembly** — Capabilities are unioned, policies are merged (most restrictive wins), and resource limits are computed from the skill manifests.
+4. **Container creation** — `kubexclaw-base` is started with `/app/skills/` populated via read-only bind mounts of each skill's `AGENTS.md` file.
+5. **Harness injection** — On boot, the agent harness (`kubex-common`) reads all `.md` files from `/app/skills/` and concatenates them into the LLM system prompt. This is the moment the generic stem cell becomes a specialized agent.
 
 ```mermaid
 flowchart LR
     A[skill.yaml] --> B[Kubex Manager]
     C[AGENTS.md] --> B
     D[tools/] --> B
-    B --> E[Build container config]
+    B --> PA{Policy Engine<br/>allows skills?}
+    PA -->|Denied| REJECT[Reject spawn]
+    PA -->|Allowed| E[Build container config]
     E --> F[Set Docker labels<br/>kubex.agent_id, kubex.boundary]
     E --> G[Mount tools as<br/>MCP server config]
-    E --> H[Inject AGENTS.md as<br/>system prompt]
+    E --> H[Mount AGENTS.md into<br/>/app/skills/ read-only]
     E --> I[Register capabilities<br/>in Kubex Registry]
     E --> J[Apply policy rules<br/>to Gateway config]
-    F & G & H & I & J --> K[Start Kubex container]
+    F & G & H & I & J --> K[Start kubexclaw-base container]
+    K --> L[Harness loads /app/skills/*.md<br/>into LLM system prompt]
 ```
+
+This approach means creating a new type of agent is as simple as writing a new skill Markdown file and referencing it in a spawn request. No Docker builds, no CI pipelines for agent images, no image registry management.
 
 ---
 
@@ -607,3 +656,7 @@ flowchart LR
 - [ ] Build custom skill scaffolding command
 - [ ] Implement skill version compatibility checking
 - [ ] Write AGENTS.md templates for each built-in skill
+- [ ] Implement `/app/skills/` bind mount assembly in Kubex Manager spawn handler
+- [ ] Implement policy-gated skill injection (boundary allowlists, global blocklists)
+- [ ] Verify harness loads all `/app/skills/*.md` files into LLM system prompt at boot
+- [ ] Document skill authoring guide (how to create a new agent type without a Docker image)

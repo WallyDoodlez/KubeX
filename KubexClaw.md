@@ -1,6 +1,6 @@
 # KubexClaw — Agent AI Pipeline Architecture
 
-KubexClaw is the company's Agent AI Pipeline — an infrastructure for deploying AI agents as autonomous "employees" performing real work across company workflows. It is built on OpenClaw as the agent runtime, with a security-first design that treats every agent as an untrusted workload, enforces least-privilege isolation, and gates all actions through a deterministic Policy Engine before execution. The monorepo is organized around a shared contract library (`kubex-common`) that all services and agents depend on for schemas, auth primitives, and audit format.
+KubexClaw is the company's Agent AI Pipeline — an infrastructure for deploying AI agents as autonomous "employees" performing real work across company workflows. It follows a **stem cell model**: every Kubex starts as the same universal base container and is specialized at spawn time through skill injection and configuration, not custom Docker images. A new agent is a `config.yaml` + skills (Markdown files), not a new codebase. The system is built on OpenClaw as the agent runtime, with a security-first design that treats every agent as an untrusted workload, enforces least-privilege isolation, and gates all actions through a deterministic Policy Engine before execution. The monorepo is organized around a shared contract library (`kubex-common`) that all services and agents depend on for schemas, auth primitives, and audit format.
 
 ---
 

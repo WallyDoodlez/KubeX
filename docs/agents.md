@@ -4,6 +4,53 @@
 
 ---
 
+## The Stem Cell Kubex — Design Philosophy
+
+**Every Kubex is a stem cell.** There is one universal base image (`kubexclaw-base`), and every agent is specialized entirely at spawn time through skills and configuration. No per-agent Dockerfiles exist in the target architecture — the Kubex Manager injects skills and config dynamically when it creates a container.
+
+### Core Principles
+
+- **Capable by default, constrained by policy.** The base image ships with the full OpenClaw runtime and agent harness. Agents are not crippled upfront with hardcoded limitations — instead, the policy engine decides what each agent is allowed to do at runtime.
+- **Skills are markdown files** injected into the LLM system prompt. Any Kubex can pick up any skill. A skill is just a `.md` file describing a capability, its parameters, and its expected behavior.
+- **A Kubex's identity = its skill loadout + config, NOT its Docker image.** Two containers running the same `kubexclaw-base` image become completely different agents based on what skills and config they receive at spawn time.
+- **Runtime dependencies flow through the action pipeline.** If a Kubex needs tools or packages at runtime (e.g., `pip install`, system utilities), it requests the action through the normal action pipeline. The policy gate decides: allowed actions execute, blocked actions are denied, unknown actions ESCALATE.
+- **Escalation is the safety net.** Unknown actions route to a non-colluding reviewer model (o3-mini) for evaluation. If the reviewer cannot decide, the action escalates to human-in-the-loop approval. This means agents can request capabilities that were never anticipated — the system handles them safely without pre-authorization.
+- **New capabilities emerge without rebuilding images.** To give the swarm a new ability, write a new skill `.md` file and assign it to a Kubex via config. No Docker builds, no deployments, no code changes.
+
+### Spawn Flow
+
+```mermaid
+sequenceDiagram
+    participant KM as Kubex Manager
+    participant C as Container (kubexclaw-base)
+    participant H as Agent Harness
+    participant LLM as LLM (via Gateway)
+    participant R as Registry
+    participant B as Broker
+
+    KM->>C: Create container from universal base image
+    KM->>C: Mount skills (.md files) + config (config.yaml)
+    C->>H: Kubex boots → harness starts
+    H->>H: Load skill .md files into LLM system prompt
+    H->>R: Register capabilities with Registry
+    H->>B: Start consuming tasks from Broker
+    Note over H,LLM: Kubex is now live — identity determined<br/>entirely by injected skills + config
+```
+
+### Why This Matters
+
+| Traditional Approach | Stem Cell Kubex |
+|---------------------|-----------------|
+| One Dockerfile per agent type | One universal base image for all agents |
+| New capability = new image build + deploy | New capability = write a `.md` file, assign via config |
+| Agent identity baked into code | Agent identity is pure configuration |
+| Hardcoded permissions per image | Dynamic policy evaluation at runtime |
+| Unknown actions fail | Unknown actions ESCALATE to reviewer + human |
+
+This philosophy means the system scales in capability without scaling in infrastructure complexity. The Kubex Manager becomes the single control point — it decides what each stem cell differentiates into.
+
+---
+
 ### 13.1 First Batch of Agents & Kubex Identity Model
 
 **Question:** What specific workflows/tasks should the first batch of agents handle?

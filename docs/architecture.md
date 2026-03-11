@@ -18,6 +18,43 @@
 
 ---
 
+## Core Design Principles
+
+### Security-First
+
+Every agent is treated as an untrusted workload. No agent gets more access than its task requires (least privilege). Prompt injection defense is a first-class architectural concern. Human-in-the-loop is mandatory for high-risk actions. These constraints are enforced throughout every layer — see Sections 1, 3, and 5.
+
+### Stem Cell Architecture
+
+Every Kubex is a universal, undifferentiated agent container. Specialization happens at spawn time through skill injection and configuration, not at build time through custom Docker images.
+
+- **One base image** (`kubexclaw-base`) for all agents — no per-agent Dockerfiles
+- **Skills** (markdown files) are mounted by Kubex Manager at container launch
+- **Config** (capabilities, policies, model preferences) is injected at spawn time via `config.yaml`
+- **Capable by default, constrained by policy** — agents aren't limited by hardcoded dependencies but by policy rules
+- **Runtime needs** (pip packages, tools) are requested through the action pipeline and gated by policy + escalation
+- **New agent types = new skill files**, not new Docker builds
+
+```mermaid
+flowchart LR
+    BASE["kubexclaw-base\n(universal image)"] --> SPAWN["Kubex Manager\nspawn request"]
+    SPAWN --> |"mount skills/"| KUBEX["Running Kubex"]
+    SPAWN --> |"inject config.yaml"| KUBEX
+    SPAWN --> |"apply policy"| KUBEX
+
+    SKILL_A["skills/web-scraping.md"] -.-> SPAWN
+    SKILL_B["skills/recall.md"] -.-> SPAWN
+    CONFIG["config.yaml\ncapabilities, model, limits"] -.-> SPAWN
+
+    style BASE fill:#264653,stroke:#fff,color:#fff
+    style SPAWN fill:#e76f51,stroke:#fff,color:#fff
+    style KUBEX fill:#1a1a2e,stroke:#e94560,color:#fff
+```
+
+This means deploying a new agent type is an operations task (write a skill file, define a config), not an engineering task (write code, build an image, update CI). The base image changes only when the platform itself changes.
+
+---
+
 ## 1. Isolation Architecture
 
 **Decision:** Each agent runs as a **Kubex** — an isolated Docker container wrapping an OpenClaw instance, with its own dedicated network, scoped secrets, and resource limits.
