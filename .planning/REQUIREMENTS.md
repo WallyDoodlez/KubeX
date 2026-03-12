@@ -75,33 +75,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BASE-01 | — | Pending |
-| BASE-02 | — | Pending |
-| BASE-03 | — | Pending |
-| BASE-04 | — | Pending |
-| SKIL-01 | — | Pending |
-| SKIL-02 | — | Pending |
-| SKIL-03 | — | Pending |
-| SKIL-04 | — | Pending |
-| KMGR-01 | — | Pending |
-| KMGR-02 | — | Pending |
-| KMGR-03 | — | Pending |
-| KMGR-04 | — | Pending |
-| KMGR-05 | — | Pending |
-| PSEC-01 | — | Pending |
-| PSEC-02 | — | Pending |
-| PSEC-03 | — | Pending |
-| MIGR-01 | — | Pending |
-| MIGR-02 | — | Pending |
-| MIGR-03 | — | Pending |
-| MIGR-04 | — | Pending |
-| MIGR-05 | — | Pending |
+| BASE-01 | Phase 5 | Pending |
+| BASE-02 | Phase 5 | Pending |
+| BASE-03 | Phase 5 | Pending |
+| BASE-04 | Phase 5 | Pending |
+| SKIL-01 | Phase 5 | Pending |
+| SKIL-02 | Phase 5 | Pending |
+| SKIL-03 | Phase 5 | Pending |
+| SKIL-04 | Phase 5 | Pending |
+| KMGR-01 | Phase 6 | Pending |
+| KMGR-02 | Phase 6 | Pending |
+| KMGR-03 | Phase 6 | Pending |
+| KMGR-04 | Phase 6 | Pending |
+| KMGR-05 | Phase 6 | Pending |
+| PSEC-01 | Phase 6 | Pending |
+| PSEC-02 | Phase 6 | Pending |
+| PSEC-03 | Phase 6 | Pending |
+| MIGR-01 | Phase 7 | Pending |
+| MIGR-02 | Phase 7 | Pending |
+| MIGR-03 | Phase 7 | Pending |
+| MIGR-04 | Phase 7 | Pending |
+| MIGR-05 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 21 total
-- Mapped to phases: 0
-- Unmapped: 21 (pending roadmap creation)
+- Mapped to phases: 21
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-12*
-*Last updated: 2026-03-12 after initial definition*
+*Last updated: 2026-03-12 — traceability filled after roadmap creation*
