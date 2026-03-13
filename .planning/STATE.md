@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stem Cell Kubex
-status: planning
-stopped_at: Phase 5 context gathered
-last_updated: "2026-03-13T04:35:00.943Z"
-last_activity: 2026-03-12 — Roadmap revised (implement-feature workflow enforced on all phases)
+status: in-progress
+stopped_at: Completed 05-01-PLAN.md (red tests for Phase 5)
+last_updated: "2026-03-13T21:52:12Z"
+last_activity: 2026-03-13 — Phase 5 plan 01 complete (red tests: 46 new skip/xfail tests for BASE-01..04, SKIL-01..04)
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 9
+  completed_plans: 1
+  percent: 11
 ---
 
 # Project State
@@ -26,26 +26,26 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 Phase: 5 of 7 (Base Image and Skill Schema)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-03-12 — Roadmap revised (implement-feature workflow enforced on all phases)
+Plan: 1 of 3 in current phase (completed)
+Status: In progress — plan 01 done, plan 02 next
+Last activity: 2026-03-13 — Phase 5 plan 01 complete (red tests: 46 new skip/xfail tests for BASE-01..04, SKIL-01..04)
 
-Progress: [░░░░░░░░░░] 0% (v1.1 scope)
+Progress: [█░░░░░░░░░] 11% (v1.1 scope, 1 of 9 plans done)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0 (v1.1 scope)
-- Average duration: —
-- Total execution time: —
+- Total plans completed: 1 (v1.1 scope)
+- Average duration: ~9 min
+- Total execution time: ~9 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| — | — | — | — |
+| 05-base-image-and-skill-schema | 1/3 | 9 min | 9 min |
 
-**Recent Trend:** No data yet.
+**Recent Trend:** 1 plan complete.
 
 *Updated after each plan completion*
 
@@ -60,6 +60,9 @@ Recent decisions affecting current work:
 - [Roadmap]: Boot-time dependencies from config are trusted (no policy gate). Only post-boot runtime requests go through the policy pipeline.
 - [Roadmap]: Coarse granularity — 3 phases for v1.1 (phases 5, 6, 7 in continuous numbering).
 - [Roadmap Revision]: Every phase follows the implement-feature workflow: write failing E2E tests first (red), implement to pass them (green), then verify no regressions. This is a hard rule from CLAUDE.md. Each phase's 3 plans are structured as: (1) red tests, (2) green implementation, (3) regression verification.
+- [05-01]: importorskip at module level (not per-test) so all tests in the file skip as one unit when the module is absent.
+- [05-01]: SKIL-02 uses xfail rather than skipif because create_kubex() exists but doesn't yet accept skill_mounts.
+- [05-01]: E2E tests skip on Docker daemon absence (not xfail) to distinguish environment gap from implementation gap.
 
 ### Pending Todos
 
@@ -73,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T04:35:00.941Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-base-image-and-skill-schema/05-CONTEXT.md
+Last session: 2026-03-13T21:52:12Z
+Stopped at: Completed 05-01-PLAN.md (red tests for Phase 5)
+Resume file: .planning/phases/05-base-image-and-skill-schema/05-02-PLAN.md

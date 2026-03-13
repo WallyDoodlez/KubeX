@@ -82,6 +82,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-4. MVP | v1.0 | — | Complete | 2026-03-09 |
-| 5. Base Image and Skill Schema | v1.1 | 0/3 | Not started | - |
+| 5. Base Image and Skill Schema | 1/3 | In Progress|  | - |
 | 6. Manager Spawn Logic and Policy Gates | v1.1 | 0/3 | Not started | - |
 | 7. Agent Migration and Dockerfile Removal | v1.1 | 0/3 | Not started | - |

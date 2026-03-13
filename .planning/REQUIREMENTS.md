@@ -7,17 +7,17 @@
 
 ### Base Image
 
-- [ ] **BASE-01**: Single `kubexclaw-base` Docker image used by all agents (orchestrator, workers, any future agent)
-- [ ] **BASE-02**: Container reads config at boot and self-configures (skills, tools, model, dependencies)
-- [ ] **BASE-03**: Container downloads all config-specified dependencies at boot (pip packages, CLI tools like OpenClaw)
-- [ ] **BASE-04**: Harness loads tools from config (orchestrator tools, worker tools — same harness, different config)
+- [x] **BASE-01**: Single `kubexclaw-base` Docker image used by all agents (orchestrator, workers, any future agent)
+- [x] **BASE-02**: Container reads config at boot and self-configures (skills, tools, model, dependencies)
+- [x] **BASE-03**: Container downloads all config-specified dependencies at boot (pip packages, CLI tools like OpenClaw)
+- [x] **BASE-04**: Harness loads tools from config (orchestrator tools, worker tools — same harness, different config)
 
 ### Skill System
 
-- [ ] **SKIL-01**: `skill.yaml` manifest schema defining capabilities, resources, and dependencies per skill
-- [ ] **SKIL-02**: Skills mounted into containers via Docker bind mounts at spawn
-- [ ] **SKIL-03**: Skill composition — multiple skills per agent, resolved by SkillResolver
-- [ ] **SKIL-04**: Skill content validation before injection into LLM prompt (prompt injection defense)
+- [x] **SKIL-01**: `skill.yaml` manifest schema defining capabilities, resources, and dependencies per skill
+- [x] **SKIL-02**: Skills mounted into containers via Docker bind mounts at spawn
+- [x] **SKIL-03**: Skill composition — multiple skills per agent, resolved by SkillResolver
+- [x] **SKIL-04**: Skill content validation before injection into LLM prompt (prompt injection defense)
 
 ### Kubex Manager
 
@@ -75,14 +75,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BASE-01 | Phase 5 | Pending |
-| BASE-02 | Phase 5 | Pending |
-| BASE-03 | Phase 5 | Pending |
-| BASE-04 | Phase 5 | Pending |
-| SKIL-01 | Phase 5 | Pending |
-| SKIL-02 | Phase 5 | Pending |
-| SKIL-03 | Phase 5 | Pending |
-| SKIL-04 | Phase 5 | Pending |
+| BASE-01 | Phase 5 | Complete |
+| BASE-02 | Phase 5 | Complete |
+| BASE-03 | Phase 5 | Complete |
+| BASE-04 | Phase 5 | Complete |
+| SKIL-01 | Phase 5 | Complete |
+| SKIL-02 | Phase 5 | Complete |
+| SKIL-03 | Phase 5 | Complete |
+| SKIL-04 | Phase 5 | Complete |
 | KMGR-01 | Phase 6 | Pending |
 | KMGR-02 | Phase 6 | Pending |
 | KMGR-03 | Phase 6 | Pending |
