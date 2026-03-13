@@ -31,9 +31,16 @@ ENV KUBEX_PROGRESS_BUFFER_MS=500
 ENV KUBEX_PROGRESS_MAX_CHUNK_KB=16
 ENV KUBEX_ABORT_GRACE_PERIOD_S=30
 
+# Mount points for specialization (injected by Kubex Manager at spawn time):
+#   /app/config.yaml    — agent identity, model, skills, harness_mode
+#   /app/skills/        — skill directories bind-mounted read-only per skill
+#   /run/secrets/       — LLM provider credential directories (read-only)
+LABEL kubex.config_mount="/app/config.yaml"
+LABEL kubex.skills_mount="/app/skills"
+
 # Healthcheck — standalone agent has no HTTP server, so just check the process
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
     CMD pgrep -f "kubex_harness" || exit 1
 
-# Run the standalone agent loop (polls broker, calls LLM, reports results)
-CMD ["python", "-m", "kubex_harness.standalone"]
+# Run the unified harness entry point — routes to standalone or openclaw based on config
+CMD ["python", "-m", "kubex_harness.main"]

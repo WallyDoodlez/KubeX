@@ -2,18 +2,19 @@
 # kubex-harness entrypoint script
 #
 # Bootstrap sequence:
-#   1. Create ~/.openclaw/ directory
-#   2. Write ~/.openclaw/openclaw.json from mounted config (if present)
-#   3. Load skills into ~/.openclaw/skills/ (if any)
-#   4. Invoke kubex-harness Python module
+#   1. Install pip/system dependencies from env vars (BASE-03)
+#   2. Create ~/.openclaw/ directory
+#   3. Write ~/.openclaw/openclaw.json from mounted config (if present)
+#   4. Load skills into ~/.openclaw/skills/ (if any)
+#   5. Invoke kubex-harness Python module
 #
 # Required env vars (set by Kubex Manager):
 #   KUBEX_AGENT_ID       — agent identity
-#   KUBEX_TASK_ID        — task being executed
-#   KUBEX_TASK_MESSAGE   — natural language task message
 #   GATEWAY_URL          — gateway base URL for progress posting
 #
 # Optional env vars:
+#   KUBEX_PIP_DEPS        — space-separated pip packages to install at boot
+#   KUBEX_SYSTEM_DEPS     — space-separated apt packages to install at boot
 #   KUBEX_PROGRESS_BUFFER_MS      — progress chunk buffer time (ms)
 #   KUBEX_PROGRESS_MAX_CHUNK_KB   — max progress chunk size (KB)
 #   KUBEX_ABORT_GRACE_PERIOD_S    — cancellation grace period (seconds)
@@ -22,13 +23,37 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# Step 1: Create openclaw config directory
+# Step 1: Install runtime dependencies (BASE-03)
+# ---------------------------------------------------------------------------
+
+if [ -n "${KUBEX_PIP_DEPS:-}" ]; then
+    echo "[entrypoint] Installing pip dependencies: ${KUBEX_PIP_DEPS}"
+    # shellcheck disable=SC2086
+    pip install --no-cache-dir --quiet ${KUBEX_PIP_DEPS} || {
+        echo "[entrypoint] FATAL: pip install failed for: ${KUBEX_PIP_DEPS}"
+        exit 1
+    }
+    echo "[entrypoint] pip dependencies installed: ${KUBEX_PIP_DEPS}"
+fi
+
+if [ -n "${KUBEX_SYSTEM_DEPS:-}" ]; then
+    echo "[entrypoint] Installing system dependencies: ${KUBEX_SYSTEM_DEPS}"
+    # shellcheck disable=SC2086
+    apt-get update -qq && apt-get install -y --no-install-recommends ${KUBEX_SYSTEM_DEPS} || {
+        echo "[entrypoint] FATAL: apt install failed for: ${KUBEX_SYSTEM_DEPS}"
+        exit 1
+    }
+    echo "[entrypoint] system dependencies installed: ${KUBEX_SYSTEM_DEPS}"
+fi
+
+# ---------------------------------------------------------------------------
+# Step 2: Create openclaw config directory
 # ---------------------------------------------------------------------------
 OPENCLAW_CONFIG_DIR="${HOME}/.openclaw"
 mkdir -p "${OPENCLAW_CONFIG_DIR}/skills"
 
 # ---------------------------------------------------------------------------
-# Step 2: Write openclaw.json from mounted config (if available)
+# Step 3: Write openclaw.json from mounted config (if available)
 # ---------------------------------------------------------------------------
 OPENCLAW_CONFIG_SRC="/run/secrets/openclaw.json"
 OPENCLAW_CONFIG_DEST="${OPENCLAW_CONFIG_DIR}/openclaw.json"
@@ -52,7 +77,7 @@ EOF
 fi
 
 # ---------------------------------------------------------------------------
-# Step 3: Load skills into ~/.openclaw/skills/
+# Step 4: Load skills into ~/.openclaw/skills/
 # ---------------------------------------------------------------------------
 SKILLS_SRC_DIR="/app/skills"
 if [ -d "${SKILLS_SRC_DIR}" ]; then
@@ -61,7 +86,7 @@ if [ -d "${SKILLS_SRC_DIR}" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Step 4: Invoke kubex-harness
+# Step 5: Invoke kubex-harness (unified entry point — routes by harness_mode)
 # ---------------------------------------------------------------------------
-echo "[entrypoint] Starting kubex-harness for agent=${KUBEX_AGENT_ID} task=${KUBEX_TASK_ID}"
+echo "[entrypoint] Starting kubex-harness for agent=${KUBEX_AGENT_ID:-unknown}"
 exec python -m kubex_harness.main
