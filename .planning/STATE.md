@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stem Cell Kubex
-status: in-progress
-stopped_at: Completed 05-01-PLAN.md (red tests for Phase 5)
-last_updated: "2026-03-13T21:52:12Z"
-last_activity: 2026-03-13 — Phase 5 plan 01 complete (red tests: 46 new skip/xfail tests for BASE-01..04, SKIL-01..04)
+status: executing
+stopped_at: Completed 05-02-PLAN.md (green implementation for Phase 5)
+last_updated: "2026-03-13T22:09:21.133Z"
+last_activity: "2026-03-13 — Phase 5 plan 01 complete (red tests: 46 new skip/xfail tests for BASE-01..04, SKIL-01..04)"
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 9
-  completed_plans: 1
+  total_plans: 3
+  completed_plans: 2
   percent: 11
 ---
 
@@ -48,6 +48,7 @@ Progress: [█░░░░░░░░░] 11% (v1.1 scope, 1 of 9 plans done)
 **Recent Trend:** 1 plan complete.
 
 *Updated after each plan completion*
+| Phase 05-base-image-and-skill-schema P02 | 12 | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Recent decisions affecting current work:
 - [05-01]: importorskip at module level (not per-test) so all tests in the file skip as one unit when the module is absent.
 - [05-01]: SKIL-02 uses xfail rather than skipif because create_kubex() exists but doesn't yet accept skill_mounts.
 - [05-01]: E2E tests skip on Docker daemon absence (not xfail) to distinguish environment gap from implementation gap.
+- [Phase 05-02]: config_loader creates harness-specific AgentConfig (agent_id, model, harness_mode) not kubex_common AgentConfig — decouples harness boot config from richer kubex schema
+- [Phase 05-02]: ValidationStamp only issued for clean skills; stamp=None for dirty — makes clean/dirty distinction unambiguous in code
+- [Phase 05-02]: SkillResolver reads manifest.yaml first then skill.yaml for backward compat with existing skill directories
 
 ### Pending Todos
 
@@ -76,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T21:52:12Z
-Stopped at: Completed 05-01-PLAN.md (red tests for Phase 5)
-Resume file: .planning/phases/05-base-image-and-skill-schema/05-02-PLAN.md
+Last session: 2026-03-13T22:09:21.131Z
+Stopped at: Completed 05-02-PLAN.md (green implementation for Phase 5)
+Resume file: None
