@@ -1,0 +1,22 @@
+# Skill content blocklist — seed injection patterns (SKIL-04)
+#
+# Each non-comment, non-empty line is a case-insensitive substring pattern.
+# Skills whose SKILL.md content contains any of these phrases are flagged
+# as potentially containing prompt injection and will not receive a ValidationStamp.
+#
+# Pattern IDs are documented in the RESEARCH.md for Phase 5.
+
+# Pattern 1: Ignore previous instructions (most common injection vector)
+- ignore previous instructions
+
+# Pattern 2: Disregard system prompt
+- disregard system prompt
+
+# Pattern 3: Role hijacking — "you are now"
+- you are now
+
+# Pattern 4: Jailbreak / do-anything vector
+- jailbreak
+
+# Pattern 5: Data exfiltration command
+- exfiltrate data

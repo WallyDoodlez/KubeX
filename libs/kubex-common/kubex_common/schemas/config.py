@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelTier(BaseModel):
@@ -70,19 +72,54 @@ class AgentConfig(BaseModel):
     providers: list[str] = Field(default_factory=list, description="Required LLM providers (e.g., ['anthropic'])")
 
 
+# ---------------------------------------------------------------------------
+# Skill schema — Phase 5 new schema (BASE-01, SKIL-01)
+# ---------------------------------------------------------------------------
+
+
+class SkillDependencies(BaseModel):
+    """Dependencies required by a skill."""
+
+    pip: list[str] = Field(default_factory=list)
+    system: list[str] = Field(default_factory=list)
+
+
+class SkillTool(BaseModel):
+    """A tool exposed by a skill."""
+
+    name: str
+    description: str = ""
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+
+class ValidationStamp(BaseModel):
+    """Stamp applied to a skill after it passes validation."""
+
+    content_hash: str
+    validated_at: str
+    validator_version: str
+    verdict: str
+
+
 class SkillManifest(BaseModel):
-    """Skill manifest (loaded from skill.yaml)."""
+    """Skill manifest (loaded from skill.yaml / manifest.yaml).
+
+    Phase 5 rewrite: removed legacy fields (actions_required, resource_requirements,
+    system_prompt_section). Added SkillDependencies, SkillTool, ValidationStamp.
+    extra='forbid' rejects any unknown / legacy fields at parse time.
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
     name: str
     version: str = "0.1.0"
     description: str = ""
     category: str = ""
     capabilities: list[str] = Field(default_factory=list)
-    actions_required: list[str] = Field(default_factory=list)
-    tools: list[str] = Field(default_factory=list, description="Tool definition file names")
-    system_prompt_section: str = ""
+    tools: list[SkillTool] = Field(default_factory=list)
+    dependencies: SkillDependencies = Field(default_factory=SkillDependencies)
     egress_domains: list[str] = Field(default_factory=list)
-    resource_requirements: dict[str, str] = Field(default_factory=dict)
+    validation_stamp: ValidationStamp | None = None
 
 
 class BoundaryConfig(BaseModel):

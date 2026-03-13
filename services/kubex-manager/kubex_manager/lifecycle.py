@@ -68,6 +68,7 @@ class CreateKubexRequest:
     image: str = "kubexclaw-base:latest"
     gateway_url: str = GATEWAY_URL_DEFAULT
     registry_url: str = REGISTRY_URL_DEFAULT
+    skill_mounts: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -186,6 +187,15 @@ class KubexLifecycle:
             container_path = f"/run/secrets/{provider}"
             if os.path.isdir(host_path):
                 volumes[host_path] = {"bind": container_path, "mode": "ro"}
+
+        # Skill volumes (SKIL-02): bind-mount skill directories read-only
+        # Each skill is mounted at /app/skills/{skill-name} inside the container.
+        if request.skill_mounts:
+            skills_base = os.environ.get("KUBEX_SKILLS_PATH", "/app/skills")
+            for skill_name in request.skill_mounts:
+                host_skill_path = os.path.join(skills_base, skill_name)
+                container_skill_path = f"/app/skills/{skill_name}"
+                volumes[host_skill_path] = {"bind": container_skill_path, "mode": "ro"}
 
         # Create container via Docker SDK
         docker_client = docker.from_env()

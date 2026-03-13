@@ -1,66 +1,58 @@
-skill:
-  name: "web-scraping"
-  version: "0.1.0"
-  description: "Scrape public web pages and extract structured data"
-  category: "data-collection"
-
-  tools:
-    - name: "scrape_profile"
-      description: "Scrape a public social media profile and return structured JSON"
-      parameters:
-        profile_url:
-          type: string
-          required: true
-          description: "URL of the profile to scrape"
-        fields:
-          type: array
-          required: false
-          description: "Specific fields to extract (default: all available)"
-
-    - name: "scrape_posts"
-      description: "Scrape recent posts from a profile"
-      parameters:
-        profile_url:
-          type: string
-          required: true
-        limit:
-          type: integer
-          required: false
-          default: 50
-        since_days:
-          type: integer
-          required: false
-          default: 30
-
-    - name: "scrape_hashtag"
-      description: "Scrape posts under a specific hashtag"
-      parameters:
-        hashtag:
-          type: string
-          required: true
-        limit:
-          type: integer
-          required: false
-          default: 100
-
-    - name: "extract_metrics"
-      description: "Compute engagement metrics from scraped data"
-      parameters:
-        data:
-          type: object
-          required: true
-          description: "Raw scraped data to analyze"
-
-  actions:
-    required:
-      - "http_get"
-      - "write_output"
-    optional:
-      - "parse_json"
-      - "parse_html"
-
-  policy:
-    egress:
-      mode: "allowlist"
-    budget:
-      recommended_per_task_tokens: 10000
+name: "web-scraping"
+version: "0.1.0"
+description: "Scrape public web pages and extract structured data"
+category: "data-collection"
+capabilities:
+  - "scrape_web"
+  - "extract_data"
+tools:
+  - name: "scrape_profile"
+    description: "Scrape a public social media profile and return structured JSON"
+    parameters:
+      profile_url:
+        type: string
+        required: true
+        description: "URL of the profile to scrape"
+      fields:
+        type: array
+        required: false
+        description: "Specific fields to extract (default: all available)"
+  - name: "scrape_posts"
+    description: "Scrape recent posts from a profile"
+    parameters:
+      profile_url:
+        type: string
+        required: true
+      limit:
+        type: integer
+        required: false
+        default: 50
+      since_days:
+        type: integer
+        required: false
+        default: 30
+  - name: "scrape_hashtag"
+    description: "Scrape posts under a specific hashtag"
+    parameters:
+      hashtag:
+        type: string
+        required: true
+      limit:
+        type: integer
+        required: false
+        default: 100
+  - name: "extract_metrics"
+    description: "Compute engagement metrics from scraped data"
+    parameters:
+      data:
+        type: object
+        required: true
+        description: "Raw scraped data to analyze"
+dependencies:
+  pip:
+    - "requests>=2.31"
+    - "beautifulsoup4"
+  system: []
+egress_domains:
+  - "instagram.com"
+  - "twitter.com"

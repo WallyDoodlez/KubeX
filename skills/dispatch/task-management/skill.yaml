@@ -1,75 +1,62 @@
-skill:
-  name: "task-management"
-  version: "0.1.0"
-  description: "Dispatch, monitor, and manage tasks across Kubexes"
-  category: "dispatch"
-
-  tools:
-    - name: "dispatch_task"
-      description: "Dispatch a task to a worker Kubex by capability"
-      parameters:
-        capability:
-          type: string
-          required: true
-          description: "Required capability (e.g., scrape_instagram)"
-        context_message:
-          type: string
-          required: true
-          description: "Task instructions for the worker"
-        priority:
-          type: string
-          required: false
-          default: "normal"
-          enum: ["low", "normal", "high"]
-
-    - name: "check_task_status"
-      description: "Check the status of a dispatched task"
-      parameters:
-        task_id:
-          type: string
-          required: true
-
-    - name: "cancel_task"
-      description: "Cancel a running task"
-      parameters:
-        task_id:
-          type: string
-          required: true
-        reason:
-          type: string
-          required: false
-
-    - name: "report_result"
-      description: "Report task results back to the originator"
-      parameters:
-        task_id:
-          type: string
-          required: true
-        status:
-          type: string
-          required: true
-          enum: ["success", "failure", "needs_clarification"]
-        result:
-          type: object
-          required: false
-        error:
-          type: string
-          required: false
-        question:
-          type: string
-          required: false
-
-  actions:
-    required:
-      - "dispatch_task"
-      - "check_task_status"
-      - "cancel_task"
-      - "report_result"
-    optional:
-      - "query_registry"
-      - "progress_update"
-
-  policy:
-    rate_limits:
-      dispatch_task: 30/min
-      check_task_status: 60/min
+name: "task-management"
+version: "0.1.0"
+description: "Dispatch, monitor, and manage tasks across Kubexes"
+category: "dispatch"
+capabilities:
+  - "dispatch_task"
+  - "manage_tasks"
+tools:
+  - name: "dispatch_task"
+    description: "Dispatch a task to a worker Kubex by capability"
+    parameters:
+      capability:
+        type: string
+        required: true
+        description: "Required capability (e.g., scrape_instagram)"
+      context_message:
+        type: string
+        required: true
+        description: "Task instructions for the worker"
+      priority:
+        type: string
+        required: false
+        default: "normal"
+        enum: ["low", "normal", "high"]
+  - name: "check_task_status"
+    description: "Check the status of a dispatched task"
+    parameters:
+      task_id:
+        type: string
+        required: true
+  - name: "cancel_task"
+    description: "Cancel a running task"
+    parameters:
+      task_id:
+        type: string
+        required: true
+      reason:
+        type: string
+        required: false
+  - name: "report_result"
+    description: "Report task results back to the originator"
+    parameters:
+      task_id:
+        type: string
+        required: true
+      status:
+        type: string
+        required: true
+        enum: ["success", "failure", "needs_clarification"]
+      result:
+        type: object
+        required: false
+      error:
+        type: string
+        required: false
+      question:
+        type: string
+        required: false
+dependencies:
+  pip: []
+  system: []
+egress_domains: []

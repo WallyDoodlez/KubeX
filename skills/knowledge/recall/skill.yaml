@@ -1,51 +1,43 @@
-skill:
-  name: "knowledge-recall"
-  version: "0.1.0"
-  description: "Query and store information in the KubexClaw knowledge base"
-  category: "knowledge"
-  builtin: true
-
-  tools:
-    - name: "recall"
-      description: "Search the knowledge graph and document corpus for relevant information"
-      parameters:
-        query:
-          type: string
-          required: true
-          description: "Natural language query to search for"
-        entity_types:
-          type: array
-          required: false
-          description: "Filter by entity types (Person, Organization, etc.)"
-        valid_at:
-          type: string
-          required: false
-          description: "ISO timestamp for point-in-time queries"
-
-    - name: "memorize"
-      description: "Store new knowledge in the knowledge graph and document corpus"
-      parameters:
-        content:
-          type: string
-          required: true
-          description: "The knowledge content to store"
-        summary:
-          type: string
-          required: true
-          description: "Brief summary of the knowledge"
-        source:
-          type: object
-          required: false
-          description: "Source metadata (workflow_id, task_id, url)"
-
-  actions:
-    required:
-      - "query_knowledge"
-      - "store_knowledge"
-      - "search_corpus"
-
-  policy:
-    rate_limits:
-      query_knowledge: 30/min
-      store_knowledge: 10/min
-      search_corpus: 20/min
+name: "knowledge-recall"
+version: "0.1.0"
+description: "Query and store information in the KubexClaw knowledge base"
+category: "knowledge"
+capabilities:
+  - "recall_memory"
+  - "store_knowledge"
+tools:
+  - name: "recall"
+    description: "Search the knowledge graph and document corpus for relevant information"
+    parameters:
+      query:
+        type: string
+        required: true
+        description: "Natural language query to search for"
+      entity_types:
+        type: array
+        required: false
+        description: "Filter by entity types (Person, Organization, etc.)"
+      valid_at:
+        type: string
+        required: false
+        description: "ISO timestamp for point-in-time queries"
+  - name: "memorize"
+    description: "Store new knowledge in the knowledge graph and document corpus"
+    parameters:
+      content:
+        type: string
+        required: true
+        description: "The knowledge content to store"
+      summary:
+        type: string
+        required: true
+        description: "Brief summary of the knowledge"
+      source:
+        type: object
+        required: false
+        description: "Source metadata (workflow_id, task_id, url)"
+dependencies:
+  pip:
+    - "chromadb"
+  system: []
+egress_domains: []
