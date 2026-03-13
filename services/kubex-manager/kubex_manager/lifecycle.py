@@ -6,17 +6,17 @@ Registry integration, and lifecycle event publishing.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import docker  # type: ignore[import]
 import docker.errors  # type: ignore[import]
 import httpx
-
 from kubex_common.constants import NETWORK_INTERNAL
 from kubex_common.logging import get_logger
 
@@ -48,7 +48,7 @@ DEFAULT_NANO_CPUS = 500_000_000  # 0.5 CPUs in nano-CPUs
 # ---------------------------------------------------------------------------
 
 
-class KubexState(str, Enum):
+class KubexState(StrEnum):
     """Possible states of a managed Kubex container."""
 
     CREATED = "created"
@@ -301,10 +301,8 @@ class KubexLifecycle:
             container.kill()
         except docker.errors.APIError:
             # Already exited or container doesn't support kill — try stop
-            try:
+            with contextlib.suppress(Exception):
                 container.stop(timeout=0)
-            except Exception:
-                pass
 
         record.status = KubexState.DEAD.value
 

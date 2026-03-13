@@ -22,11 +22,10 @@ import docker.errors  # type: ignore[import]
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
-
 from kubex_common.errors import ErrorResponse
 from kubex_common.logging import get_logger
 from kubex_common.service import KubexService
+from pydantic import BaseModel
 
 from .lifecycle import CreateKubexRequest, KubexLifecycle, KubexRecord
 

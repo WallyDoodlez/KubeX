@@ -895,12 +895,6 @@ class TestKubexRegistryHelpers:
 class TestSkillBindMounts:
     """SKIL-02: create_kubex() bind-mounts skill directories into the container."""
 
-    @pytest.mark.xfail(
-        reason=(
-            "SKIL-02: skill bind mount not yet implemented in create_kubex() — "
-            "CreateKubexRequest does not yet accept skill_mounts; lands in plan 05-02"
-        )
-    )
     @patch("kubex_manager.lifecycle.docker.from_env")
     def test_bind_mounts_skills(self, mock_docker_env: MagicMock) -> None:
         """create_kubex() adds read-only bind mounts for each skill directory.
@@ -922,7 +916,7 @@ class TestSkillBindMounts:
 
         lifecycle = make_lifecycle()
 
-        # CreateKubexRequest will gain a skill_mounts field in 05-02.
+        # CreateKubexRequest gained skill_mounts in plan 05-02.
         # Pass skill names; the lifecycle resolves them to host paths via a
         # configured skills_base_dir (e.g. /var/kubex/skills).
         req = CreateKubexRequest(

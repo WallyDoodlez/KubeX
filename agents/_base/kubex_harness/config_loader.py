@@ -125,8 +125,7 @@ def load_agent_config(config_path: str = "/app/config.yaml") -> AgentConfig:
     # to a permissive state (let caller raise if agent_id is required).
     if not file_found and not config.agent_id:
         logger.warning(
-            "No config.yaml found at %s and KUBEX_AGENT_ID not set. "
-            "Agent will not have a valid identity.",
+            "No config.yaml found at %s and KUBEX_AGENT_ID not set. " "Agent will not have a valid identity.",
             config_path,
         )
 

@@ -86,7 +86,7 @@ class HarnessConfig:
     broker_url: str = ""
 
     @classmethod
-    def from_env(cls, env: dict[str, str] | None = None) -> "HarnessConfig":
+    def from_env(cls, env: dict[str, str] | None = None) -> HarnessConfig:
         """Load HarnessConfig from a dict of environment variables.
 
         Args:
@@ -243,7 +243,7 @@ class KubexHarness:
 
     async def _stream_output(
         self,
-        proc: "subprocess.Popen[bytes]",
+        proc: subprocess.Popen[bytes],
         http_client: httpx.AsyncClient,
     ) -> None:
         """Read stdout lines from the process and POST progress chunks to Gateway."""
@@ -285,7 +285,7 @@ class KubexHarness:
 
     async def _listen_for_cancel(
         self,
-        proc: "subprocess.Popen[bytes]",
+        proc: subprocess.Popen[bytes],
     ) -> None:
         """Subscribe to Redis control:{agent_id} channel and handle cancel commands.
 
@@ -367,7 +367,7 @@ class KubexHarness:
 
     async def _escalate_cancel(
         self,
-        proc: "subprocess.Popen[bytes]",
+        proc: subprocess.Popen[bytes],
     ) -> None:
         """Escalating cancel: abort keystroke -> SIGTERM -> SIGKILL.
 

@@ -19,6 +19,7 @@ Boot sequence:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import sys
 
@@ -64,12 +65,11 @@ async def _run() -> None:
 
         # Graceful shutdown on SIGTERM/SIGINT
         import signal
+
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGTERM, signal.SIGINT):
-            try:
+            with contextlib.suppress(NotImplementedError):  # Windows: no add_signal_handler
                 loop.add_signal_handler(sig, agent.stop)
-            except NotImplementedError:
-                pass  # Windows doesn't support add_signal_handler
 
         await agent.run()
 

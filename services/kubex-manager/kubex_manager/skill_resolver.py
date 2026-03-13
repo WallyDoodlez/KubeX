@@ -15,12 +15,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import yaml
-
-from kubex_common.schemas.config import SkillDependencies, SkillManifest, SkillTool
-
+from kubex_common.schemas.config import SkillManifest, SkillTool
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -114,9 +111,9 @@ class SkillResolver:
         """
         skill_path = skill_dir / skill_name
         if not skill_path.is_dir():
+            available = [d.name for d in skill_dir.iterdir() if d.is_dir()] if skill_dir.is_dir() else []
             raise SkillResolutionError(
-                f"Skill directory not found: {skill_path}. "
-                f"Available skills in {skill_dir}: {[d.name for d in skill_dir.iterdir() if d.is_dir()] if skill_dir.is_dir() else []}"
+                f"Skill directory not found: {skill_path}. " f"Available skills in {skill_dir}: {available}"
             )
 
         # Try manifest.yaml first, then skill.yaml
@@ -126,14 +123,10 @@ class SkillResolver:
                 try:
                     raw = yaml.safe_load(manifest_file.read_text(encoding="utf-8"))
                 except (yaml.YAMLError, OSError) as exc:
-                    raise SkillResolutionError(
-                        f"Failed to parse manifest for skill {skill_name!r}: {exc}"
-                    ) from exc
+                    raise SkillResolutionError(f"Failed to parse manifest for skill {skill_name!r}: {exc}") from exc
 
                 if not isinstance(raw, dict):
-                    raise SkillResolutionError(
-                        f"Manifest for skill {skill_name!r} is not a YAML mapping."
-                    )
+                    raise SkillResolutionError(f"Manifest for skill {skill_name!r} is not a YAML mapping.")
 
                 try:
                     return SkillManifest.model_validate(raw)
@@ -142,14 +135,10 @@ class SkillResolver:
                         f"Manifest for skill {skill_name!r} failed schema validation: {exc}"
                     ) from exc
 
-        raise SkillResolutionError(
-            f"No manifest.yaml or skill.yaml found in skill directory: {skill_path}"
-        )
+        raise SkillResolutionError(f"No manifest.yaml or skill.yaml found in skill directory: {skill_path}")
 
     @staticmethod
-    def _compose(
-        ordered_names: list[str], manifests: list[tuple[str, SkillManifest]]
-    ) -> ComposedSkillSet:
+    def _compose(ordered_names: list[str], manifests: list[tuple[str, SkillManifest]]) -> ComposedSkillSet:
         """Compose multiple skill manifests into a single ComposedSkillSet."""
         capabilities: list[str] = []
         pip_deps: list[str] = []

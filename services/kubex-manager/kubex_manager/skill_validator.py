@@ -11,14 +11,12 @@ CLI usage:
 from __future__ import annotations
 
 import hashlib
-import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
-
 
 VALIDATOR_VERSION = "1.0.0"
 
@@ -202,7 +200,7 @@ class SkillValidator:
     def _create_stamp(self, content: str) -> ValidationStamp:
         """Create a ValidationStamp for content that passed all checks."""
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
-        validated_at = datetime.now(tz=timezone.utc).isoformat()
+        validated_at = datetime.now(tz=UTC).isoformat()
         return ValidationStamp(
             content_hash=content_hash,
             validated_at=validated_at,
@@ -225,7 +223,7 @@ def _main(argv: list[str]) -> int:
     Exits 0 if all skills are clean, 1 if any are dirty.
     """
     if len(argv) < 2:
-        print("Usage: python -m kubex_manager.skill_validator <skills_dir>", file=sys.stderr)
+        sys.stderr.write("Usage: python -m kubex_manager.skill_validator <skills_dir>\n")
         return 2
 
     skills_dir = Path(argv[1])
@@ -233,37 +231,37 @@ def _main(argv: list[str]) -> int:
     # Use the default blocklist shipped with the package
     default_blocklist = Path(__file__).parent / "blocklist.yaml"
     if not default_blocklist.exists():
-        print(f"[skill_validator] WARNING: blocklist not found at {default_blocklist}", file=sys.stderr)
+        sys.stderr.write(f"[skill_validator] WARNING: blocklist not found at {default_blocklist}\n")
         # Create empty temp blocklist so validator can still run
         import tempfile
-        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False)
-        tmp.close()
-        default_blocklist = Path(tmp.name)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as tmp:
+            default_blocklist = Path(tmp.name)
 
     validator = SkillValidator(blocklist_path=default_blocklist)
     verdicts = validator.validate_catalog(skills_dir)
 
     if not verdicts:
-        print(f"[skill_validator] No skills found in {skills_dir}")
+        sys.stdout.write(f"[skill_validator] No skills found in {skills_dir}\n")
         return 0
 
     all_clean = True
     for verdict in verdicts:
         status = "CLEAN" if verdict.is_clean else "DIRTY"
-        print(f"[skill_validator] {status}")
+        sys.stdout.write(f"[skill_validator] {status}\n")
         if not verdict.is_clean:
             all_clean = False
             for pattern in verdict.detected_patterns:
-                print(f"  - matched: {pattern!r}")
+                sys.stdout.write(f"  - matched: {pattern!r}\n")
             if verdict.lm_analysis:
                 for issue in verdict.lm_analysis.issues:
-                    print(f"  - lm: {issue}")
+                    sys.stdout.write(f"  - lm: {issue}\n")
 
     if all_clean:
-        print(f"[skill_validator] All {len(verdicts)} skill(s) clean.")
+        sys.stdout.write(f"[skill_validator] All {len(verdicts)} skill(s) clean.\n")
         return 0
     else:
-        print(f"[skill_validator] FAILED: one or more skills contain injection patterns.")
+        sys.stdout.write("[skill_validator] FAILED: one or more skills contain injection patterns.\n")
         return 1
 
 
