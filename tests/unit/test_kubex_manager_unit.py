@@ -885,3 +885,68 @@ class TestKubexRegistryHelpers:
         lifecycle = make_lifecycle()
         # Should not raise
         await lifecycle._deregister_from_registry("agent")
+
+
+# ===========================================================================
+# Phase 5 — Skill bind mounts (SKIL-02)
+# ===========================================================================
+
+
+class TestSkillBindMounts:
+    """SKIL-02: create_kubex() bind-mounts skill directories into the container."""
+
+    @pytest.mark.xfail(
+        reason=(
+            "SKIL-02: skill bind mount not yet implemented in create_kubex() — "
+            "CreateKubexRequest does not yet accept skill_mounts; lands in plan 05-02"
+        )
+    )
+    @patch("kubex_manager.lifecycle.docker.from_env")
+    def test_bind_mounts_skills(self, mock_docker_env: MagicMock) -> None:
+        """create_kubex() adds read-only bind mounts for each skill directory.
+
+        Expected Docker SDK volumes dict pattern:
+            {
+                "/path/to/skills/web-scraping": {
+                    "bind": "/app/skills/web-scraping",
+                    "mode": "ro",
+                },
+                "/path/to/skills/recall": {
+                    "bind": "/app/skills/recall",
+                    "mode": "ro",
+                },
+            }
+        """
+        mock_docker, mock_container = make_mock_docker()
+        mock_docker_env.return_value = mock_docker
+
+        lifecycle = make_lifecycle()
+
+        # CreateKubexRequest will gain a skill_mounts field in 05-02.
+        # Pass skill names; the lifecycle resolves them to host paths via a
+        # configured skills_base_dir (e.g. /var/kubex/skills).
+        req = CreateKubexRequest(
+            config=SAMPLE_CONFIG,
+            skill_mounts=["web-scraping", "recall"],
+        )
+        lifecycle.create_kubex(req)
+
+        call_kwargs = mock_docker.containers.create.call_args
+        volumes = call_kwargs.kwargs.get("volumes") or call_kwargs[1].get("volumes", {})
+
+        # Verify each skill gets its own bind mount at /app/skills/{skill-name}
+        container_paths = []
+        if isinstance(volumes, dict):
+            for _host_path, spec in volumes.items():
+                if isinstance(spec, dict) and spec.get("bind", "").startswith("/app/skills/"):
+                    container_paths.append(spec["bind"])
+                    assert spec.get("mode") == "ro", (
+                        f"Skill mount {spec['bind']} must be read-only"
+                    )
+
+        assert "/app/skills/web-scraping" in container_paths, (
+            "Expected /app/skills/web-scraping bind mount not found in Docker volumes"
+        )
+        assert "/app/skills/recall" in container_paths, (
+            "Expected /app/skills/recall bind mount not found in Docker volumes"
+        )
