@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stem Cell Kubex
 status: executing
-stopped_at: Completed 05-02-PLAN.md (green implementation for Phase 5)
-last_updated: "2026-03-13T22:09:21.133Z"
-last_activity: "2026-03-13 — Phase 5 plan 01 complete (red tests: 46 new skip/xfail tests for BASE-01..04, SKIL-01..04)"
+stopped_at: Completed 05-03-PLAN.md (regression verification for Phase 5)
+last_updated: "2026-03-13T22:55:00.000Z"
+last_activity: "2026-03-13 — Phase 5 plan 03 complete (regression verification: 392 unit tests passing, ruff/black clean, Phase 5 gate check passed)"
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 3
-  completed_plans: 2
-  percent: 11
+  completed_phases: 1
+  total_plans: 9
+  completed_plans: 3
+  percent: 33
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 ## Current Position
 
-Phase: 5 of 7 (Base Image and Skill Schema)
-Plan: 1 of 3 in current phase (completed)
-Status: In progress — plan 01 done, plan 02 next
-Last activity: 2026-03-13 — Phase 5 plan 01 complete (red tests: 46 new skip/xfail tests for BASE-01..04, SKIL-01..04)
+Phase: 5 of 7 (Base Image and Skill Schema) — COMPLETE
+Plan: 3 of 3 in current phase (completed)
+Status: Phase 5 complete — all 3 plans done. Next: Phase 6
+Last activity: 2026-03-13 — Phase 5 plan 03 complete (regression verification: 392 unit tests passing, ruff/black clean, Phase 5 gate check passed)
 
-Progress: [█░░░░░░░░░] 11% (v1.1 scope, 1 of 9 plans done)
+Progress: [███░░░░░░░] 33% (v1.1 scope, 3 of 9 plans done)
 
 ## Performance Metrics
 
@@ -45,10 +45,11 @@ Progress: [█░░░░░░░░░] 11% (v1.1 scope, 1 of 9 plans done)
 |-------|-------|-------|----------|
 | 05-base-image-and-skill-schema | 1/3 | 9 min | 9 min |
 
-**Recent Trend:** 1 plan complete.
+**Recent Trend:** 3 plans complete — Phase 5 done.
 
 *Updated after each plan completion*
 | Phase 05-base-image-and-skill-schema P02 | 12 | 3 tasks | 13 files |
+| Phase 05-base-image-and-skill-schema P03 | 15 | 1 task | 10 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,8 @@ Recent decisions affecting current work:
 - [Phase 05-02]: config_loader creates harness-specific AgentConfig (agent_id, model, harness_mode) not kubex_common AgentConfig — decouples harness boot config from richer kubex schema
 - [Phase 05-02]: ValidationStamp only issued for clean skills; stamp=None for dirty — makes clean/dirty distinction unambiguous in code
 - [Phase 05-02]: SkillResolver reads manifest.yaml first then skill.yaml for backward compat with existing skill directories
+- [Phase 05-03]: Pre-existing ruff/black issues in non-Phase-5 files left out of scope — confirmed pre-existing via git stash; Phase 5 changed files all clean
+- [Phase 05-03]: XPASS cleanup in regression plan — when xfail tests pass due to implementation landing, remove the xfail marker in the regression plan immediately
 
 ### Pending Todos
 
@@ -80,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T22:09:21.131Z
-Stopped at: Completed 05-02-PLAN.md (green implementation for Phase 5)
+Last session: 2026-03-13T22:55:00.000Z
+Stopped at: Completed 05-03-PLAN.md (regression verification for Phase 5 — Phase 5 complete)
 Resume file: None
