@@ -62,6 +62,7 @@ class CreateKubexBody(BaseModel):
     config: dict[str, Any]
     resource_limits: dict[str, Any] = {}
     image: str = "kubexclaw-base:latest"
+    skill_mounts: list[str] = []
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +117,7 @@ async def create_kubex(body: CreateKubexBody, request: Request) -> JSONResponse:
         image=body.image,
         gateway_url=gateway_url,
         registry_url=registry_url,
+        skill_mounts=body.skill_mounts,
     )
 
     try:
@@ -143,12 +145,6 @@ async def create_kubex(body: CreateKubexBody, request: Request) -> JSONResponse:
     if redis is not None:
         lifecycle._redis = redis
         await lifecycle._publish_lifecycle_event(record, action="created")
-
-    # Auto-start: start the container and register with Registry
-    try:
-        record = await lifecycle.start_kubex(record.kubex_id)
-    except Exception as exc:
-        logger.warning("auto_start_failed", kubex_id=record.kubex_id, error=str(exc))
 
     return JSONResponse(
         status_code=201,
@@ -334,6 +330,7 @@ class ManagerService(KubexService):
 
         try:
             import docker
+
             docker.from_env()
             logger.info("docker_client_verified")
         except Exception as exc:

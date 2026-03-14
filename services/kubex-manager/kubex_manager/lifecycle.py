@@ -12,6 +12,7 @@ import os
 import uuid
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 import docker  # type: ignore[import]
@@ -19,6 +20,8 @@ import docker.errors  # type: ignore[import]
 import httpx
 from kubex_common.constants import NETWORK_INTERNAL
 from kubex_common.logging import get_logger
+
+from .skill_validator import SkillValidator
 
 logger = get_logger(__name__)
 
@@ -185,13 +188,26 @@ class KubexLifecycle:
         for provider in providers:
             host_path = os.path.join(credentials_base, provider)
             container_path = f"/run/secrets/{provider}"
-            if os.path.isdir(host_path):
-                volumes[host_path] = {"bind": container_path, "mode": "ro"}
+            volumes[host_path] = {"bind": container_path, "mode": "ro"}
 
         # Skill volumes (SKIL-02): bind-mount skill directories read-only
         # Each skill is mounted at /app/skills/{skill-name} inside the container.
         if request.skill_mounts:
             skills_base = os.environ.get("KUBEX_SKILLS_PATH", "/app/skills")
+
+            # Skill content validation (SKIL-04): reject malicious skills before spawn
+            blocklist_path = Path(__file__).parent / "blocklist.yaml"
+            validator = SkillValidator(blocklist_path=blocklist_path)
+            for skill_name in request.skill_mounts:
+                host_skill_path = os.path.join(skills_base, skill_name)
+                skill_md_path = Path(host_skill_path) / "SKILL.md"
+                if not skill_md_path.exists():
+                    raise ValueError(f"Skill directory not found or missing SKILL.md: {host_skill_path}")
+                content = skill_md_path.read_text(encoding="utf-8")
+                verdict = validator.validate_skill_md(skill_name, content)
+                if not verdict.is_clean:
+                    raise ValueError(f"Skill '{skill_name}' failed validation: {verdict.detected_patterns}")
+
             for skill_name in request.skill_mounts:
                 host_skill_path = os.path.join(skills_base, skill_name)
                 container_skill_path = f"/app/skills/{skill_name}"

@@ -896,7 +896,7 @@ class TestSkillBindMounts:
     """SKIL-02: create_kubex() bind-mounts skill directories into the container."""
 
     @patch("kubex_manager.lifecycle.docker.from_env")
-    def test_bind_mounts_skills(self, mock_docker_env: MagicMock) -> None:
+    def test_bind_mounts_skills(self, mock_docker_env: MagicMock, tmp_path) -> None:
         """create_kubex() adds read-only bind mounts for each skill directory.
 
         Expected Docker SDK volumes dict pattern:
@@ -919,11 +919,18 @@ class TestSkillBindMounts:
         # CreateKubexRequest gained skill_mounts in plan 05-02.
         # Pass skill names; the lifecycle resolves them to host paths via a
         # configured skills_base_dir (e.g. /var/kubex/skills).
+        # SkillValidator (SKIL-04) is now wired in — create clean skill dirs on disk.
+        for skill_name in ("web-scraping", "recall"):
+            skill_dir = tmp_path / skill_name
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text(f"# {skill_name}\nDo helpful things.")
+
         req = CreateKubexRequest(
             config=SAMPLE_CONFIG,
             skill_mounts=["web-scraping", "recall"],
         )
-        lifecycle.create_kubex(req)
+        with patch.dict(os.environ, {"KUBEX_SKILLS_PATH": str(tmp_path)}):
+            lifecycle.create_kubex(req)
 
         call_kwargs = mock_docker.containers.create.call_args
         volumes = call_kwargs.kwargs.get("volumes") or call_kwargs[1].get("volumes", {})

@@ -9,8 +9,9 @@
 # Pattern 1: Ignore previous instructions (most common injection vector)
 - ignore previous instructions
 
-# Pattern 2: Disregard system prompt
+# Pattern 2: Disregard directives (system prompt, prior instructions, etc.)
 - disregard system prompt
+- disregard all prior
 
 # Pattern 3: Role hijacking — "you are now"
 - you are now
