@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stem Cell Kubex
 status: executing
-stopped_at: Completed 05-03-PLAN.md (regression verification for Phase 5)
-last_updated: "2026-03-13T22:55:00.000Z"
-last_activity: "2026-03-13 — Phase 5 plan 03 complete (regression verification: 392 unit tests passing, ruff/black clean, Phase 5 gate check passed)"
+stopped_at: Completed 05-04-PLAN.md (gap closure — skill_mounts API wiring + SkillValidator spawn integration)
+last_updated: "2026-03-14T02:15:00.000Z"
+last_activity: "2026-03-14 — Phase 5 plan 04 complete (gap closure: SKIL-02 + SKIL-04 wired end-to-end, 332 tests passing, 0 new regressions)"
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 9
-  completed_plans: 3
-  percent: 33
+  completed_plans: 4
+  percent: 44
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Any Kubex can become any agent — new capabilities are skill files, not Docker builds.
-**Current focus:** Phase 5 — Base Image and Skill Schema
+**Current focus:** Phase 5 — Base Image and Skill Schema (COMPLETE including gap closure)
 
 ## Current Position
 
-Phase: 5 of 7 (Base Image and Skill Schema) — COMPLETE
-Plan: 3 of 3 in current phase (completed)
-Status: Phase 5 complete — all 3 plans done. Next: Phase 6
-Last activity: 2026-03-13 — Phase 5 plan 03 complete (regression verification: 392 unit tests passing, ruff/black clean, Phase 5 gate check passed)
+Phase: 5 of 7 (Base Image and Skill Schema) — COMPLETE (including gap closure plan 04)
+Plan: 4 of 4 in Phase 5 (completed)
+Status: Phase 5 fully complete — all 4 plans done. Next: Phase 6
+Last activity: 2026-03-14 — Phase 5 plan 04 complete (gap closure: SKIL-02 + SKIL-04 wired end-to-end, 332 tests passing, 0 new regressions)
 
-Progress: [███░░░░░░░] 33% (v1.1 scope, 3 of 9 plans done)
+Progress: [████░░░░░░] 44% (v1.1 scope, 4 of 9 plans done)
 
 ## Performance Metrics
 
@@ -43,13 +43,14 @@ Progress: [███░░░░░░░] 33% (v1.1 scope, 3 of 9 plans done)
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 05-base-image-and-skill-schema | 1/3 | 9 min | 9 min |
+| 05-base-image-and-skill-schema | 4/4 | ~54 min | ~14 min |
 
-**Recent Trend:** 3 plans complete — Phase 5 done.
+**Recent Trend:** 4 plans complete — Phase 5 done (including gap closure).
 
 *Updated after each plan completion*
 | Phase 05-base-image-and-skill-schema P02 | 12 | 3 tasks | 13 files |
 | Phase 05-base-image-and-skill-schema P03 | 15 | 1 task | 10 files |
+| Phase 05-base-image-and-skill-schema P04 | 18 | 1 task | 5 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - [Phase 05-02]: SkillResolver reads manifest.yaml first then skill.yaml for backward compat with existing skill directories
 - [Phase 05-03]: Pre-existing ruff/black issues in non-Phase-5 files left out of scope — confirmed pre-existing via git stash; Phase 5 changed files all clean
 - [Phase 05-03]: XPASS cleanup in regression plan — when xfail tests pass due to implementation landing, remove the xfail marker in the regression plan immediately
+- [Phase 05-04]: Volume-wiring tests (TestSkillMountsThroughAPI) updated to use tmp_path + KUBEX_SKILLS_PATH patch — keeps volume-wiring tests isolated from real filesystem while respecting wired validator
+- [Phase 05-04]: Added 'disregard all prior' to blocklist.yaml — test content used this phrase which was not covered by existing 'disregard system prompt' pattern; both are real injection vectors
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T22:55:00.000Z
-Stopped at: Completed 05-03-PLAN.md (regression verification for Phase 5 — Phase 5 complete)
+Last session: 2026-03-14T02:15:00.000Z
+Stopped at: Completed 05-04-PLAN.md (gap closure — SKIL-02 + SKIL-04 wired, Phase 5 complete)
 Resume file: None

@@ -34,10 +34,10 @@ Phases 1-4 delivered the full KubexClaw MVP: gateway with policy engine, broker 
 **Plans**: 4 plans (includes gap closure)
 
 Plans:
-- [ ] 05-01-PLAN.md — Write failing tests (red): SkillValidator, SkillResolver, ConfigLoader unit tests + base image E2E tests
-- [ ] 05-02-PLAN.md — Implement SkillManifest rewrite, SkillValidator, SkillResolver, config_loader, unified harness, entrypoint dep install (green)
-- [ ] 05-03-PLAN.md — Verify no regressions: full pytest suite, linting, formatting, skill validator CLI
-- [ ] 05-04-PLAN.md — Gap closure: wire skill_mounts through HTTP API (SKIL-02) and SkillValidator into spawn pipeline (SKIL-04)
+- [x] 05-01-PLAN.md — Write failing tests (red): SkillValidator, SkillResolver, ConfigLoader unit tests + base image E2E tests
+- [x] 05-02-PLAN.md — Implement SkillManifest rewrite, SkillValidator, SkillResolver, config_loader, unified harness, entrypoint dep install (green)
+- [x] 05-03-PLAN.md — Verify no regressions: full pytest suite, linting, formatting, skill validator CLI
+- [x] 05-04-PLAN.md — Gap closure: wire skill_mounts through HTTP API (SKIL-02) and SkillValidator into spawn pipeline (SKIL-04)
 
 #### Phase 6: Manager Spawn Logic and Policy Gates
 
@@ -83,6 +83,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-4. MVP | v1.0 | — | Complete | 2026-03-09 |
-| 5. Base Image and Skill Schema | 3/4 | Gap closure in progress | 2026-03-13 | - |
+| 5. Base Image and Skill Schema | v1.1 | 4/4 | Complete | 2026-03-14 |
 | 6. Manager Spawn Logic and Policy Gates | v1.1 | 0/3 | Not started | - |
 | 7. Agent Migration and Dockerfile Removal | v1.1 | 0/3 | Not started | - |
