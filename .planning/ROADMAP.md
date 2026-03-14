@@ -31,12 +31,13 @@ Phases 1-4 delivered the full KubexClaw MVP: gateway with policy engine, broker 
   3. Skill files can be bind-mounted into a container at spawn and the harness loads them into the LLM system prompt without modification to harness source.
   4. Multiple skill files compose correctly — a container with two skills mounted shows both skills' instructions in the system prompt, with the more restrictive policy winning on any conflicts.
   5. Skill content is validated before injection — a skill file containing an injection pattern (e.g., `ignore previous instructions`) is rejected at spawn time, not silently passed to the LLM.
-**Plans**: 3 plans
+**Plans**: 4 plans (includes gap closure)
 
 Plans:
 - [ ] 05-01-PLAN.md — Write failing tests (red): SkillValidator, SkillResolver, ConfigLoader unit tests + base image E2E tests
 - [ ] 05-02-PLAN.md — Implement SkillManifest rewrite, SkillValidator, SkillResolver, config_loader, unified harness, entrypoint dep install (green)
 - [ ] 05-03-PLAN.md — Verify no regressions: full pytest suite, linting, formatting, skill validator CLI
+- [ ] 05-04-PLAN.md — Gap closure: wire skill_mounts through HTTP API (SKIL-02) and SkillValidator into spawn pipeline (SKIL-04)
 
 #### Phase 6: Manager Spawn Logic and Policy Gates
 
@@ -82,6 +83,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-4. MVP | v1.0 | — | Complete | 2026-03-09 |
-| 5. Base Image and Skill Schema | 3/3 | Complete   | 2026-03-13 | - |
+| 5. Base Image and Skill Schema | 3/4 | Gap closure in progress | 2026-03-13 | - |
 | 6. Manager Spawn Logic and Policy Gates | v1.1 | 0/3 | Not started | - |
 | 7. Agent Migration and Dockerfile Removal | v1.1 | 0/3 | Not started | - |
