@@ -86,7 +86,7 @@ if [ -d "${SKILLS_SRC_DIR}" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Step 5: Invoke kubex-harness (unified entry point — routes by harness_mode)
+# Step 5: Invoke the CMD passed to the container (defaults to kubex-harness)
 # ---------------------------------------------------------------------------
 echo "[entrypoint] Starting kubex-harness for agent=${KUBEX_AGENT_ID:-unknown}"
-exec python -m kubex_harness.main
+exec "$@"

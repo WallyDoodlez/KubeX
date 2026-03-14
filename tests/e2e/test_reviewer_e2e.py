@@ -212,6 +212,17 @@ class TestReviewerSpawning:
 
             data = create_resp.json()
             assert data["kubex_id"] is not None
+            kubex_id = data["kubex_id"]
+
+            # Start the reviewer so it registers with the Registry
+            start_resp = self.client.post(
+                f"/kubexes/{kubex_id}/start",
+                headers={"Authorization": "Bearer kubex-mgmt-token"},
+            )
+            assert start_resp.status_code == 200, (
+                f"Expected 200 for reviewer start, got {start_resp.status_code}: "
+                f"{start_resp.text}"
+            )
 
             # Verify Registry POST was called with security_review capability
             post_calls = (
@@ -390,17 +401,20 @@ class TestReviewerEvaluation:
         Spec: 'Human-in-the-loop is mandatory for high-risk actions.'
         When even the reviewer cannot decide, it returns ESCALATE, which
         triggers human-in-the-loop approval.
+
+        Uses 'write_output' which is not in orchestrator's allowed or blocked
+        list — so it triggers ESCALATE to the reviewer.
         """
         review_payload = make_review_payload(
-            original_action="execute_code",
+            original_action="write_output",
             original_agent_id=ORCHESTRATOR_ID,
             original_target=None,
-            reason="Code execution request with unclear intent",
+            reason="Write output request with unclear intent",
         )
 
         mock_reviewer_response = {
             "decision": "ESCALATE",
-            "reasoning": "Cannot determine safety of code execution without seeing the code. Human review required.",
+            "reasoning": "Cannot determine safety of write_output without more context. Human review required.",
             "risk_level": "critical",
         }
 
@@ -411,8 +425,8 @@ class TestReviewerEvaluation:
         ):
             body = make_action_request(
                 agent_id=ORCHESTRATOR_ID,
-                action="execute_code",
-                parameters={"code": "import os; os.listdir('/')"},
+                action="write_output",
+                parameters={"content": "some output"},
             )
             resp = self.client.post("/actions", json=body)
 

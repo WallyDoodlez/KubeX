@@ -27,6 +27,7 @@ agent_policy:
       - "execute_code"
       - "send_email"
       - "dispatch_task"
+      - "request_user_input"
     rate_limits:
       http_get: 100/task
       write_output: 50/task

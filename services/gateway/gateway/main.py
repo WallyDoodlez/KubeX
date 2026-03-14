@@ -758,26 +758,54 @@ async def cancel_task(task_id: str, request: Request) -> JSONResponse:
 
 @router.get("/tasks/{task_id}/result")
 async def get_task_result(task_id: str, request: Request) -> JSONResponse:
-    """Proxy task result request to the Broker service."""
-    broker_url = os.environ.get("BROKER_URL", "http://broker:8060")
+    """Read task result directly from Redis.
+
+    Workers store results at key ``task:{task_id}:result`` in Redis DB 0.
+    Gateway reads the key and returns the parsed JSON payload.
+
+    Returns:
+      200 — result found and returned.
+      404 — key not present in Redis (task still running or unknown).
+      503 — Redis is not available (gateway started without Redis).
+    """
+    gateway: GatewayService = request.app.state.gateway_service
+
+    if gateway.redis_db1 is None:
+        return JSONResponse(
+            status_code=503,
+            content=ErrorResponse(
+                error="RedisUnavailable",
+                message="Redis is not connected — cannot fetch task result",
+            ).model_dump(),
+        )
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{broker_url}/tasks/{task_id}/result")
-
-        if resp.status_code == 200:
-            return JSONResponse(status_code=200, content=resp.json())
-
-        return JSONResponse(
-            status_code=404,
-            content=ErrorResponse(error="TaskNotFound", message=f"No result for task: {task_id}").model_dump(),
-        )
+        raw = await gateway.redis_db1.get(f"task:{task_id}:result")
     except Exception as exc:
         logger.error("result_proxy_failed", task_id=task_id, error=str(exc))
         return JSONResponse(
-            status_code=502,
-            content=ErrorResponse(error="BrokerUnavailable", message=f"Failed to fetch result from Broker: {exc}").model_dump(),
+            status_code=503,
+            content=ErrorResponse(
+                error="RedisUnavailable",
+                message=f"Redis error while fetching result: {exc}",
+            ).model_dump(),
         )
+
+    if raw is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="TaskNotFound",
+                message=f"No result for task: {task_id}",
+            ).model_dump(),
+        )
+
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        data = {"raw": raw}
+
+    return JSONResponse(status_code=200, content=data)
 
 
 # ─────────────────────────────────────────────

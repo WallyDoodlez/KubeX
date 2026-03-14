@@ -12,6 +12,9 @@ agent_policy:
       - "dispatch_task"
       - "write_output"
       - "read_input"
+      - "query_knowledge"
+      - "store_knowledge"
+      - "search_corpus"
   egress:
     mode: "deny_all"
   models:

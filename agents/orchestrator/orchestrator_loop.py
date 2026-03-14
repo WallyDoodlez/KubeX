@@ -486,6 +486,7 @@ class OrchestratorAgent(StandaloneAgent):
         }
         if args.get("workflow_id"):
             payload["context"]["workflow_id"] = args["workflow_id"]
+            payload["parameters"]["workflow_id"] = args["workflow_id"]
 
         resp = await client.post(
             f"{gateway_url}/actions",

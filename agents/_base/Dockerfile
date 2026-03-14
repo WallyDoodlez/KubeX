@@ -43,4 +43,5 @@ HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
     CMD pgrep -f "kubex_harness" || exit 1
 
 # Run the unified harness entry point — routes to standalone or openclaw based on config
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["python", "-m", "kubex_harness.main"]
