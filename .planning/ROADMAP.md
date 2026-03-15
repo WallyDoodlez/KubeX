@@ -50,12 +50,12 @@ Plans:
   3. `POST /policy/skill-check` on the Gateway returns approved/denied/escalated for a given skill assignment, following the same response format as existing action-gating endpoints.
   4. The Manager persists agent state to Redis and recovers it on restart — killing and restarting the kubex-manager service does not orphan running containers.
   5. The Manager resolves Docker network names from labels at startup — no hardcoded `openclaw_kubex-internal` string exists in manager source code.
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: Write failing E2E tests (red) — SkillResolver, ConfigBuilder, skill-check endpoint, Redis state persistence, dynamic network name resolution
-- [ ] 06-02: Implement `SkillResolver`, `ConfigBuilder`, `POST /policy/skill-check` Gateway endpoint, Redis persistence in Manager, and dynamic Docker network name resolution (green)
-- [ ] 06-03: Verify no regressions — full `pytest tests/` passes with 703+ tests
+- [ ] 06-01-PLAN.md — Write failing tests (red): ConfigBuilder, SkillResolver agent-config input, network label lookup, Redis state persistence, spawn pipeline rollback, skill-check endpoint, install_dependency policy, boot-time dep trust
+- [ ] 06-02-PLAN.md — Implement ConfigBuilder, KubexRecordStore, extend SkillResolver, atomic spawn pipeline, POST /policy/skill-check, install_dependency flow, dynamic network label lookup, Manager API extensions (green)
+- [ ] 06-03-PLAN.md — Verify no regressions: full pytest suite, ruff/black on Phase 6 files, module imports, deprecated pattern removal
 
 #### Phase 7: Agent Migration and Dockerfile Removal
 
