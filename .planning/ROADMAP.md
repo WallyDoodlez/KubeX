@@ -55,7 +55,7 @@ Plans:
 Plans:
 - [ ] 06-01-PLAN.md — Write failing tests (red): ConfigBuilder, SkillResolver agent-config input, network label lookup, Redis state persistence, spawn pipeline rollback, skill-check endpoint, install_dependency policy, boot-time dep trust
 - [ ] 06-02-PLAN.md — Implement ConfigBuilder, KubexRecordStore, extend SkillResolver, atomic spawn pipeline, POST /policy/skill-check, install_dependency flow, dynamic network label lookup, Manager API extensions (green)
-- [ ] 06-03-PLAN.md — Verify no regressions: full pytest suite, ruff/black on Phase 6 files, module imports, deprecated pattern removal
+- [x] 06-03-PLAN.md — Verify no regressions: full pytest suite, ruff/black on Phase 6 files, module imports, deprecated pattern removal (completed 2026-03-16)
 
 #### Phase 7: Agent Migration and Dockerfile Removal
 
@@ -84,5 +84,5 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 1-4. MVP | v1.0 | — | Complete | 2026-03-09 |
 | 5. Base Image and Skill Schema | v1.1 | 4/4 | Complete | 2026-03-14 |
-| 6. Manager Spawn Logic and Policy Gates | 2/3 | In Progress|  | - |
+| 6. Manager Spawn Logic and Policy Gates | 3/3 | Complete   | 2026-03-16 | - |
 | 7. Agent Migration and Dockerfile Removal | v1.1 | 0/3 | Not started | - |
