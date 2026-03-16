@@ -85,6 +85,44 @@ class KubexRecord:
     status: str
     config: dict[str, Any]
     image: str
+    # Phase 6 extended fields (KMGR-04)
+    skills: list[str] = field(default_factory=list)
+    config_path: str | None = None
+    runtime_deps: list[str] = field(default_factory=list)
+    composed_capabilities: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize KubexRecord to a JSON-serializable dict."""
+        return {
+            "kubex_id": self.kubex_id,
+            "agent_id": self.agent_id,
+            "boundary": self.boundary,
+            "container_id": self.container_id,
+            "status": self.status,
+            "config": self.config,
+            "image": self.image,
+            "skills": self.skills,
+            "config_path": self.config_path,
+            "runtime_deps": self.runtime_deps,
+            "composed_capabilities": self.composed_capabilities,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "KubexRecord":
+        """Reconstruct a KubexRecord from a serialized dict."""
+        return cls(
+            kubex_id=data["kubex_id"],
+            agent_id=data["agent_id"],
+            boundary=data["boundary"],
+            container_id=data["container_id"],
+            status=data["status"],
+            config=data.get("config", {}),
+            image=data["image"],
+            skills=data.get("skills", []),
+            config_path=data.get("config_path"),
+            runtime_deps=data.get("runtime_deps", []),
+            composed_capabilities=data.get("composed_capabilities", []),
+        )
 
 
 # ---------------------------------------------------------------------------

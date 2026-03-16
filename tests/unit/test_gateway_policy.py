@@ -51,6 +51,8 @@ def make_request(
 def make_loader_with_policies(
     global_data: dict | None = None,
     agent_policies: dict[str, dict] | None = None,
+    package_blocklist: dict | None = None,
+    runtime_install_soft_limit: int = 10,
 ) -> PolicyLoader:
     """Create a PolicyLoader pre-populated with given policies (no disk I/O)."""
     loader = PolicyLoader(policy_root="/nonexistent")
@@ -63,9 +65,14 @@ def make_loader_with_policies(
             max_chain_depth=gd.get("max_chain_depth", 5),
             default_daily_cost_limit_usd=gd.get("budget", {}).get("default_daily_cost_limit_usd", 10.0),
             rate_limits=rate_limits,
+            package_blocklist=package_blocklist or {},
+            runtime_install_soft_limit=runtime_install_soft_limit,
         )
     else:
-        loader._global = GlobalPolicy()
+        loader._global = GlobalPolicy(
+            package_blocklist=package_blocklist or {},
+            runtime_install_soft_limit=runtime_install_soft_limit,
+        )
 
     loader._agent_policies = {}
     if agent_policies:
@@ -513,10 +520,6 @@ class TestInstallDependencyPolicy:
     Implementation lands in plan 06-02.
     """
 
-    @pytest.mark.xfail(
-        reason="PSEC-02: ActionType.INSTALL_DEPENDENCY not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_install_dependency_action_type_exists(self) -> None:
         """ActionType.INSTALL_DEPENDENCY exists in the enum with value 'install_dependency'."""
         assert hasattr(ActionType, "INSTALL_DEPENDENCY"), (
@@ -524,10 +527,6 @@ class TestInstallDependencyPolicy:
         )
         assert ActionType.INSTALL_DEPENDENCY.value == "install_dependency"
 
-    @pytest.mark.xfail(
-        reason="PSEC-02: install_dependency blocklist deny not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_install_dependency_blocklist_deny(self) -> None:
         """install_dependency for a blocklisted package returns DENY (never ESCALATE).
 
@@ -536,6 +535,7 @@ class TestInstallDependencyPolicy:
         """
         loader = make_loader_with_policies(
             agent_policies={"test-agent": SCRAPER_POLICY},
+            package_blocklist={"pip": ["malware-package", "paramiko", "pwntools"]},
         )
         engine = PolicyEngine(loader)
 
@@ -553,10 +553,6 @@ class TestInstallDependencyPolicy:
         )
         assert result.rule_matched is not None
 
-    @pytest.mark.xfail(
-        reason="PSEC-02: install_dependency soft limit escalate not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_install_dependency_soft_limit_escalate(self) -> None:
         """Exceeding the per-agent runtime install limit triggers ESCALATE, not hard deny.
 
@@ -582,10 +578,6 @@ class TestInstallDependencyPolicy:
             "Soft limit exceeded must ESCALATE (not DENY) for human review"
         )
 
-    @pytest.mark.xfail(
-        reason="PSEC-02: install_dependency allow path not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_install_dependency_allowed(self) -> None:
         """Non-blocklisted package within install limit returns ALLOW."""
         loader = make_loader_with_policies(

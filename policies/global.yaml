@@ -22,3 +22,17 @@ global:
     max_request_size_kb: 512
     max_response_size_kb: 2048
     prompt_injection_detection: true
+
+  # PSEC-02: Hard blocklist for runtime dependency installs.
+  # Packages in this list can never be installed, even with reviewer approval.
+  package_blocklist:
+    pip:
+      - paramiko
+      - pwntools
+      - scapy
+      - cryptography
+    cli: []
+
+  # PSEC-02: Soft limit for runtime dep installs per agent session.
+  # Exceeding this count triggers ESCALATE (human review), not hard DENY.
+  runtime_install_soft_limit: 10

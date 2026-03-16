@@ -55,6 +55,9 @@ class ActionType(str, enum.Enum):
     SUBSCRIBE_TASK_PROGRESS = "subscribe_task_progress"
     GET_TASK_PROGRESS = "get_task_progress"
 
+    # Runtime dependency management (PSEC-02)
+    INSTALL_DEPENDENCY = "install_dependency"
+
 
 class Priority(str, enum.Enum):
     LOW = "low"

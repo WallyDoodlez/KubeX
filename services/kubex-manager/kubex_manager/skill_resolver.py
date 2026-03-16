@@ -69,6 +69,68 @@ class SkillResolver:
     (or ``skill.yaml``) file that validates against the SkillManifest schema.
     """
 
+    def resolve_from_config(self, agent_config: dict, skill_dir: Path) -> ComposedSkillSet:
+        """Resolve and compose skills from an agent config dict (KMGR-01).
+
+        Extracts skill names from ``agent_config["skills"]`` and delegates to
+        :meth:`resolve`. If ``agent_config`` contains an ``"overrides"`` key,
+        the overrides are applied to the composed result.
+
+        Args:
+            agent_config: Agent configuration dict with a ``"skills"`` key.
+            skill_dir: Root directory containing skill subdirectories.
+
+        Returns:
+            ComposedSkillSet with applied overrides.
+
+        Raises:
+            SkillResolutionError: If ``agent_config`` has no ``"skills"`` key.
+        """
+        if "skills" not in agent_config:
+            raise SkillResolutionError(
+                "agent_config is missing required 'skills' key. "
+                "Expected a list of skill names under the 'skills' field."
+            )
+        skill_names: list[str] = agent_config["skills"]
+        composed = self.resolve(skill_names, skill_dir)
+
+        # Apply overrides if present
+        overrides: dict = agent_config.get("overrides", {})
+        if overrides:
+            composed = self._apply_overrides(composed, overrides)
+
+        return composed
+
+    @staticmethod
+    def _apply_overrides(composed: ComposedSkillSet, overrides: dict) -> ComposedSkillSet:
+        """Apply agent_config overrides to a ComposedSkillSet.
+
+        Overrides can replace list fields such as egress_domains. The override
+        values replace (not merge) the corresponding composed field.
+
+        Args:
+            composed: The original ComposedSkillSet.
+            overrides: Dict of field names -> override values.
+
+        Returns:
+            A new ComposedSkillSet with overrides applied.
+        """
+        from dataclasses import replace as _replace
+
+        replacements: dict = {}
+        if "egress_domains" in overrides:
+            replacements["egress_domains"] = list(overrides["egress_domains"])
+        if "pip_deps" in overrides:
+            replacements["pip_deps"] = list(overrides["pip_deps"])
+        if "system_deps" in overrides:
+            replacements["system_deps"] = list(overrides["system_deps"])
+        if "capabilities" in overrides:
+            replacements["capabilities"] = list(overrides["capabilities"])
+
+        if replacements:
+            return _replace(composed, **replacements)
+        return composed
+
     def resolve(self, skill_names: list[str], skill_dir: Path) -> ComposedSkillSet:
         """Resolve and compose a list of skills.
 

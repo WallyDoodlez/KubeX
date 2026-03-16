@@ -329,10 +329,6 @@ class TestSkillResolverFromConfig:
     does not yet exist — it will be added in plan 06-02.
     """
 
-    @pytest.mark.xfail(
-        reason="KMGR-01: resolve_from_config not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_resolve_from_agent_config(self, tmp_path: Path) -> None:
         """resolve_from_config(agent_config, skill_dir) extracts skill names from
         agent_config['skills'] and returns a ComposedSkillSet."""
@@ -350,10 +346,6 @@ class TestSkillResolverFromConfig:
         assert "scrape_web" in composed.capabilities
         assert "web-scraping" in composed.ordered_skill_names
 
-    @pytest.mark.xfail(
-        reason="KMGR-01: resolve_from_config not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_resolve_from_config_missing_skills_key(self, tmp_path: Path) -> None:
         """resolve_from_config raises SkillResolutionError when agent_config
         has no 'skills' key."""
@@ -366,10 +358,6 @@ class TestSkillResolverFromConfig:
         with pytest.raises(SkillResolutionError, match="skills"):
             resolver.resolve_from_config(agent_config, tmp_path)
 
-    @pytest.mark.xfail(
-        reason="KMGR-01: resolve_from_config not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_resolve_from_config_with_overrides(self, tmp_path: Path) -> None:
         """resolve_from_config applies agent_config['overrides'] to the ComposedSkillSet.
 

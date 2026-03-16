@@ -73,6 +73,8 @@ class AgentPolicy:
     per_task_token_limit: int | None = None
     daily_cost_limit_usd: float | None = None
     rate_limits: dict[str, str] = field(default_factory=dict)
+    # PSEC-03: Skill allowlist for spawn-time skill check
+    allowed_skills: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -83,6 +85,10 @@ class GlobalPolicy:
     max_chain_depth: int = 5
     default_daily_cost_limit_usd: float = 10.0
     rate_limits: dict[str, str] = field(default_factory=dict)
+    # PSEC-02: Hard blocklist for runtime dependency installs
+    package_blocklist: dict[str, list[str]] = field(default_factory=dict)
+    # PSEC-02: Soft limit for runtime dep installs per agent (triggers ESCALATE)
+    runtime_install_soft_limit: int = 10
 
 
 class PolicyLoader:
@@ -120,6 +126,8 @@ class PolicyLoader:
             max_chain_depth=global_data.get("max_chain_depth", 5),
             default_daily_cost_limit_usd=global_data.get("budget", {}).get("default_daily_cost_limit_usd", 10.0),
             rate_limits=rate_limits,
+            package_blocklist=global_data.get("package_blocklist", {}),
+            runtime_install_soft_limit=global_data.get("runtime_install_soft_limit", 10),
         )
 
     def _load_all_agent_policies(self) -> dict[str, AgentPolicy]:
@@ -166,6 +174,7 @@ class PolicyLoader:
             per_task_token_limit=budget_data.get("per_task_token_limit"),
             daily_cost_limit_usd=budget_data.get("daily_cost_limit_usd"),
             rate_limits=actions_data.get("rate_limits", {}),
+            allowed_skills=agent_data.get("allowed_skills", []),
         )
 
     @property
@@ -194,6 +203,7 @@ class PolicyEngine:
         *,
         token_count_so_far: int = 0,
         cost_today_usd: float = 0.0,
+        runtime_dep_count_today: int = 0,
     ) -> PolicyResult:
         """Evaluate an ActionRequest against the full policy cascade.
 
@@ -201,6 +211,12 @@ class PolicyEngine:
         """
         global_policy = self._loader.global_policy
         agent_policy = self._loader.get_agent_policy(request.agent_id)
+
+        # 0. INSTALL_DEPENDENCY special handling (PSEC-02)
+        if request.action == ActionType.INSTALL_DEPENDENCY:
+            return self._check_install_dependency(
+                request, global_policy, runtime_dep_count_today
+            )
 
         # 1. Global blocked actions
         if request.action.value in global_policy.blocked_actions:
@@ -345,6 +361,60 @@ class PolicyEngine:
             decision=PolicyDecision.DENY,
             reason=f"Domain '{target_domain}' not in agent's egress allowlist",
             rule_matched="agent.egress.not_in_allowlist",
+            agent_id=request.agent_id,
+        )
+
+    def _check_install_dependency(
+        self,
+        request: ActionRequest,
+        global_policy: GlobalPolicy,
+        runtime_dep_count_today: int,
+    ) -> PolicyResult:
+        """Evaluate INSTALL_DEPENDENCY action against blocklist and soft limit (PSEC-02).
+
+        - Blocklisted package → DENY (unconditional, no reviewer override)
+        - Exceeds soft limit → ESCALATE for human review
+        - Otherwise → ALLOW
+        """
+        params = request.parameters or {}
+        package = params.get("package", "")
+        dep_type = params.get("type", "pip")
+
+        # Check hard blocklist — DENY is unconditional (locked decision)
+        blocklist_for_type: list[str] = global_policy.package_blocklist.get(dep_type, [])
+        # Also check the generic blocklist key if present
+        blocklist_all: list[str] = global_policy.package_blocklist.get("all", [])
+
+        package_lower = package.lower()
+        # Extract base package name (strip version specifiers)
+        import re as _re
+        base_name = _re.split(r"[><=!~@]", package_lower, maxsplit=1)[0].strip()
+
+        all_blocked = [p.lower() for p in blocklist_for_type + blocklist_all]
+        if base_name in all_blocked or package_lower in all_blocked:
+            return PolicyResult(
+                decision=PolicyDecision.DENY,
+                reason=f"Package '{package}' is on the hard blocklist and cannot be installed",
+                rule_matched="global.package_blocklist.deny",
+                agent_id=request.agent_id,
+            )
+
+        # Check soft limit — ESCALATE for human review
+        if runtime_dep_count_today >= global_policy.runtime_install_soft_limit:
+            return PolicyResult(
+                decision=PolicyDecision.ESCALATE,
+                reason=(
+                    f"Runtime install soft limit ({global_policy.runtime_install_soft_limit}) "
+                    f"reached for agent '{request.agent_id}' — escalating for human review"
+                ),
+                rule_matched="global.runtime_install_soft_limit.escalate",
+                agent_id=request.agent_id,
+            )
+
+        return PolicyResult(
+            decision=PolicyDecision.ALLOW,
+            reason=f"Package '{package}' approved for installation",
+            rule_matched="install_dependency.allow",
             agent_id=request.agent_id,
         )
 
