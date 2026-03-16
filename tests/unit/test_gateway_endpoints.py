@@ -257,8 +257,7 @@ class TestGatewayEndpoints:
 class TestSkillCheckEndpoint:
     """PSEC-03: Gateway POST /policy/skill-check endpoint for skill allowlist checks.
 
-    These tests use xfail since the endpoint doesn't exist yet.
-    It will be implemented in plan 06-02.
+    Implemented in plan 06-02.
 
     Contract:
         POST /policy/skill-check

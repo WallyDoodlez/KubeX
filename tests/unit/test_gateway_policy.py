@@ -515,9 +515,7 @@ class TestPolicyFixtures:
 class TestInstallDependencyPolicy:
     """PSEC-02: install_dependency action type and Gateway policy evaluation.
 
-    These tests use xfail because ActionType.INSTALL_DEPENDENCY does not exist yet
-    and the policy engine does not handle blocklist/soft-limit logic for it.
-    Implementation lands in plan 06-02.
+    Implemented in plan 06-02.
     """
 
     def test_install_dependency_action_type_exists(self) -> None:

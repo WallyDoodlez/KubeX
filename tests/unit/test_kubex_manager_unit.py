@@ -969,8 +969,7 @@ class TestSkillBindMounts:
 class TestDynamicNetworkResolution:
     """KMGR-05: create_kubex uses Docker label lookup instead of KUBEX_DOCKER_NETWORK env var.
 
-    These tests use xfail because the feature doesn't exist yet — _resolve_internal_network()
-    will be added and wired into create_kubex() in plan 06-02.
+    _resolve_internal_network() was added and wired into create_kubex() in plan 06-02.
     """
 
     @patch("kubex_manager.lifecycle.docker.from_env")
@@ -1047,7 +1046,7 @@ class TestDynamicNetworkResolution:
 class TestConfigMount:
     """KMGR-03: create_kubex() mounts the agent's config.yaml into the container.
 
-    Uses xfail since create_kubex() exists but doesn't yet mount config.yaml.
+    config.yaml mounting was added to create_kubex() in plan 06-02.
     """
 
     @patch("kubex_manager.lifecycle.docker.from_env")
@@ -1090,7 +1089,7 @@ class TestConfigMount:
 class TestKubexRecordSerialization:
     """KMGR-04: KubexRecord supports dict serialization and has new fields.
 
-    Uses xfail since KubexRecord exists but lacks to_dict/from_dict and new fields.
+    to_dict/from_dict and new fields were added to KubexRecord in plan 06-02.
     """
 
     def test_kubex_record_to_dict_round_trip(self) -> None:
@@ -1273,7 +1272,7 @@ class TestSpawnPipelineRollback:
 class TestManagerAPIExtensions:
     """New Manager API endpoints: respawn, install-dep, config inspect, list configs.
 
-    Uses xfail since these endpoints don't exist yet.
+    These endpoints were implemented in plan 06-02.
     """
 
     def _get_app_client(self):

@@ -325,8 +325,7 @@ class TestSkillResolver:
 class TestSkillResolverFromConfig:
     """KMGR-01: SkillResolver accepts an agent_config dict instead of a skill name list.
 
-    These tests use xfail because SkillResolver exists but resolve_from_config()
-    does not yet exist — it will be added in plan 06-02.
+    resolve_from_config() was added in plan 06-02.
     """
 
     def test_resolve_from_agent_config(self, tmp_path: Path) -> None:
