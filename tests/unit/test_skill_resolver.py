@@ -315,3 +315,79 @@ class TestSkillResolver:
         resolver = SkillResolver()
         with pytest.raises(SkillResolutionError):
             resolver.resolve(["nonexistent-skill"], tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Tests — SkillResolver.resolve_from_config() (KMGR-01)
+# ---------------------------------------------------------------------------
+
+
+class TestSkillResolverFromConfig:
+    """KMGR-01: SkillResolver accepts an agent_config dict instead of a skill name list.
+
+    These tests use xfail because SkillResolver exists but resolve_from_config()
+    does not yet exist — it will be added in plan 06-02.
+    """
+
+    @pytest.mark.xfail(
+        reason="KMGR-01: resolve_from_config not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_resolve_from_agent_config(self, tmp_path: Path) -> None:
+        """resolve_from_config(agent_config, skill_dir) extracts skill names from
+        agent_config['skills'] and returns a ComposedSkillSet."""
+        write_skill(tmp_path, "web-scraping", MINIMAL_MANIFEST)
+
+        agent_config = {
+            "agent": {"id": "test-agent", "boundary": "test"},
+            "skills": ["web-scraping"],
+        }
+
+        resolver = SkillResolver()
+        composed = resolver.resolve_from_config(agent_config, tmp_path)
+
+        assert isinstance(composed, ComposedSkillSet)
+        assert "scrape_web" in composed.capabilities
+        assert "web-scraping" in composed.ordered_skill_names
+
+    @pytest.mark.xfail(
+        reason="KMGR-01: resolve_from_config not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_resolve_from_config_missing_skills_key(self, tmp_path: Path) -> None:
+        """resolve_from_config raises SkillResolutionError when agent_config
+        has no 'skills' key."""
+        agent_config = {
+            "agent": {"id": "test-agent"},
+            # No 'skills' key — should raise
+        }
+
+        resolver = SkillResolver()
+        with pytest.raises(SkillResolutionError, match="skills"):
+            resolver.resolve_from_config(agent_config, tmp_path)
+
+    @pytest.mark.xfail(
+        reason="KMGR-01: resolve_from_config not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_resolve_from_config_with_overrides(self, tmp_path: Path) -> None:
+        """resolve_from_config applies agent_config['overrides'] to the ComposedSkillSet.
+
+        Overrides can modify composed fields (e.g., remove an egress domain,
+        pin a dep version) before ConfigBuilder uses the result.
+        """
+        write_skill(tmp_path, "web-scraping", MINIMAL_MANIFEST)
+
+        agent_config = {
+            "agent": {"id": "test-agent", "boundary": "test"},
+            "skills": ["web-scraping"],
+            "overrides": {
+                "egress_domains": ["custom-domain.com"],
+            },
+        }
+
+        resolver = SkillResolver()
+        composed = resolver.resolve_from_config(agent_config, tmp_path)
+
+        # With overrides applied, composed.egress_domains should reflect the override
+        assert "custom-domain.com" in composed.egress_domains

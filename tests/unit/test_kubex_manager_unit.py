@@ -951,3 +951,93 @@ class TestSkillBindMounts:
         assert "/app/skills/recall" in container_paths, (
             "Expected /app/skills/recall bind mount not found in Docker volumes"
         )
+
+
+# ===========================================================================
+# Phase 6 — Dynamic network label lookup (KMGR-05)
+# ===========================================================================
+
+
+class TestDynamicNetworkResolution:
+    """KMGR-05: create_kubex uses Docker label lookup instead of KUBEX_DOCKER_NETWORK env var.
+
+    These tests use xfail because the feature doesn't exist yet — _resolve_internal_network()
+    will be added and wired into create_kubex() in plan 06-02.
+    """
+
+    @pytest.mark.xfail(
+        reason="KMGR-05: _resolve_internal_network not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    @patch("kubex_manager.lifecycle.docker.from_env")
+    def test_resolve_internal_network_returns_labeled_network(
+        self, mock_docker_env: MagicMock
+    ) -> None:
+        """_resolve_internal_network(docker_client) returns the network name
+        found by filtering on label 'kubex.network=internal'."""
+        mock_docker, _ = make_mock_docker()
+        mock_docker_env.return_value = mock_docker
+
+        mock_network = MagicMock()
+        mock_network.name = "openclaw_kubex-internal"
+        mock_docker.networks.list.return_value = [mock_network]
+
+        lifecycle = make_lifecycle()
+        # Call the (not-yet-existing) internal method directly
+        network_name = lifecycle._resolve_internal_network(mock_docker)
+
+        assert network_name == "openclaw_kubex-internal"
+        mock_docker.networks.list.assert_called_once_with(
+            filters={"label": "kubex.network=internal"}
+        )
+
+    @pytest.mark.xfail(
+        reason="KMGR-05: _resolve_internal_network not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    @patch("kubex_manager.lifecycle.docker.from_env")
+    def test_resolve_internal_network_raises_when_no_labeled_network(
+        self, mock_docker_env: MagicMock
+    ) -> None:
+        """_resolve_internal_network raises RuntimeError with setup instructions
+        when no network with label 'kubex.network=internal' is found."""
+        mock_docker, _ = make_mock_docker()
+        mock_docker_env.return_value = mock_docker
+
+        mock_docker.networks.list.return_value = []  # No labeled networks
+
+        lifecycle = make_lifecycle()
+        with pytest.raises(RuntimeError, match="kubex.network"):
+            lifecycle._resolve_internal_network(mock_docker)
+
+    @pytest.mark.xfail(
+        reason="KMGR-05: create_kubex label lookup not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    @patch("kubex_manager.lifecycle.docker.from_env")
+    def test_create_kubex_uses_label_lookup_not_env_var(
+        self, mock_docker_env: MagicMock
+    ) -> None:
+        """create_kubex() resolves network via _resolve_internal_network label lookup,
+        not by reading the KUBEX_DOCKER_NETWORK environment variable."""
+        import os
+        mock_docker, _ = make_mock_docker()
+        mock_docker_env.return_value = mock_docker
+
+        # Set up the label lookup to return our labeled network
+        mock_network = MagicMock()
+        mock_network.name = "myproject_kubex-internal"
+        mock_docker.networks.list.return_value = [mock_network]
+
+        lifecycle = make_lifecycle()
+        req = CreateKubexRequest(config=SAMPLE_CONFIG)
+
+        # Even with a different env var set, label lookup should win
+        with patch.dict(os.environ, {"KUBEX_DOCKER_NETWORK": "old-static-network"}):
+            record = lifecycle.create_kubex(req)
+
+        # The container must be attached to the label-resolved network, not the env var value
+        call_kwargs = mock_docker.containers.create.call_args
+        network = call_kwargs.kwargs.get("network") or call_kwargs[1].get("network", "")
+        assert network == "myproject_kubex-internal"
+        assert network != "old-static-network"
