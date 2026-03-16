@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stem Cell Kubex
 status: completed
-stopped_at: Phase 6 context gathered
-last_updated: "2026-03-15T15:40:14.717Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-16T00:53:42.840Z"
 last_activity: "2026-03-14 — Phase 5 plan 04 complete (gap closure: SKIL-02 + SKIL-04 wired end-to-end, 332 tests passing, 0 new regressions)"
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 7
+  completed_plans: 5
   percent: 44
 ---
 
@@ -51,6 +51,7 @@ Progress: [████░░░░░░] 44% (v1.1 scope, 4 of 9 plans done)
 | Phase 05-base-image-and-skill-schema P02 | 12 | 3 tasks | 13 files |
 | Phase 05-base-image-and-skill-schema P03 | 15 | 1 task | 10 files |
 | Phase 05-base-image-and-skill-schema P04 | 18 | 1 task | 5 files |
+| Phase 06-manager-spawn-policy-gates P01 | 8 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,8 @@ Recent decisions affecting current work:
 - [Phase 05-03]: XPASS cleanup in regression plan — when xfail tests pass due to implementation landing, remove the xfail marker in the regression plan immediately
 - [Phase 05-04]: Volume-wiring tests (TestSkillMountsThroughAPI) updated to use tmp_path + KUBEX_SKILLS_PATH patch — keeps volume-wiring tests isolated from real filesystem while respecting wired validator
 - [Phase 05-04]: Added 'disregard all prior' to blocklist.yaml — test content used this phrase which was not covered by existing 'disregard system prompt' pattern; both are real injection vectors
+- [Phase 06-01]: xfail strict=True on all new tests: catches unintentional greens before implementation
+- [Phase 06-01]: PSEC-01 test is a green assertion (not xfail): boot-time dep trust already holds by design
 
 ### Pending Todos
 
@@ -86,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15T15:40:14.714Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-manager-spawn-policy-gates/06-CONTEXT.md
+Last session: 2026-03-16T00:53:42.838Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None

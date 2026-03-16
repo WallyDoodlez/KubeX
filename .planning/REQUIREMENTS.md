@@ -21,17 +21,17 @@
 
 ### Kubex Manager
 
-- [ ] **KMGR-01**: SkillResolver maps agent config to skill file set + dependency list
-- [ ] **KMGR-02**: ConfigBuilder assembles full container create params from agent config
-- [ ] **KMGR-03**: Dynamic bind-mount injection in `create_kubex()` for skills and config
-- [ ] **KMGR-04**: Redis-backed state persistence (Manager survives restarts without orphaning agents)
-- [ ] **KMGR-05**: Dynamic Docker network name resolution from labels
+- [x] **KMGR-01**: SkillResolver maps agent config to skill file set + dependency list
+- [x] **KMGR-02**: ConfigBuilder assembles full container create params from agent config
+- [x] **KMGR-03**: Dynamic bind-mount injection in `create_kubex()` for skills and config
+- [x] **KMGR-04**: Redis-backed state persistence (Manager survives restarts without orphaning agents)
+- [x] **KMGR-05**: Dynamic Docker network name resolution from labels
 
 ### Policy & Security
 
-- [ ] **PSEC-01**: Boot-time dependencies from config are trusted (no policy gate during initial setup)
-- [ ] **PSEC-02**: Runtime dependency requests (post-boot) go through approve/deny/ESCALATE pipeline
-- [ ] **PSEC-03**: `POST /policy/skill-check` Gateway endpoint for skill assignment validation
+- [x] **PSEC-01**: Boot-time dependencies from config are trusted (no policy gate during initial setup)
+- [x] **PSEC-02**: Runtime dependency requests (post-boot) go through approve/deny/ESCALATE pipeline
+- [x] **PSEC-03**: `POST /policy/skill-check` Gateway endpoint for skill assignment validation
 
 ### Migration
 
@@ -83,14 +83,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SKIL-02 | Phase 5 | Complete |
 | SKIL-03 | Phase 5 | Complete |
 | SKIL-04 | Phase 5 | Complete |
-| KMGR-01 | Phase 6 | Pending |
-| KMGR-02 | Phase 6 | Pending |
-| KMGR-03 | Phase 6 | Pending |
-| KMGR-04 | Phase 6 | Pending |
-| KMGR-05 | Phase 6 | Pending |
-| PSEC-01 | Phase 6 | Pending |
-| PSEC-02 | Phase 6 | Pending |
-| PSEC-03 | Phase 6 | Pending |
+| KMGR-01 | Phase 6 | Complete |
+| KMGR-02 | Phase 6 | Complete |
+| KMGR-03 | Phase 6 | Complete |
+| KMGR-04 | Phase 6 | Complete |
+| KMGR-05 | Phase 6 | Complete |
+| PSEC-01 | Phase 6 | Complete |
+| PSEC-02 | Phase 6 | Complete |
+| PSEC-03 | Phase 6 | Complete |
 | MIGR-01 | Phase 7 | Pending |
 | MIGR-02 | Phase 7 | Pending |
 | MIGR-03 | Phase 7 | Pending |
