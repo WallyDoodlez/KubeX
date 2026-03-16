@@ -278,10 +278,6 @@ class TestSkillCheckEndpoint:
         app.state.gateway_service.rate_limiter = None
         self.client = TestClient(app)
 
-    @pytest.mark.xfail(
-        reason="PSEC-03: POST /policy/skill-check not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_skill_check_allowed_skills_returns_allow(self) -> None:
         """Skills on the agent's allowed_skills list return ALLOW."""
         resp = self.client.post(
@@ -295,10 +291,6 @@ class TestSkillCheckEndpoint:
         data = resp.json()
         assert data["decision"] == "allow"
 
-    @pytest.mark.xfail(
-        reason="PSEC-03: POST /policy/skill-check not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_skill_check_unknown_skill_returns_escalate(self) -> None:
         """Skills not on the agent's allowlist return ESCALATE (consistent with policy
         philosophy: not explicitly allowed = human review, not hard deny)."""
@@ -313,10 +305,6 @@ class TestSkillCheckEndpoint:
         data = resp.json()
         assert data["decision"] == "escalate"
 
-    @pytest.mark.xfail(
-        reason="PSEC-03: POST /policy/skill-check not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_skill_check_no_policy_returns_escalate(self) -> None:
         """An agent with no policy file returns ESCALATE for any skill check."""
         resp = self.client.post(
@@ -330,10 +318,6 @@ class TestSkillCheckEndpoint:
         data = resp.json()
         assert data["decision"] == "escalate"
 
-    @pytest.mark.xfail(
-        reason="PSEC-03: POST /policy/skill-check not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_skill_check_response_format_matches_policy_result(self) -> None:
         """Response JSON has decision, reason, rule_matched, agent_id fields
         matching the PolicyResult schema."""

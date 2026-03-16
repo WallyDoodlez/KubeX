@@ -4,6 +4,9 @@
 networks:
   kubex-internal:
     driver: bridge
+    labels:
+      # KMGR-05: Label enables dynamic network lookup by Kubex Manager
+      kubex.network: internal
   kubex-external:
     driver: bridge
   kubex-data:
@@ -64,6 +67,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./agents:/app/agents:ro
       - ./skills:/app/skills:ro
+      - ./configs:/app/configs
     environment:
       - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/3
       - REGISTRY_URL=http://kubex-registry:8070

@@ -55,13 +55,21 @@ SCRAPER_CONFIG: dict[str, Any] = {
 
 
 def make_mock_docker() -> tuple[MagicMock, MagicMock]:
-    """Return (mock_docker_client, mock_container)."""
+    """Return (mock_docker_client, mock_container).
+
+    Also sets up networks.list() to return a mock network with label
+    'kubex.network=internal' so _resolve_internal_network() works in tests.
+    """
     mock_container = MagicMock()
     mock_container.id = "deadbeef001"
     mock_container.status = "created"
     mock_docker = MagicMock()
     mock_docker.containers.create.return_value = mock_container
     mock_docker.containers.get.return_value = mock_container
+    # Set up network label lookup for _resolve_internal_network (KMGR-05)
+    mock_network = MagicMock()
+    mock_network.name = "openclaw_kubex-internal"
+    mock_docker.networks.list.return_value = [mock_network]
     return mock_docker, mock_container
 
 
@@ -965,10 +973,6 @@ class TestDynamicNetworkResolution:
     will be added and wired into create_kubex() in plan 06-02.
     """
 
-    @pytest.mark.xfail(
-        reason="KMGR-05: _resolve_internal_network not yet implemented (plan 06-02)",
-        strict=True,
-    )
     @patch("kubex_manager.lifecycle.docker.from_env")
     def test_resolve_internal_network_returns_labeled_network(
         self, mock_docker_env: MagicMock
@@ -991,10 +995,6 @@ class TestDynamicNetworkResolution:
             filters={"label": "kubex.network=internal"}
         )
 
-    @pytest.mark.xfail(
-        reason="KMGR-05: _resolve_internal_network not yet implemented (plan 06-02)",
-        strict=True,
-    )
     @patch("kubex_manager.lifecycle.docker.from_env")
     def test_resolve_internal_network_raises_when_no_labeled_network(
         self, mock_docker_env: MagicMock
@@ -1010,10 +1010,6 @@ class TestDynamicNetworkResolution:
         with pytest.raises(RuntimeError, match="kubex.network"):
             lifecycle._resolve_internal_network(mock_docker)
 
-    @pytest.mark.xfail(
-        reason="KMGR-05: create_kubex label lookup not yet implemented (plan 06-02)",
-        strict=True,
-    )
     @patch("kubex_manager.lifecycle.docker.from_env")
     def test_create_kubex_uses_label_lookup_not_env_var(
         self, mock_docker_env: MagicMock
@@ -1054,10 +1050,6 @@ class TestConfigMount:
     Uses xfail since create_kubex() exists but doesn't yet mount config.yaml.
     """
 
-    @pytest.mark.xfail(
-        reason="KMGR-03: config.yaml bind mount not yet implemented (plan 06-02)",
-        strict=True,
-    )
     @patch("kubex_manager.lifecycle.docker.from_env")
     def test_create_kubex_mounts_config_yaml_at_app_config(
         self, mock_docker_env: MagicMock, tmp_path
@@ -1101,10 +1093,6 @@ class TestKubexRecordSerialization:
     Uses xfail since KubexRecord exists but lacks to_dict/from_dict and new fields.
     """
 
-    @pytest.mark.xfail(
-        reason="KMGR-04: KubexRecord.to_dict/from_dict not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_kubex_record_to_dict_round_trip(self) -> None:
         """KubexRecord.to_dict() produces JSON-serializable dict;
         from_dict() reconstructs an identical record."""
@@ -1133,10 +1121,6 @@ class TestKubexRecordSerialization:
         assert restored.container_id == record.container_id
         assert restored.status == record.status
 
-    @pytest.mark.xfail(
-        reason="KMGR-04: KubexRecord new fields not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_kubex_record_has_extended_fields(self) -> None:
         """KubexRecord has skills, config_path, runtime_deps, composed_capabilities fields."""
         record = KubexRecord(
@@ -1158,10 +1142,6 @@ class TestKubexRecordSerialization:
         assert record.runtime_deps == ["requests==2.31.0"]
         assert record.composed_capabilities == ["scrape_web", "recall_memory"]
 
-    @pytest.mark.xfail(
-        reason="KMGR-04: Redis persistence in create_kubex not yet implemented (plan 06-02)",
-        strict=True,
-    )
     @patch("kubex_manager.lifecycle.docker.from_env")
     def test_create_kubex_persists_to_redis(self, mock_docker_env: MagicMock) -> None:
         """After create_kubex(), the KubexRecord is stored in Redis at
@@ -1184,10 +1164,6 @@ class TestKubexRecordSerialization:
             f"Expected Redis key '{key_pattern}' not found in set() calls: {set_calls}"
         )
 
-    @pytest.mark.xfail(
-        reason="KMGR-04: load_from_redis not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_lifecycle_loads_records_on_startup(self) -> None:
         """KubexLifecycle.load_from_redis() populates _kubexes from Redis
         keys matching 'kubex:record:*'."""
@@ -1237,10 +1213,6 @@ class TestKubexRecordSerialization:
 class TestSpawnPipelineRollback:
     """Spawn pipeline is atomic: failures trigger rollback of previously created artifacts."""
 
-    @pytest.mark.xfail(
-        reason="KMGR-04/05: Spawn pipeline rollback not yet implemented (plan 06-02)",
-        strict=True,
-    )
     @patch("kubex_manager.lifecycle.docker.from_env")
     def test_spawn_pipeline_rolls_back_container_on_redis_failure(
         self, mock_docker_env: MagicMock
@@ -1261,10 +1233,6 @@ class TestSpawnPipelineRollback:
         # Container must be removed after Redis failure
         assert mock_container.remove.called or mock_docker.containers.get.called
 
-    @pytest.mark.xfail(
-        reason="KMGR-04: Spawn pipeline rollback on Docker failure not yet implemented (plan 06-02)",
-        strict=True,
-    )
     @patch("kubex_manager.lifecycle.docker.from_env")
     def test_spawn_pipeline_rolls_back_config_on_docker_failure(
         self, mock_docker_env: MagicMock, tmp_path
@@ -1317,10 +1285,6 @@ class TestManagerAPIExtensions:
         from kubex_manager.main import app
         return TestClient(app)
 
-    @pytest.mark.xfail(
-        reason="KMGR-03: POST /kubexes/{id}/respawn not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_respawn_endpoint_exists(self) -> None:
         """POST /kubexes/{id}/respawn returns 200 (not 404)."""
         client = self._get_app_client()
@@ -1332,10 +1296,6 @@ class TestManagerAPIExtensions:
             f"POST /kubexes/{{id}}/respawn returned 404 — endpoint not implemented"
         )
 
-    @pytest.mark.xfail(
-        reason="KMGR-03: POST /kubexes/{id}/install-dep not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_install_dep_endpoint_exists(self) -> None:
         """POST /kubexes/{id}/install-dep returns 200 or 422 (not 404)."""
         client = self._get_app_client()
@@ -1348,10 +1308,6 @@ class TestManagerAPIExtensions:
             f"POST /kubexes/{{id}}/install-dep returned 404 — endpoint not implemented"
         )
 
-    @pytest.mark.xfail(
-        reason="KMGR-03: GET /kubexes/{id}/config not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_get_config_endpoint_exists(self) -> None:
         """GET /kubexes/{id}/config returns config content (not 404)."""
         client = self._get_app_client()
@@ -1363,10 +1319,6 @@ class TestManagerAPIExtensions:
             f"GET /kubexes/{{id}}/config returned 404 — endpoint not implemented"
         )
 
-    @pytest.mark.xfail(
-        reason="KMGR-03: GET /configs not yet implemented (plan 06-02)",
-        strict=True,
-    )
     def test_list_configs_endpoint_exists(self) -> None:
         """GET /configs returns list of saved configs (not 404)."""
         client = self._get_app_client()

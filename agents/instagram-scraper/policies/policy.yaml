@@ -34,3 +34,7 @@ agent_policy:
   budget:
     per_task_token_limit: 10000
     daily_cost_limit_usd: 1.00
+  # PSEC-03: Skill allowlist for spawn-time skill check
+  allowed_skills:
+    - web-scraping
+    - recall

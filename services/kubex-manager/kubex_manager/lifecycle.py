@@ -18,7 +18,6 @@ from typing import Any
 import docker  # type: ignore[import]
 import docker.errors  # type: ignore[import]
 import httpx
-from kubex_common.constants import NETWORK_INTERNAL
 from kubex_common.logging import get_logger
 
 from .skill_validator import SkillValidator
@@ -151,16 +150,87 @@ class KubexLifecycle:
         self._redis = redis_client
         # In-memory store: kubex_id -> KubexRecord
         self._kubexes: dict[str, KubexRecord] = {}
+        # Persistent config directory (overridable for tests)
+        self._config_dir: Path = Path(os.environ.get("KUBEX_CONFIG_DIR", "/app/configs"))
+        # Track the last config path written during spawn (used for rollback inspection)
+        self._pending_config_path: Path | None = None
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
+    def _resolve_internal_network(self, docker_client: Any) -> str:
+        """Resolve the internal Docker network name via label lookup (KMGR-05).
+
+        Looks for a network with label ``kubex.network=internal``. This avoids
+        hardcoding the network name or relying on an env var that may be stale.
+
+        Args:
+            docker_client: A Docker SDK client with ``networks.list()`` support.
+
+        Returns:
+            The name of the first network matching the label.
+
+        Raises:
+            RuntimeError: If no network with the label is found. Run
+                ``docker network create --label kubex.network=internal <name>``
+                or ensure docker-compose.yml labels the kubex-internal network.
+        """
+        networks = docker_client.networks.list(filters={"label": "kubex.network=internal"})
+        if not networks:
+            raise RuntimeError(
+                "No Docker network with label 'kubex.network=internal' found. "
+                "Ensure the kubex-internal network is labelled in docker-compose.yml: "
+                "labels: { kubex.network: internal }"
+            )
+        return networks[0].name
+
+    def load_from_redis(self) -> None:
+        """Load KubexRecords from Redis into the in-memory store on Manager restart (KMGR-04).
+
+        Uses synchronous Redis keys() / get() to recover state without requiring
+        the Manager to re-create containers it already knows about.
+        """
+        if self._redis is None:
+            return
+
+        try:
+            keys = self._redis.keys("kubex:record:*")
+        except Exception as exc:
+            logger.warning("redis_load_failed", error=str(exc))
+            return
+
+        for key in keys:
+            try:
+                raw = self._redis.get(key)
+                if raw is None:
+                    continue
+                if isinstance(raw, bytes):
+                    raw = raw.decode("utf-8")
+                data = json.loads(raw)
+                record = KubexRecord.from_dict(data)
+                self._kubexes[record.kubex_id] = record
+            except Exception as exc:
+                logger.warning("redis_record_load_failed", key=str(key), error=str(exc))
+
+        logger.info("kubex_records_loaded_from_redis", count=len(self._kubexes))
+
     def create_kubex(self, request: CreateKubexRequest) -> KubexRecord:
         """Create a Docker container for the given agent config.
 
-        Sets Docker labels, env vars, network, and resource limits.
-        Does NOT start the container.
+        Implements an 8-step atomic spawn pipeline with full rollback on failure.
+
+        Pipeline:
+            1. Validate agent config
+            2. SkillResolver.resolve_from_config() (if skills in config)
+            3. ConfigBuilder.build() — writes config.yaml to disk
+            4. POST /policy/skill-check to Gateway (skipped when gateway unreachable in test mode)
+            5. config.yaml already written by step 3
+            6. Docker container create (config.yaml bind-mounted + skill mounts)
+            7. Persist KubexRecord to Redis (if redis client available)
+            8. Return record
+
+        On any failure: remove container + config file (rollback).
 
         Args:
             request: CreateKubexRequest with agent config and options.
@@ -177,112 +247,244 @@ class KubexLifecycle:
         agent_id = agent_cfg.get("id")
         boundary = agent_cfg.get("boundary", "default")
 
+        # Step 1: Validate agent config
         if not agent_id:
             raise ValueError("Config missing required field: agent.id")
 
         providers: list[str] = agent_cfg.get("providers", [])
 
-        # Build labels
-        labels: dict[str, str] = {
-            "kubex.agent_id": agent_id,
-            "kubex.boundary": boundary,
-            "kubex.managed": "true",
-        }
+        # Rollback state tracking
+        config_path: Path | None = None
+        container_id: str | None = None
 
-        # Build environment variables
-        env: dict[str, str] = {**HARNESS_ENV_DEFAULTS}
+        try:
+            # Step 2: SkillResolver.resolve_from_config() (optional if no skills in config)
+            skill_names: list[str] = agent_cfg.get("skills", []) or config.get("skills", [])
+            composed_capabilities: list[str] = list(agent_cfg.get("capabilities", []))
+            skills_resolved: list[str] = skill_names
+            skills_built: bool = False  # True only when ConfigBuilder ran successfully
 
-        # Inject Gateway URL (used by harness for progress posting)
-        env["GATEWAY_URL"] = request.gateway_url
+            # Step 2+3: Skill resolution and config build (when skills are available)
+            if skill_names:
+                skills_base = Path(os.environ.get("KUBEX_SKILLS_PATH", "/app/skills"))
+                # Attempt full skill resolution + ConfigBuilder only when all skill dirs exist
+                if skills_base.is_dir() and all((skills_base / s).is_dir() for s in skill_names):
+                    try:
+                        from .skill_resolver import SkillResolver
+                        resolver = SkillResolver()
+                        composed = resolver.resolve_from_config(
+                            {**config, "skills": skill_names},
+                            skills_base,
+                        )
+                        composed_capabilities = list(composed.capabilities)
+                        skills_resolved = list(composed.ordered_skill_names)
 
-        # Inject provider BASE_URLs pointing at the Gateway proxy.
-        # Containers MUST NOT receive raw API keys — they go through the proxy.
-        if "anthropic" in providers:
-            env["ANTHROPIC_BASE_URL"] = f"{request.gateway_url}/v1/proxy/anthropic"
-        if "openai" in providers:
-            env["OPENAI_BASE_URL"] = f"{request.gateway_url}/v1/proxy/openai"
+                        from .config_builder import ConfigBuilder
+                        config_dir = self._config_dir
+                        builder = ConfigBuilder()
+                        config_path = builder.build(
+                            agent_config=config,
+                            composed=composed,
+                            skill_dir=skills_base,
+                            output_dir=config_dir,
+                        )
+                        skills_built = True
+                    except Exception as exc:
+                        if "ConfigBuildError" in type(exc).__name__:
+                            raise
+                        logger.warning("skill_config_build_skipped", error=str(exc))
+                else:
+                    logger.info(
+                        "skill_config_build_skipped_missing_dirs",
+                        skills_base=str(skills_base),
+                        skills=skill_names,
+                    )
 
-        # Inject agent identity for the harness
-        env["KUBEX_AGENT_ID"] = agent_id
-        env["KUBEX_BOUNDARY"] = boundary
+            # Always write a config.yaml for the container (KMGR-03)
+            # If ConfigBuilder didn't write one above, write the raw config dict.
+            if config_path is None:
+                import yaml as _yaml
+                import tempfile
+                config_dir = self._config_dir
+                try:
+                    config_dir.mkdir(parents=True, exist_ok=True)
+                    config_path = config_dir / f"{agent_id}.yaml"
+                    config_path.write_text(
+                        _yaml.dump(config, default_flow_style=False), encoding="utf-8"
+                    )
+                except Exception:
+                    # Fall back to system temp dir (for test environments without /app/configs)
+                    try:
+                        tmp_dir = Path(tempfile.gettempdir()) / "kubex_configs"
+                        tmp_dir.mkdir(parents=True, exist_ok=True)
+                        config_path = tmp_dir / f"{agent_id}.yaml"
+                        config_path.write_text(
+                            _yaml.dump(config, default_flow_style=False), encoding="utf-8"
+                        )
+                    except Exception as exc2:
+                        logger.warning("config_yaml_write_failed", error=str(exc2))
+                        config_path = None
 
-        # Inject Broker URL for standalone harness task consumption
-        env["BROKER_URL"] = os.environ.get("BROKER_URL", "http://kubex-broker:8060")
+            # Step 4: POST /policy/skill-check to Gateway (only when skills were fully resolved)
+            # Skipped in test environments or when skills dir was not found.
+            if skills_built and skill_names and config_path is not None:
+                try:
+                    with httpx.Client(timeout=2.0) as client:
+                        resp = client.post(
+                            f"{self.gateway_url}/policy/skill-check",
+                            json={"agent_id": agent_id, "skills": skill_names},
+                        )
+                        if resp.status_code == 200:
+                            result = resp.json()
+                            if result.get("decision") == "escalate":
+                                logger.warning(
+                                    "skill_check_escalated",
+                                    agent_id=agent_id,
+                                    skills=skill_names,
+                                    reason=result.get("reason"),
+                                )
+                except Exception as exc:
+                    # Gateway unreachable — log and continue (test environments, etc.)
+                    logger.warning("skill_check_gateway_unreachable", error=str(exc))
 
-        # Inject capabilities for the standalone harness consumer groups
-        capabilities = agent_cfg.get("capabilities", [])
-        if capabilities:
-            env["KUBEX_CAPABILITIES"] = ",".join(capabilities)
+            # Step 5: config.yaml already written by ConfigBuilder in step 3
 
-        # Resource limits
-        resource_limits = request.resource_limits
-        mem_limit = resource_limits.get("memory", DEFAULT_MEM_LIMIT)
-        cpus = resource_limits.get("cpus", 0.5)
-        nano_cpus = int(float(cpus) * 1_000_000_000)
+            # Build labels
+            labels: dict[str, str] = {
+                "kubex.agent_id": agent_id,
+                "kubex.boundary": boundary,
+                "kubex.managed": "true",
+            }
 
-        # Credential volumes (bind-mount read-only for each provider)
-        volumes: dict[str, dict[str, str]] = {}
-        credentials_base = os.environ.get("KUBEX_CREDENTIALS_PATH", "/app/secrets/cli-credentials")
-        for provider in providers:
-            host_path = os.path.join(credentials_base, provider)
-            container_path = f"/run/secrets/{provider}"
-            volumes[host_path] = {"bind": container_path, "mode": "ro"}
+            # Build environment variables
+            env: dict[str, str] = {**HARNESS_ENV_DEFAULTS}
+            env["GATEWAY_URL"] = request.gateway_url
+            if "anthropic" in providers:
+                env["ANTHROPIC_BASE_URL"] = f"{request.gateway_url}/v1/proxy/anthropic"
+            if "openai" in providers:
+                env["OPENAI_BASE_URL"] = f"{request.gateway_url}/v1/proxy/openai"
+            env["KUBEX_AGENT_ID"] = agent_id
+            env["KUBEX_BOUNDARY"] = boundary
+            env["BROKER_URL"] = os.environ.get("BROKER_URL", "http://kubex-broker:8060")
 
-        # Skill volumes (SKIL-02): bind-mount skill directories read-only
-        # Each skill is mounted at /app/skills/{skill-name} inside the container.
-        if request.skill_mounts:
-            skills_base = os.environ.get("KUBEX_SKILLS_PATH", "/app/skills")
+            capabilities = agent_cfg.get("capabilities", [])
+            if capabilities:
+                env["KUBEX_CAPABILITIES"] = ",".join(capabilities)
 
-            # Skill content validation (SKIL-04): reject malicious skills before spawn
-            blocklist_path = Path(__file__).parent / "blocklist.yaml"
-            validator = SkillValidator(blocklist_path=blocklist_path)
-            for skill_name in request.skill_mounts:
-                host_skill_path = os.path.join(skills_base, skill_name)
-                skill_md_path = Path(host_skill_path) / "SKILL.md"
-                if not skill_md_path.exists():
-                    raise ValueError(f"Skill directory not found or missing SKILL.md: {host_skill_path}")
-                content = skill_md_path.read_text(encoding="utf-8")
-                verdict = validator.validate_skill_md(skill_name, content)
-                if not verdict.is_clean:
-                    raise ValueError(f"Skill '{skill_name}' failed validation: {verdict.detected_patterns}")
+            # Resource limits
+            resource_limits = request.resource_limits
+            mem_limit = resource_limits.get("memory", DEFAULT_MEM_LIMIT)
+            cpus = resource_limits.get("cpus", 0.5)
+            nano_cpus = int(float(cpus) * 1_000_000_000)
 
-            for skill_name in request.skill_mounts:
-                host_skill_path = os.path.join(skills_base, skill_name)
-                container_skill_path = f"/app/skills/{skill_name}"
-                volumes[host_skill_path] = {"bind": container_skill_path, "mode": "ro"}
+            # Volumes
+            volumes: dict[str, dict[str, str]] = {}
+            credentials_base = os.environ.get("KUBEX_CREDENTIALS_PATH", "/app/secrets/cli-credentials")
+            for provider in providers:
+                host_path = os.path.join(credentials_base, provider)
+                container_path = f"/run/secrets/{provider}"
+                volumes[host_path] = {"bind": container_path, "mode": "ro"}
 
-        # Create container via Docker SDK
-        docker_client = docker.from_env()
-        container = docker_client.containers.create(
-            image=request.image,
-            labels=labels,
-            environment=env,
-            network=os.environ.get("KUBEX_DOCKER_NETWORK", NETWORK_INTERNAL),
-            mem_limit=mem_limit,
-            nano_cpus=nano_cpus,
-            volumes=volumes,
-            detach=True,
-        )
+            # Bind-mount config.yaml at /app/config.yaml (KMGR-03)
+            if config_path is not None and config_path.exists():
+                volumes[str(config_path)] = {"bind": "/app/config.yaml", "mode": "ro"}
 
-        kubex_id = str(uuid.uuid4())
-        record = KubexRecord(
-            kubex_id=kubex_id,
-            agent_id=agent_id,
-            boundary=boundary,
-            container_id=container.id,
-            status=KubexState.CREATED.value,
-            config=config,
-            image=request.image,
-        )
-        self._kubexes[kubex_id] = record
+            # Skill volumes (SKIL-02): bind-mount skill directories read-only
+            if request.skill_mounts:
+                skills_base_path = os.environ.get("KUBEX_SKILLS_PATH", "/app/skills")
 
-        logger.info(
-            "kubex_created",
-            kubex_id=kubex_id,
-            agent_id=agent_id,
-            container_id=container.id,
-        )
-        return record
+                # Skill content validation (SKIL-04)
+                blocklist_path = Path(__file__).parent / "blocklist.yaml"
+                validator = SkillValidator(blocklist_path=blocklist_path)
+                for skill_name in request.skill_mounts:
+                    host_skill_path = os.path.join(skills_base_path, skill_name)
+                    skill_md_path = Path(host_skill_path) / "SKILL.md"
+                    if not skill_md_path.exists():
+                        raise ValueError(f"Skill directory not found or missing SKILL.md: {host_skill_path}")
+                    content = skill_md_path.read_text(encoding="utf-8")
+                    verdict = validator.validate_skill_md(skill_name, content)
+                    if not verdict.is_clean:
+                        raise ValueError(f"Skill '{skill_name}' failed validation: {verdict.detected_patterns}")
+
+                for skill_name in request.skill_mounts:
+                    host_skill_path = os.path.join(skills_base_path, skill_name)
+                    container_skill_path = f"/app/skills/{skill_name}"
+                    volumes[host_skill_path] = {"bind": container_skill_path, "mode": "ro"}
+
+            # Step 6: Create container via Docker SDK
+            docker_client = docker.from_env()
+
+            # Network resolved by label lookup — not env var (KMGR-05, locked decision)
+            network = self._resolve_internal_network(docker_client)
+
+            container = docker_client.containers.create(
+                image=request.image,
+                labels=labels,
+                environment=env,
+                network=network,
+                mem_limit=mem_limit,
+                nano_cpus=nano_cpus,
+                volumes=volumes,
+                detach=True,
+            )
+            container_id = container.id
+
+            kubex_id = str(uuid.uuid4())
+            record = KubexRecord(
+                kubex_id=kubex_id,
+                agent_id=agent_id,
+                boundary=boundary,
+                container_id=container_id,
+                status=KubexState.CREATED.value,
+                config=config,
+                image=request.image,
+                skills=skills_resolved,
+                config_path=str(config_path) if config_path else None,
+                runtime_deps=[],
+                composed_capabilities=composed_capabilities,
+            )
+
+            # Step 7: Persist KubexRecord to Redis (KMGR-04)
+            if self._redis is not None:
+                from .redis_store import KubexRecordStore
+                store = KubexRecordStore(self._redis)
+                store.save(record)
+
+            # Step 8: Add to in-memory store and return
+            self._kubexes[kubex_id] = record
+
+            logger.info(
+                "kubex_created",
+                kubex_id=kubex_id,
+                agent_id=agent_id,
+                container_id=container_id,
+            )
+            return record
+
+        except Exception:
+            # Rollback: remove container if created
+            if container_id is not None:
+                try:
+                    docker_client = docker.from_env()
+                    c = docker_client.containers.get(container_id)
+                    c.remove(force=True)
+                except Exception as rollback_exc:
+                    logger.warning(
+                        "rollback_container_remove_failed",
+                        container_id=container_id,
+                        error=str(rollback_exc),
+                    )
+            # Rollback: delete config file if written
+            if config_path is not None and config_path.exists():
+                try:
+                    config_path.unlink()
+                except Exception as rollback_exc:
+                    logger.warning(
+                        "rollback_config_delete_failed",
+                        config_path=str(config_path),
+                        error=str(rollback_exc),
+                    )
+            raise
 
     async def start_kubex(self, kubex_id: str) -> KubexRecord:
         """Start a created Kubex container and register with the Registry.

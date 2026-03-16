@@ -33,7 +33,7 @@ from kubex_common.service import KubexService
 from .budget import BudgetTracker
 from .identity import IdentityResolver
 from .llm_proxy import LLMProxy
-from .policy import PolicyDecision, PolicyEngine, PolicyLoader, PolicyResult
+from .policy import AgentPolicy, PolicyDecision, PolicyEngine, PolicyLoader, PolicyResult
 from .ratelimit import RateLimiter
 
 logger = get_logger(__name__)
@@ -806,6 +806,85 @@ async def get_task_result(task_id: str, request: Request) -> JSONResponse:
         data = {"raw": raw}
 
     return JSONResponse(status_code=200, content=data)
+
+
+# ─────────────────────────────────────────────
+# Skill-check endpoint (PSEC-03)
+# ─────────────────────────────────────────────
+
+
+class SkillCheckRequest(BaseModel):
+    """Request body for POST /policy/skill-check."""
+
+    agent_id: str
+    skills: list[str]
+
+
+@router.post("/policy/skill-check")
+async def check_skills(request: Request, body: SkillCheckRequest) -> JSONResponse:
+    """Check whether the agent's requested skills are on its allowlist.
+
+    Returns a PolicyResult JSON with decision ALLOW or ESCALATE:
+    - All skills on allowlist → ALLOW
+    - Any skill not on allowlist → ESCALATE
+    - Agent with no policy or empty allowed_skills → ESCALATE
+
+    This endpoint is called by Kubex Manager during the spawn pipeline
+    (step 4) before creating a container.
+    """
+    gateway: GatewayService = request.app.state.gateway_service
+    agent_policy: AgentPolicy | None = gateway.policy_loader.get_agent_policy(body.agent_id)
+
+    if agent_policy is None or not agent_policy.allowed_skills:
+        result = PolicyResult(
+            decision=PolicyDecision.ESCALATE,
+            reason=f"No skill allowlist for agent '{body.agent_id}'",
+            rule_matched="agent.skills.no_policy",
+            agent_id=body.agent_id,
+        )
+        return JSONResponse(
+            status_code=200,
+            content={
+                "decision": result.decision.value,
+                "reason": result.reason,
+                "rule_matched": result.rule_matched,
+                "agent_id": result.agent_id,
+            },
+        )
+
+    for skill in body.skills:
+        if skill not in agent_policy.allowed_skills:
+            result = PolicyResult(
+                decision=PolicyDecision.ESCALATE,
+                reason=f"Skill '{skill}' not in allowlist for agent '{body.agent_id}'",
+                rule_matched="agent.skills.escalate",
+                agent_id=body.agent_id,
+            )
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "decision": result.decision.value,
+                    "reason": result.reason,
+                    "rule_matched": result.rule_matched,
+                    "agent_id": result.agent_id,
+                },
+            )
+
+    result = PolicyResult(
+        decision=PolicyDecision.ALLOW,
+        reason="All skills on allowlist",
+        rule_matched="agent.skills.allow",
+        agent_id=body.agent_id,
+    )
+    return JSONResponse(
+        status_code=200,
+        content={
+            "decision": result.decision.value,
+            "reason": result.reason,
+            "rule_matched": result.rule_matched,
+            "agent_id": result.agent_id,
+        },
+    )
 
 
 # ─────────────────────────────────────────────

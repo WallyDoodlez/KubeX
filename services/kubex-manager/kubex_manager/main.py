@@ -65,6 +65,13 @@ class CreateKubexBody(BaseModel):
     skill_mounts: list[str] = []
 
 
+class InstallDepBody(BaseModel):
+    """Request body for POST /kubexes/{id}/install-dep."""
+
+    package: str
+    type: str = "pip"  # "pip" or "cli"
+
+
 # ---------------------------------------------------------------------------
 # Router
 # ---------------------------------------------------------------------------
@@ -280,6 +287,218 @@ async def restart_kubex(kubex_id: str, request: Request) -> JSONResponse:
     return JSONResponse(status_code=200, content=_record_to_dict(record))
 
 
+@router.post("/kubexes/{kubex_id}/respawn", dependencies=[Depends(verify_token)])
+async def respawn_kubex(kubex_id: str, request: Request) -> JSONResponse:
+    """Respawn a Kubex: kill current container and create a new one from persisted config.
+
+    The persisted config is loaded from the KubexRecord in the in-memory store.
+    """
+    lifecycle = _get_lifecycle(request)
+    try:
+        record = lifecycle.get_kubex(kubex_id)
+    except KeyError:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="KubexNotFound",
+                message=f"Kubex not found: {kubex_id}",
+            ).model_dump(),
+        )
+
+    # Kill existing container (best-effort)
+    try:
+        import docker as _docker
+        docker_client = _docker.from_env()
+        container = docker_client.containers.get(record.container_id)
+        try:
+            container.kill()
+        except Exception:
+            with __import__("contextlib").suppress(Exception):
+                container.stop(timeout=0)
+    except Exception as exc:
+        logger.warning("respawn_kill_failed", kubex_id=kubex_id, error=str(exc))
+
+    # Re-create using persisted config
+    gateway_url = os.environ.get("GATEWAY_URL", "http://gateway:8080")
+    registry_url = os.environ.get("REGISTRY_URL", "http://registry:8070")
+
+    create_req = CreateKubexRequest(
+        config=record.config,
+        image=record.image,
+        gateway_url=gateway_url,
+        registry_url=registry_url,
+        skill_mounts=record.skills,
+    )
+
+    try:
+        new_record = lifecycle.create_kubex(create_req)
+    except Exception as exc:
+        logger.error("respawn_create_failed", kubex_id=kubex_id, error=str(exc))
+        return JSONResponse(
+            status_code=503,
+            content=ErrorResponse(
+                error="RespawnFailed",
+                message=f"Failed to respawn Kubex: {exc}",
+            ).model_dump(),
+        )
+
+    return JSONResponse(status_code=200, content=_record_to_dict(new_record))
+
+
+@router.post("/kubexes/{kubex_id}/install-dep", dependencies=[Depends(verify_token)])
+async def install_dep(kubex_id: str, body: InstallDepBody, request: Request) -> JSONResponse:
+    """Install a runtime dependency into a running Kubex container.
+
+    Runs pip install (or appropriate CLI) inside the container and records
+    the installed package in the KubexRecord.runtime_deps list.
+    """
+    lifecycle = _get_lifecycle(request)
+    try:
+        record = lifecycle.get_kubex(kubex_id)
+    except KeyError:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="KubexNotFound",
+                message=f"Kubex not found: {kubex_id}",
+            ).model_dump(),
+        )
+
+    try:
+        import docker as _docker
+        docker_client = _docker.from_env()
+        container = docker_client.containers.get(record.container_id)
+
+        if body.type == "pip":
+            cmd = ["pip", "install", body.package]
+        elif body.type == "cli":
+            cmd = ["apt-get", "install", "-y", body.package]
+        else:
+            return JSONResponse(
+                status_code=422,
+                content=ErrorResponse(
+                    error="UnknownDepType",
+                    message=f"Unknown dependency type: {body.type!r}. Use 'pip' or 'cli'.",
+                ).model_dump(),
+            )
+
+        exit_code, output = container.exec_run(cmd)
+
+        if exit_code != 0:
+            return JSONResponse(
+                status_code=422,
+                content=ErrorResponse(
+                    error="InstallFailed",
+                    message=f"Package install failed (exit {exit_code}): {output.decode(errors='replace')[:500]}",
+                ).model_dump(),
+            )
+
+        # Record installed package in record
+        dep_entry = f"{body.package} (type={body.type})"
+        if dep_entry not in record.runtime_deps:
+            record.runtime_deps.append(dep_entry)
+
+        # Persist updated record to Redis
+        if lifecycle._redis is not None:
+            from .redis_store import KubexRecordStore
+            store = KubexRecordStore(lifecycle._redis)
+            store.save(record)
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "kubex_id": kubex_id,
+                "package": body.package,
+                "type": body.type,
+                "status": "installed",
+                "runtime_deps": record.runtime_deps,
+            },
+        )
+
+    except docker.errors.DockerException as exc:
+        return JSONResponse(
+            status_code=503,
+            content=ErrorResponse(
+                error="DockerError",
+                message=str(exc),
+            ).model_dump(),
+        )
+
+
+@router.get("/kubexes/{kubex_id}/config", dependencies=[Depends(verify_token)])
+async def get_kubex_config(kubex_id: str, request: Request) -> JSONResponse:
+    """Return the full merged config.yaml content for a Kubex (for debugging/auditing)."""
+    lifecycle = _get_lifecycle(request)
+    try:
+        record = lifecycle.get_kubex(kubex_id)
+    except KeyError:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="KubexNotFound",
+                message=f"Kubex not found: {kubex_id}",
+            ).model_dump(),
+        )
+
+    if record.config_path:
+        from pathlib import Path
+        config_file = Path(record.config_path)
+        if config_file.exists():
+            import yaml as _yaml
+            try:
+                content = _yaml.safe_load(config_file.read_text(encoding="utf-8"))
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "kubex_id": kubex_id,
+                        "config_path": record.config_path,
+                        "config": content,
+                    },
+                )
+            except Exception as exc:
+                logger.warning("config_file_read_failed", path=record.config_path, error=str(exc))
+
+    # Fallback: return the in-memory config dict
+    return JSONResponse(
+        status_code=200,
+        content={
+            "kubex_id": kubex_id,
+            "config_path": record.config_path,
+            "config": record.config,
+        },
+    )
+
+
+configs_router = APIRouter(tags=["configs"])
+
+
+@configs_router.get("/configs", dependencies=[Depends(verify_token)])
+async def list_configs(request: Request) -> JSONResponse:
+    """List saved config.yaml files with metadata."""
+    from pathlib import Path
+    import yaml as _yaml
+
+    lifecycle = _get_lifecycle(request)
+    config_dir = lifecycle._config_dir
+
+    configs = []
+    if config_dir.is_dir():
+        for config_file in sorted(config_dir.glob("*.yaml")):
+            try:
+                content = _yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
+                agent_section = content.get("agent", {})
+                configs.append({
+                    "agent_id": agent_section.get("id", config_file.stem),
+                    "file": config_file.name,
+                    "skills": agent_section.get("skills", content.get("skills", [])),
+                    "capabilities": agent_section.get("capabilities", content.get("capabilities", [])),
+                })
+            except Exception:
+                configs.append({"file": config_file.name, "agent_id": config_file.stem})
+
+    return JSONResponse(status_code=200, content={"configs": configs})
+
+
 @router.delete("/kubexes/{kubex_id}", status_code=204, dependencies=[Depends(verify_token)])
 async def remove_kubex(kubex_id: str, request: Request) -> JSONResponse:
     """Remove a Kubex record (does not stop the container)."""
@@ -322,6 +541,7 @@ class ManagerService(KubexService):
         self.app.state.lifecycle = lifecycle
 
         self.app.include_router(router)
+        self.app.include_router(configs_router)
 
     async def on_startup(self) -> None:
         """Attach Redis client to lifecycle manager and verify Docker access."""

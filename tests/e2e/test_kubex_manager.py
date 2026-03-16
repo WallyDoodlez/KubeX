@@ -108,6 +108,10 @@ class TestKubexCreation:
         self.mock_docker.containers.create.return_value = self.mock_container
         self.mock_container.id = "abc123deadbeef"
         self.mock_container.status = "created"
+        # KMGR-05: _resolve_internal_network uses networks.list(filters={"label": ...})
+        mock_network = MagicMock()
+        mock_network.name = "openclaw_kubex-internal"
+        self.mock_docker.networks.list.return_value = [mock_network]
         self.client = TestClient(manager_app, raise_server_exceptions=False)
 
     @patch("kubex_manager.lifecycle.docker.from_env")

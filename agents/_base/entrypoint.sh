@@ -26,6 +26,10 @@ set -euo pipefail
 # Step 1: Install runtime dependencies (BASE-03)
 # ---------------------------------------------------------------------------
 
+# Boot deps from config.yaml are trusted — no policy gate (PSEC-01)
+# These are set by Kubex Manager from the agent's config at spawn time.
+# Only POST-boot runtime requests from inside the container go through the Gateway
+# approve/deny/ESCALATE policy pipeline.
 if [ -n "${KUBEX_PIP_DEPS:-}" ]; then
     echo "[entrypoint] Installing pip dependencies: ${KUBEX_PIP_DEPS}"
     # shellcheck disable=SC2086
