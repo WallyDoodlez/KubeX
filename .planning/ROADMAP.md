@@ -53,26 +53,26 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Write failing tests (red): ConfigBuilder, SkillResolver agent-config input, network label lookup, Redis state persistence, spawn pipeline rollback, skill-check endpoint, install_dependency policy, boot-time dep trust
-- [ ] 06-02-PLAN.md — Implement ConfigBuilder, KubexRecordStore, extend SkillResolver, atomic spawn pipeline, POST /policy/skill-check, install_dependency flow, dynamic network label lookup, Manager API extensions (green)
-- [x] 06-03-PLAN.md — Verify no regressions: full pytest suite, ruff/black on Phase 6 files, module imports, deprecated pattern removal (completed 2026-03-16)
+- [x] 06-01-PLAN.md — Write failing tests (red): ConfigBuilder, SkillResolver agent-config input, network label lookup, Redis state persistence, spawn pipeline rollback, skill-check endpoint, install_dependency policy, boot-time dep trust
+- [x] 06-02-PLAN.md — Implement ConfigBuilder, KubexRecordStore, extend SkillResolver, atomic spawn pipeline, POST /policy/skill-check, install_dependency flow, dynamic network label lookup, Manager API extensions (green)
+- [x] 06-03-PLAN.md — Verify no regressions: full pytest suite, ruff/black on Phase 6 files, module imports, deprecated pattern removal (completed 2026-03-16)
 
 #### Phase 7: Agent Migration and Dockerfile Removal
 
-**Goal**: All three existing agents run on `kubexclaw-base` with skill mounts, per-agent Dockerfiles are deleted, and the full 703+ test suite passes against the refactored stack.
+**Goal**: All four existing agents (orchestrator, instagram-scraper, knowledge, reviewer) run on `kubexclaw-base` with skill mounts, per-agent Dockerfiles are deleted, StandaloneConfig is removed, and the full 856+ test suite passes against the refactored stack.
 **Depends on**: Phase 6
 **Requirements**: MIGR-01, MIGR-02, MIGR-03, MIGR-04, MIGR-05
 **Success Criteria** (what must be TRUE):
-  1. `docker-compose up` starts all services with no per-agent Dockerfiles present — orchestrator, instagram-scraper, and knowledge agents all launch from `kubexclaw-base`.
-  2. `pytest tests/` exits 0 with 703+ tests passing — no regressions from the refactor.
-  3. Agent directories (`agents/orchestrator/`, `agents/instagram-scraper/`, `agents/knowledge/`) contain only `config.yaml` — no Dockerfile present.
-  4. An operator can spawn a new agent role by adding a skill file and a `config.yaml` with no Docker build step required.
-**Plans**: TBD
+  1. `docker-compose up` starts all services with no per-agent Dockerfiles present — orchestrator, instagram-scraper, knowledge, and reviewer agents all launch from `kubexclaw-base`.
+  2. `pytest tests/` exits 0 with 856+ tests passing — no regressions from the refactor.
+  3. Agent directories (`agents/orchestrator/`, `agents/instagram-scraper/`, `agents/knowledge/`, `agents/reviewer/`) contain only `config.yaml` and `policies/` — no Dockerfile present.
+  4. An operator can spawn a new agent role by adding a skill file and a `config.yaml` with no Docker build step required (proven by hello-world template).
+**Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: Write failing E2E tests (red) — all three agents boot from `kubexclaw-base`, no per-agent Dockerfiles, new-role spawn with skill file only
-- [ ] 07-02: Migrate orchestrator, instagram-scraper, and knowledge agents to `kubexclaw-base` with `config.yaml`; wire `lifecycle.py` `create_kubex()` to call SkillResolver, policy check, ConfigBuilder, and skill bind-mount assembly; delete per-agent Dockerfiles; update `docker-compose.yml` (green)
-- [ ] 07-03: Verify no regressions — full `pytest tests/` passes with 703+ tests; confirm all 703+ pre-refactor tests still pass
+- [ ] 07-01-PLAN.md — Write failing E2E tests (red): all 4 agents boot from kubexclaw-base, no per-agent Dockerfiles, hello-world stem cell spawn
+- [ ] 07-02-PLAN.md — Create skill directories, migrate all 4 agents to kubexclaw-base, remove StandaloneConfig, restructure docker-compose.yml, delete per-agent Dockerfiles (green)
+- [ ] 07-03-PLAN.md — Test migration (conftest fixture, update tests for StandaloneConfig removal) + full regression verification (856+ tests green)
 
 ---
 
@@ -84,5 +84,5 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 1-4. MVP | v1.0 | — | Complete | 2026-03-09 |
 | 5. Base Image and Skill Schema | v1.1 | 4/4 | Complete | 2026-03-14 |
-| 6. Manager Spawn Logic and Policy Gates | 3/3 | Complete   | 2026-03-16 | - |
+| 6. Manager Spawn Logic and Policy Gates | v1.1 | 3/3 | Complete | 2026-03-16 |
 | 7. Agent Migration and Dockerfile Removal | v1.1 | 0/3 | Not started | - |
