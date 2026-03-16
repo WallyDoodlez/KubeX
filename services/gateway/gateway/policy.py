@@ -15,28 +15,18 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-from typing import Any
 from urllib.parse import urlparse
 
 import yaml
-
-from kubex_common.errors import (
-    ActionNotAllowedError,
-    BudgetExceededError,
-    EgressDeniedError,
-    ModelNotAllowedError,
-    PolicyDeniedError,
-    RateLimitError,
-)
 from kubex_common.logging import get_logger
 from kubex_common.schemas.actions import ActionRequest, ActionType
 
 logger = get_logger(__name__)
 
 
-class PolicyDecision(str, Enum):
+class PolicyDecision(StrEnum):
     ALLOW = "allow"
     DENY = "deny"
     ESCALATE = "escalate"
@@ -214,9 +204,7 @@ class PolicyEngine:
 
         # 0. INSTALL_DEPENDENCY special handling (PSEC-02)
         if request.action == ActionType.INSTALL_DEPENDENCY:
-            return self._check_install_dependency(
-                request, global_policy, runtime_dep_count_today
-            )
+            return self._check_install_dependency(request, global_policy, runtime_dep_count_today)
 
         # 1. Global blocked actions
         if request.action.value in global_policy.blocked_actions:
@@ -250,7 +238,6 @@ class PolicyEngine:
                     return egress_result
             elif request.target:
                 # No agent policy — deny egress by default (fail closed)
-                parsed = urlparse(request.target)
                 return PolicyResult(
                     decision=PolicyDecision.DENY,
                     reason=f"No policy found for agent '{request.agent_id}', egress denied by default",
@@ -259,20 +246,29 @@ class PolicyEngine:
                 )
 
         # 5. Budget checks
-        if agent_policy is not None and agent_policy.per_task_token_limit is not None:
-            if token_count_so_far >= agent_policy.per_task_token_limit:
-                return PolicyResult(
-                    decision=PolicyDecision.DENY,
-                    reason=f"Per-task token limit {agent_policy.per_task_token_limit} exceeded ({token_count_so_far} tokens used)",
-                    rule_matched="budget.per_task_token_limit",
-                    agent_id=request.agent_id,
-                )
+        if (
+            agent_policy is not None
+            and agent_policy.per_task_token_limit is not None
+            and token_count_so_far >= agent_policy.per_task_token_limit
+        ):
+            return PolicyResult(
+                decision=PolicyDecision.DENY,
+                reason=(
+                    f"Per-task token limit {agent_policy.per_task_token_limit} exceeded"
+                    f" ({token_count_so_far} tokens used)"
+                ),
+                rule_matched="budget.per_task_token_limit",
+                agent_id=request.agent_id,
+            )
 
         # Global daily cost check
         if cost_today_usd >= global_policy.default_daily_cost_limit_usd:
             return PolicyResult(
                 decision=PolicyDecision.DENY,
-                reason=f"Daily cost limit ${global_policy.default_daily_cost_limit_usd} exceeded (${cost_today_usd:.4f} today)",
+                reason=(
+                    f"Daily cost limit ${global_policy.default_daily_cost_limit_usd} exceeded"
+                    f" (${cost_today_usd:.4f} today)"
+                ),
                 rule_matched="global.budget.daily_cost_limit",
                 agent_id=request.agent_id,
             )
@@ -301,7 +297,10 @@ class PolicyEngine:
             if action_str not in agent_policy.blocked_actions:
                 return PolicyResult(
                     decision=PolicyDecision.ESCALATE,
-                    reason=f"Action '{action_str}' is not in agent's allowed actions list and not explicitly blocked — escalating for review",
+                    reason=(
+                        f"Action '{action_str}' is not in agent's allowed actions list"
+                        " and not explicitly blocked — escalating for review"
+                    ),
                     rule_matched="agent.actions.escalate",
                     agent_id=request.agent_id,
                 )
@@ -388,6 +387,7 @@ class PolicyEngine:
         package_lower = package.lower()
         # Extract base package name (strip version specifiers)
         import re as _re
+
         base_name = _re.split(r"[><=!~@]", package_lower, maxsplit=1)[0].strip()
 
         all_blocked = [p.lower() for p in blocklist_for_type + blocklist_all]

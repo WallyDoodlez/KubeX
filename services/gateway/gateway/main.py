@@ -6,29 +6,22 @@ import asyncio
 import json
 import os
 import uuid
-from datetime import datetime, UTC
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
+from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
-
 from kubex_common.errors import (
-    ActionNotAllowedError,
-    BudgetExceededError,
-    EgressDeniedError,
     ErrorResponse,
     IdentityResolutionError,
-    PolicyDeniedError,
-    RateLimitError,
-    TaskNotFoundError,
 )
 from kubex_common.logging import get_logger
 from kubex_common.schemas.actions import ActionRequest, ActionType
-from kubex_common.schemas.envelope import GatekeeperEnvelope
 from kubex_common.schemas.routing import TaskDelivery
 from kubex_common.service import KubexService
+from pydantic import BaseModel
 
 from .budget import BudgetTracker
 from .identity import IdentityResolver
@@ -88,15 +81,15 @@ async def handle_action(request: Request, body: ActionRequest) -> JSONResponse:
         logger.warning("identity_resolution_skipped", source_ip=source_ip, agent_id=body.agent_id)
 
     # 2. Policy evaluation
-    task_id = body.context.task_id or f"t-{uuid.uuid4().hex[:8]}"
     token_count = 0
     daily_cost = 0.0
 
     # Lazy-initialize budget tracker if Redis is available but tracker is not set
     # or if redis_db1 has changed (e.g., tests swap in fakeredis per test class)
-    if gateway.redis_db1 is not None:
-        if gateway.budget_tracker is None or gateway.budget_tracker._redis is not gateway.redis_db1:
-            gateway.budget_tracker = BudgetTracker(gateway.redis_db1)
+    if gateway.redis_db1 is not None and (
+        gateway.budget_tracker is None or gateway.budget_tracker._redis is not gateway.redis_db1
+    ):
+        gateway.budget_tracker = BudgetTracker(gateway.redis_db1)
 
     if gateway.budget_tracker and body.context.task_id:
         token_count = await gateway.budget_tracker.get_task_tokens(body.context.task_id)
@@ -134,10 +127,8 @@ async def handle_action(request: Request, body: ActionRequest) -> JSONResponse:
             reason=policy_result.reason,
         )
         try:
-            reviewer_result = await _handle_reviewer_evaluation(
-                body, policy_result, gateway
-            )
-        except (TimeoutError, asyncio.TimeoutError):
+            reviewer_result = await _handle_reviewer_evaluation(body, policy_result, gateway)
+        except TimeoutError:
             logger.warning(
                 "reviewer_timeout",
                 agent_id=body.agent_id,
@@ -206,9 +197,10 @@ async def handle_action(request: Request, body: ActionRequest) -> JSONResponse:
 
     # Lazy-initialize rate limiter if Redis is available but limiter is not set
     # or if redis_db1 has changed
-    if gateway.redis_db1 is not None:
-        if gateway.rate_limiter is None or gateway.rate_limiter._redis is not gateway.redis_db1:
-            gateway.rate_limiter = RateLimiter(gateway.redis_db1)
+    if gateway.redis_db1 is not None and (
+        gateway.rate_limiter is None or gateway.rate_limiter._redis is not gateway.redis_db1
+    ):
+        gateway.rate_limiter = RateLimiter(gateway.redis_db1)
 
     # 3. Rate limit check
     if gateway.rate_limiter and body.action.value in gateway.rate_limit_config(body.agent_id):
@@ -259,7 +251,7 @@ async def handle_action(request: Request, body: ActionRequest) -> JSONResponse:
     )
 
 
-async def _handle_dispatch_task(request: Request, body: ActionRequest, gateway: "GatewayService") -> JSONResponse:
+async def _handle_dispatch_task(request: Request, body: ActionRequest, gateway: GatewayService) -> JSONResponse:
     """Handle dispatch_task action — resolve capability and write to Broker."""
     params = body.parameters
     capability = params.get("capability")
@@ -277,7 +269,6 @@ async def _handle_dispatch_task(request: Request, body: ActionRequest, gateway: 
         )
 
     # Resolve capability via Registry
-    registry_url = os.environ.get("REGISTRY_URL", "http://registry:8070")
     broker_url = os.environ.get("BROKER_URL", "http://broker:8060")
 
     # Create TaskDelivery and send to Broker
@@ -325,7 +316,7 @@ async def _handle_dispatch_task(request: Request, body: ActionRequest, gateway: 
     )
 
 
-async def _handle_egress(request: Request, body: ActionRequest, gateway: "GatewayService") -> JSONResponse:
+async def _handle_egress(request: Request, body: ActionRequest, gateway: GatewayService) -> JSONResponse:
     """Handle HTTP egress actions — proxy the request through the Gateway."""
     if not body.target:
         return JSONResponse(
@@ -370,7 +361,7 @@ async def _handle_egress(request: Request, body: ActionRequest, gateway: "Gatewa
 async def _handle_reviewer_evaluation(
     body: ActionRequest,
     policy_result: PolicyResult,
-    gateway: "GatewayService",
+    gateway: GatewayService,
     timeout: float = 30.0,
 ) -> dict[str, Any]:
     """Dispatch an ESCALATE decision to the reviewer agent for security evaluation.
@@ -429,7 +420,7 @@ async def _handle_reviewer_evaluation(
     raise TimeoutError(f"Reviewer did not respond within {timeout}s for task {review_task_id}")
 
 
-async def _handle_query_knowledge(request: Request, body: ActionRequest, gateway: "GatewayService") -> JSONResponse:
+async def _handle_query_knowledge(request: Request, body: ActionRequest, gateway: GatewayService) -> JSONResponse:
     """Handle query_knowledge action — proxy to Graphiti search.
 
     Spec: 'query_knowledge routes to Graphiti POST /search or GET /episodes'
@@ -451,14 +442,14 @@ async def _handle_query_knowledge(request: Request, body: ActionRequest, gateway
         graphiti_payload["as_of"] = as_of
 
     # Deduct estimated budget tokens for knowledge query (500 tokens estimated)
-    _QUERY_KNOWLEDGE_TOKEN_ESTIMATE = 500
+    query_knowledge_token_estimate = 500
     task_id = body.context.task_id or "unknown"
     if gateway.budget_tracker and task_id != "unknown":
         try:
             await gateway.budget_tracker.increment_tokens(
                 task_id=task_id,
                 agent_id=body.agent_id,
-                input_tokens=_QUERY_KNOWLEDGE_TOKEN_ESTIMATE,
+                input_tokens=query_knowledge_token_estimate,
                 output_tokens=0,
                 model="knowledge-query",
             )
@@ -494,7 +485,7 @@ async def _handle_query_knowledge(request: Request, body: ActionRequest, gateway
         )
 
 
-async def _handle_store_knowledge(request: Request, body: ActionRequest, gateway: "GatewayService") -> JSONResponse:
+async def _handle_store_knowledge(request: Request, body: ActionRequest, gateway: GatewayService) -> JSONResponse:
     """Handle store_knowledge action — two-step: OpenSearch index + Graphiti episode.
 
     Spec: 'store_knowledge two-step: OpenSearch index + Graphiti episode'
@@ -536,14 +527,14 @@ async def _handle_store_knowledge(request: Request, body: ActionRequest, gateway
     opensearch_id = doc_id
 
     # Deduct estimated budget tokens for knowledge store (1500 tokens estimated)
-    _STORE_KNOWLEDGE_TOKEN_ESTIMATE = 1500
+    store_knowledge_token_estimate = 1500
     store_task_id = body.context.task_id or source.get("task_id", "unknown")  # type: ignore[union-attr]
     if gateway.budget_tracker and store_task_id != "unknown":
         try:
             await gateway.budget_tracker.increment_tokens(
                 task_id=store_task_id,
                 agent_id=body.agent_id,
-                input_tokens=_STORE_KNOWLEDGE_TOKEN_ESTIMATE,
+                input_tokens=store_knowledge_token_estimate,
                 output_tokens=0,
                 model="knowledge-store",
             )
@@ -585,7 +576,7 @@ async def _handle_store_knowledge(request: Request, body: ActionRequest, gateway
     )
 
 
-async def _handle_search_corpus(request: Request, body: ActionRequest, gateway: "GatewayService") -> JSONResponse:
+async def _handle_search_corpus(request: Request, body: ActionRequest, gateway: GatewayService) -> JSONResponse:
     """Handle search_corpus action — full-text search via OpenSearch.
 
     Spec: 'search_corpus proxies to OpenSearch keyword/semantic search'
@@ -972,6 +963,7 @@ async def llm_proxy(provider: str, path: str, request: Request) -> StreamingResp
 
     is_streaming = "text/event-stream" in response.headers.get("content-type", "")
     if is_streaming:
+
         async def stream_content() -> AsyncGenerator[bytes, None]:
             async for chunk in response.aiter_bytes():
                 yield chunk
@@ -983,9 +975,14 @@ async def llm_proxy(provider: str, path: str, request: Request) -> StreamingResp
             media_type="text/event-stream",
         )
 
+    content = (
+        response.json()
+        if response.headers.get("content-type", "").startswith("application/json")
+        else {"raw": response.text}
+    )
     return JSONResponse(
         status_code=response.status_code,
-        content=response.json() if response.headers.get("content-type", "").startswith("application/json") else {"raw": response.text},
+        content=content,
         headers=response_headers,
     )
 
@@ -1054,6 +1051,7 @@ class GatewayService(KubexService):
         # Attempt Docker client initialization (optional)
         try:
             import docker
+
             docker_client = docker.from_env()
             self.identity_resolver = IdentityResolver(docker_client=docker_client)
             logger.info("docker_client_initialized")

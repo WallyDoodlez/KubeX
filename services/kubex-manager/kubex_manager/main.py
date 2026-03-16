@@ -40,7 +40,7 @@ _MGMT_TOKEN = os.environ.get("KUBEX_MGMT_TOKEN", "kubex-mgmt-token")
 
 
 def verify_token(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_BEARER_SCHEME),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_BEARER_SCHEME),  # noqa: B008 — FastAPI DI pattern
 ) -> None:
     """Verify Bearer token for management API endpoints."""
     if credentials is None or credentials.credentials != _MGMT_TOKEN:
@@ -308,6 +308,7 @@ async def respawn_kubex(kubex_id: str, request: Request) -> JSONResponse:
     # Kill existing container (best-effort)
     try:
         import docker as _docker
+
         docker_client = _docker.from_env()
         container = docker_client.containers.get(record.container_id)
         try:
@@ -366,6 +367,7 @@ async def install_dep(kubex_id: str, body: InstallDepBody, request: Request) -> 
 
     try:
         import docker as _docker
+
         docker_client = _docker.from_env()
         container = docker_client.containers.get(record.container_id)
 
@@ -401,6 +403,7 @@ async def install_dep(kubex_id: str, body: InstallDepBody, request: Request) -> 
         # Persist updated record to Redis
         if lifecycle._redis is not None:
             from .redis_store import KubexRecordStore
+
             store = KubexRecordStore(lifecycle._redis)
             store.save(record)
 
@@ -442,9 +445,11 @@ async def get_kubex_config(kubex_id: str, request: Request) -> JSONResponse:
 
     if record.config_path:
         from pathlib import Path
+
         config_file = Path(record.config_path)
         if config_file.exists():
             import yaml as _yaml
+
             try:
                 content = _yaml.safe_load(config_file.read_text(encoding="utf-8"))
                 return JSONResponse(
@@ -475,7 +480,6 @@ configs_router = APIRouter(tags=["configs"])
 @configs_router.get("/configs", dependencies=[Depends(verify_token)])
 async def list_configs(request: Request) -> JSONResponse:
     """List saved config.yaml files with metadata."""
-    from pathlib import Path
     import yaml as _yaml
 
     lifecycle = _get_lifecycle(request)
@@ -487,12 +491,14 @@ async def list_configs(request: Request) -> JSONResponse:
             try:
                 content = _yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
                 agent_section = content.get("agent", {})
-                configs.append({
-                    "agent_id": agent_section.get("id", config_file.stem),
-                    "file": config_file.name,
-                    "skills": agent_section.get("skills", content.get("skills", [])),
-                    "capabilities": agent_section.get("capabilities", content.get("capabilities", [])),
-                })
+                configs.append(
+                    {
+                        "agent_id": agent_section.get("id", config_file.stem),
+                        "file": config_file.name,
+                        "skills": agent_section.get("skills", content.get("skills", [])),
+                        "capabilities": agent_section.get("capabilities", content.get("capabilities", [])),
+                    }
+                )
             except Exception:
                 configs.append({"file": config_file.name, "agent_id": config_file.stem})
 

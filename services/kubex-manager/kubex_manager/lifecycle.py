@@ -107,7 +107,7 @@ class KubexRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "KubexRecord":
+    def from_dict(cls, data: dict[str, Any]) -> KubexRecord:
         """Reconstruct a KubexRecord from a serialized dict."""
         return cls(
             kubex_id=data["kubex_id"],
@@ -271,6 +271,7 @@ class KubexLifecycle:
                 if skills_base.is_dir() and all((skills_base / s).is_dir() for s in skill_names):
                     try:
                         from .skill_resolver import SkillResolver
+
                         resolver = SkillResolver()
                         composed = resolver.resolve_from_config(
                             {**config, "skills": skill_names},
@@ -280,6 +281,7 @@ class KubexLifecycle:
                         skills_resolved = list(composed.ordered_skill_names)
 
                         from .config_builder import ConfigBuilder
+
                         config_dir = self._config_dir
                         builder = ConfigBuilder()
                         config_path = builder.build(
@@ -303,24 +305,22 @@ class KubexLifecycle:
             # Always write a config.yaml for the container (KMGR-03)
             # If ConfigBuilder didn't write one above, write the raw config dict.
             if config_path is None:
-                import yaml as _yaml
                 import tempfile
+
+                import yaml as _yaml
+
                 config_dir = self._config_dir
                 try:
                     config_dir.mkdir(parents=True, exist_ok=True)
                     config_path = config_dir / f"{agent_id}.yaml"
-                    config_path.write_text(
-                        _yaml.dump(config, default_flow_style=False), encoding="utf-8"
-                    )
+                    config_path.write_text(_yaml.dump(config, default_flow_style=False), encoding="utf-8")
                 except Exception:
                     # Fall back to system temp dir (for test environments without /app/configs)
                     try:
                         tmp_dir = Path(tempfile.gettempdir()) / "kubex_configs"
                         tmp_dir.mkdir(parents=True, exist_ok=True)
                         config_path = tmp_dir / f"{agent_id}.yaml"
-                        config_path.write_text(
-                            _yaml.dump(config, default_flow_style=False), encoding="utf-8"
-                        )
+                        config_path.write_text(_yaml.dump(config, default_flow_style=False), encoding="utf-8")
                     except Exception as exc2:
                         logger.warning("config_yaml_write_failed", error=str(exc2))
                         config_path = None
@@ -447,6 +447,7 @@ class KubexLifecycle:
             # Step 7: Persist KubexRecord to Redis (KMGR-04)
             if self._redis is not None:
                 from .redis_store import KubexRecordStore
+
                 store = KubexRecordStore(self._redis)
                 store.save(record)
 

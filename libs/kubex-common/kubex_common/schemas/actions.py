@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import enum
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class ActionType(str, enum.Enum):
+class ActionType(StrEnum):
     """Global action vocabulary. Every action a Kubex can emit."""
 
     # External HTTP
@@ -59,7 +59,7 @@ class ActionType(str, enum.Enum):
     INSTALL_DEPENDENCY = "install_dependency"
 
 
-class Priority(str, enum.Enum):
+class Priority(StrEnum):
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
@@ -87,7 +87,7 @@ class ActionRequest(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
-class ResultStatus(str, enum.Enum):
+class ResultStatus(StrEnum):
     SUCCESS = "success"
     FAILURE = "failure"
     NEEDS_CLARIFICATION = "needs_clarification"

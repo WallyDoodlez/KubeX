@@ -22,7 +22,6 @@ import yaml
 
 from .skill_resolver import ComposedSkillSet
 
-
 # ---------------------------------------------------------------------------
 # Exceptions
 # ---------------------------------------------------------------------------
@@ -76,9 +75,7 @@ class ConfigBuilder:
         # Step 1: Fail fast on version conflicts
         if composed.version_conflicts:
             conflict_list = "\n  ".join(composed.version_conflicts)
-            raise ConfigBuildError(
-                f"Skill dependency version conflicts detected — spawn aborted:\n  {conflict_list}"
-            )
+            raise ConfigBuildError(f"Skill dependency version conflicts detected — spawn aborted:\n  {conflict_list}")
 
         # Step 2: Validate required agent config fields
         agent_section = agent_config.get("agent", {})
@@ -103,9 +100,7 @@ class ConfigBuilder:
 
         if missing_tools:
             tool_list = "\n  ".join(missing_tools)
-            raise ConfigBuildError(
-                f"tool files not found on disk — cannot build config:\n  {tool_list}"
-            )
+            raise ConfigBuildError(f"tool files not found on disk — cannot build config:\n  {tool_list}")
 
         # Step 4: Assemble config dict
         #   - Model comes ONLY from agent_config (locked decision)
