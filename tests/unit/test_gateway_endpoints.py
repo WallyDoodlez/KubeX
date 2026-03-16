@@ -247,3 +247,114 @@ class TestGatewayEndpoints:
         )
         # Should succeed even without Redis (just logs warning)
         assert resp.status_code == 202
+
+
+# ─────────────────────────────────────────────
+# Phase 6 — POST /policy/skill-check endpoint (PSEC-03)
+# ─────────────────────────────────────────────
+
+
+class TestSkillCheckEndpoint:
+    """PSEC-03: Gateway POST /policy/skill-check endpoint for skill allowlist checks.
+
+    These tests use xfail since the endpoint doesn't exist yet.
+    It will be implemented in plan 06-02.
+
+    Contract:
+        POST /policy/skill-check
+        Body: {"agent_id": str, "skills": [str]}
+        Response: PolicyResult JSON {decision, reason, rule_matched, agent_id}
+        - Skills on agent's allowlist → ALLOW
+        - Skills not on allowlist → ESCALATE
+        - Agent with no policy → ESCALATE
+    """
+
+    def setup_method(self) -> None:
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../services/gateway"))
+        from fastapi.testclient import TestClient
+        from gateway.main import app
+        app.state.gateway_service.redis_db1 = None
+        app.state.gateway_service.budget_tracker = None
+        app.state.gateway_service.rate_limiter = None
+        self.client = TestClient(app)
+
+    @pytest.mark.xfail(
+        reason="PSEC-03: POST /policy/skill-check not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_skill_check_allowed_skills_returns_allow(self) -> None:
+        """Skills on the agent's allowed_skills list return ALLOW."""
+        resp = self.client.post(
+            "/policy/skill-check",
+            json={
+                "agent_id": "instagram-scraper",
+                "skills": ["web-scraping"],
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["decision"] == "allow"
+
+    @pytest.mark.xfail(
+        reason="PSEC-03: POST /policy/skill-check not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_skill_check_unknown_skill_returns_escalate(self) -> None:
+        """Skills not on the agent's allowlist return ESCALATE (consistent with policy
+        philosophy: not explicitly allowed = human review, not hard deny)."""
+        resp = self.client.post(
+            "/policy/skill-check",
+            json={
+                "agent_id": "instagram-scraper",
+                "skills": ["some-unknown-skill-xyz"],
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["decision"] == "escalate"
+
+    @pytest.mark.xfail(
+        reason="PSEC-03: POST /policy/skill-check not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_skill_check_no_policy_returns_escalate(self) -> None:
+        """An agent with no policy file returns ESCALATE for any skill check."""
+        resp = self.client.post(
+            "/policy/skill-check",
+            json={
+                "agent_id": "agent-with-no-policy-file",
+                "skills": ["any-skill"],
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["decision"] == "escalate"
+
+    @pytest.mark.xfail(
+        reason="PSEC-03: POST /policy/skill-check not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_skill_check_response_format_matches_policy_result(self) -> None:
+        """Response JSON has decision, reason, rule_matched, agent_id fields
+        matching the PolicyResult schema."""
+        resp = self.client.post(
+            "/policy/skill-check",
+            json={
+                "agent_id": "instagram-scraper",
+                "skills": ["web-scraping"],
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+
+        # Must have all PolicyResult fields
+        assert "decision" in data, "Missing 'decision' field in response"
+        assert "reason" in data, "Missing 'reason' field in response"
+        assert "rule_matched" in data, "Missing 'rule_matched' field in response"
+        assert "agent_id" in data, "Missing 'agent_id' field in response"
+
+        # decision must be one of the valid PolicyDecision values
+        assert data["decision"] in ("allow", "deny", "escalate"), (
+            f"Invalid decision value: {data['decision']}"
+        )
+        assert data["agent_id"] == "instagram-scraper"

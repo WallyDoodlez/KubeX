@@ -498,3 +498,109 @@ class TestPolicyFixtures:
             req = make_request(agent_id=agent_id, action=ActionType.REPORT_RESULT, target=None)
             result = self.engine.evaluate(req, cost_today_usd=999.0)
             assert result.decision == PolicyDecision.DENY
+
+
+# ─────────────────────────────────────────────
+# Phase 6 — Runtime dependency policy gating (PSEC-02)
+# ─────────────────────────────────────────────
+
+
+class TestInstallDependencyPolicy:
+    """PSEC-02: install_dependency action type and Gateway policy evaluation.
+
+    These tests use xfail because ActionType.INSTALL_DEPENDENCY does not exist yet
+    and the policy engine does not handle blocklist/soft-limit logic for it.
+    Implementation lands in plan 06-02.
+    """
+
+    @pytest.mark.xfail(
+        reason="PSEC-02: ActionType.INSTALL_DEPENDENCY not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_install_dependency_action_type_exists(self) -> None:
+        """ActionType.INSTALL_DEPENDENCY exists in the enum with value 'install_dependency'."""
+        assert hasattr(ActionType, "INSTALL_DEPENDENCY"), (
+            "ActionType.INSTALL_DEPENDENCY enum value not found"
+        )
+        assert ActionType.INSTALL_DEPENDENCY.value == "install_dependency"
+
+    @pytest.mark.xfail(
+        reason="PSEC-02: install_dependency blocklist deny not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_install_dependency_blocklist_deny(self) -> None:
+        """install_dependency for a blocklisted package returns DENY (never ESCALATE).
+
+        The hard package blocklist prevents dangerous packages from ever being
+        installed even if a reviewer would approve — DENY is unconditional.
+        """
+        loader = make_loader_with_policies(
+            agent_policies={"test-agent": SCRAPER_POLICY},
+        )
+        engine = PolicyEngine(loader)
+
+        req = ActionRequest(
+            request_id="req-block-001",
+            agent_id="test-agent",
+            action=ActionType.INSTALL_DEPENDENCY,
+            parameters={"package": "malware-package", "type": "pip"},
+            context=RequestContext(chain_depth=1, task_id="t-001"),
+        )
+        result = engine.evaluate(req)
+
+        assert result.decision == PolicyDecision.DENY, (
+            "Blocklisted package must return DENY, not ESCALATE"
+        )
+        assert result.rule_matched is not None
+
+    @pytest.mark.xfail(
+        reason="PSEC-02: install_dependency soft limit escalate not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_install_dependency_soft_limit_escalate(self) -> None:
+        """Exceeding the per-agent runtime install limit triggers ESCALATE, not hard deny.
+
+        The soft limit allows human review rather than hard blocking — operator
+        can approve additional installs if the agent legitimately needs them.
+        """
+        loader = make_loader_with_policies(
+            agent_policies={"test-agent": SCRAPER_POLICY},
+        )
+        engine = PolicyEngine(loader)
+
+        # Pass runtime_dep_count_today that exceeds the soft limit
+        req = ActionRequest(
+            request_id="req-limit-001",
+            agent_id="test-agent",
+            action=ActionType.INSTALL_DEPENDENCY,
+            parameters={"package": "pandas", "type": "pip"},
+            context=RequestContext(chain_depth=1, task_id="t-001"),
+        )
+        result = engine.evaluate(req, runtime_dep_count_today=999)
+
+        assert result.decision == PolicyDecision.ESCALATE, (
+            "Soft limit exceeded must ESCALATE (not DENY) for human review"
+        )
+
+    @pytest.mark.xfail(
+        reason="PSEC-02: install_dependency allow path not yet implemented (plan 06-02)",
+        strict=True,
+    )
+    def test_install_dependency_allowed(self) -> None:
+        """Non-blocklisted package within install limit returns ALLOW."""
+        loader = make_loader_with_policies(
+            agent_policies={"test-agent": SCRAPER_POLICY},
+        )
+        engine = PolicyEngine(loader)
+
+        req = ActionRequest(
+            request_id="req-allow-001",
+            agent_id="test-agent",
+            action=ActionType.INSTALL_DEPENDENCY,
+            parameters={"package": "requests", "type": "pip"},
+            context=RequestContext(chain_depth=1, task_id="t-001"),
+        )
+        # Within soft limit (low count)
+        result = engine.evaluate(req, runtime_dep_count_today=0)
+
+        assert result.decision == PolicyDecision.ALLOW
