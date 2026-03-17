@@ -21,14 +21,13 @@ External dependencies are fully mocked:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import signal
 import subprocess
 import sys
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -50,9 +49,8 @@ sys.path.insert(0, os.path.join(_ROOT, "libs/kubex-common/src"))
 _WAVE4B_IMPLEMENTED = False
 try:
     from kubex_harness.harness import (  # type: ignore[import]
-        KubexHarness,
         HarnessConfig,
-        ExitReason,
+        KubexHarness,
     )
 
     _WAVE4B_IMPLEMENTED = True
@@ -61,10 +59,7 @@ except ImportError:
 
 _skip_wave4b = pytest.mark.skipif(
     not _WAVE4B_IMPLEMENTED,
-    reason=(
-        "Wave 4B not yet implemented — "
-        "agents/_base/kubex_harness/harness.py missing"
-    ),
+    reason=("Wave 4B not yet implemented — " "agents/_base/kubex_harness/harness.py missing"),
 )
 
 # ---------------------------------------------------------------------------
@@ -84,7 +79,7 @@ DEFAULT_HARNESS_ENV: dict[str, str] = {
 }
 
 
-def make_harness_config(**overrides: str) -> "HarnessConfig":
+def make_harness_config(**overrides: str) -> HarnessConfig:
     """Create a HarnessConfig from DEFAULT_HARNESS_ENV with optional overrides."""
     env = {**DEFAULT_HARNESS_ENV, **overrides}
     return HarnessConfig.from_env(env)
@@ -102,9 +97,7 @@ class TestHarnessSubprocessSpawning:
     @patch("kubex_harness.harness.pty.openpty")
     @patch("kubex_harness.harness.subprocess.Popen")
     @pytest.mark.asyncio
-    async def test_harness_spawns_openclaw_agent_command(
-        self, mock_popen: MagicMock, mock_openpty: MagicMock
-    ) -> None:
+    async def test_harness_spawns_openclaw_agent_command(self, mock_popen: MagicMock, mock_openpty: MagicMock) -> None:
         """HARNESS-SPAWN-01: Harness spawns 'openclaw agent --local --message <task>' subprocess.
 
         Spec: 'PTY spawn of openclaw agent --local --message "<task>" (the openclaw npm binary)'
@@ -165,9 +158,7 @@ class TestHarnessSubprocessSpawning:
     @patch("kubex_harness.harness.pty.openpty")
     @patch("kubex_harness.harness.subprocess.Popen")
     @pytest.mark.asyncio
-    async def test_harness_spawns_with_pty(
-        self, mock_popen: MagicMock, mock_openpty: MagicMock
-    ) -> None:
+    async def test_harness_spawns_with_pty(self, mock_popen: MagicMock, mock_openpty: MagicMock) -> None:
         """HARNESS-SPAWN-03: Harness uses PTY (pty.openpty) for subprocess spawning.
 
         Spec: 'PTY spawn' — required because OpenClaw detects TTY for interactive mode.
@@ -196,7 +187,7 @@ class TestHarnessSubprocessSpawning:
 @_skip_wave4b
 class TestHarnessProgressStreaming:
     """Spec ref: 'POST /tasks/{task_id}/progress to Gateway'
-                 'stdout/stderr capture with chunk buffering'
+    'stdout/stderr capture with chunk buffering'
     """
 
     @patch("kubex_harness.harness.httpx.AsyncClient")
@@ -236,10 +227,7 @@ class TestHarnessProgressStreaming:
 
         # Verify POST was made to the progress endpoint
         post_calls = mock_http_client.post.call_args_list
-        progress_calls = [
-            c for c in post_calls
-            if "/tasks/task-abc123/progress" in str(c)
-        ]
+        progress_calls = [c for c in post_calls if "/tasks/task-abc123/progress" in str(c)]
         assert len(progress_calls) >= 1
 
     @patch("kubex_harness.harness.httpx.AsyncClient")
@@ -369,7 +357,7 @@ class TestHarnessProgressStreaming:
 @_skip_wave4b
 class TestHarnessCancelHandling:
     """Spec ref: 'Redis control:{agent_id} subscription for cancel commands'
-                 'Graceful cancellation escalation: keystroke -> SIGTERM -> SIGKILL'
+    'Graceful cancellation escalation: keystroke -> SIGTERM -> SIGKILL'
     """
 
     @patch("kubex_harness.harness.httpx.AsyncClient")
@@ -480,10 +468,7 @@ class TestHarnessCancelHandling:
 
             # Verify os.write was called with master fd (10) and the abort keystroke
             write_calls = mock_os_write.call_args_list
-            keystroke_writes = [
-                c for c in write_calls
-                if c.args[0] == 10 and b"\x03" in (c.args[1] if c.args else b"")
-            ]
+            keystroke_writes = [c for c in write_calls if c.args[0] == 10 and b"\x03" in (c.args[1] if c.args else b"")]
             assert len(keystroke_writes) >= 1
 
     @patch("kubex_harness.harness.httpx.AsyncClient")
@@ -531,20 +516,14 @@ class TestHarnessCancelHandling:
         mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_http_client)
         mock_httpx.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("kubex_harness.harness.os.kill") as mock_os_kill:
-            with patch("kubex_harness.harness.os.write"):
-                config = make_harness_config(
-                    KUBEX_ABORT_GRACE_PERIOD_S="0"  # zero grace for fast test
-                )
-                harness = KubexHarness(config)
-                await harness.run()
+        with patch("kubex_harness.harness.os.kill") as mock_os_kill, patch("kubex_harness.harness.os.write"):
+            config = make_harness_config(KUBEX_ABORT_GRACE_PERIOD_S="0")  # zero grace for fast test
+            harness = KubexHarness(config)
+            await harness.run()
 
-                kill_calls = mock_os_kill.call_args_list
-                sigterm_calls = [
-                    c for c in kill_calls
-                    if c.args[1] == signal.SIGTERM
-                ]
-                assert len(sigterm_calls) >= 1
+            kill_calls = mock_os_kill.call_args_list
+            sigterm_calls = [c for c in kill_calls if c.args[1] == signal.SIGTERM]
+            assert len(sigterm_calls) >= 1
 
     @patch("kubex_harness.harness.httpx.AsyncClient")
     @patch("kubex_harness.harness.redis.asyncio.from_url")
@@ -592,18 +571,14 @@ class TestHarnessCancelHandling:
         mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_http_client)
         mock_httpx.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("kubex_harness.harness.os.kill") as mock_os_kill:
-            with patch("kubex_harness.harness.os.write"):
-                config = make_harness_config(KUBEX_ABORT_GRACE_PERIOD_S="0")
-                harness = KubexHarness(config)
-                await harness.run()
+        with patch("kubex_harness.harness.os.kill") as mock_os_kill, patch("kubex_harness.harness.os.write"):
+            config = make_harness_config(KUBEX_ABORT_GRACE_PERIOD_S="0")
+            harness = KubexHarness(config)
+            await harness.run()
 
-                kill_calls = mock_os_kill.call_args_list
-                sigkill_calls = [
-                    c for c in kill_calls
-                    if c.args[1] == _SIGKILL
-                ]
-                assert len(sigkill_calls) >= 1
+            kill_calls = mock_os_kill.call_args_list
+            sigkill_calls = [c for c in kill_calls if c.args[1] == _SIGKILL]
+            assert len(sigkill_calls) >= 1
 
     @patch("kubex_harness.harness.httpx.AsyncClient")
     @patch("kubex_harness.harness.redis.asyncio.from_url")
@@ -656,11 +631,10 @@ class TestHarnessCancelHandling:
         mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_http_client)
         mock_httpx.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("kubex_harness.harness.os.kill"):
-            with patch("kubex_harness.harness.os.write"):
-                config = make_harness_config(KUBEX_ABORT_GRACE_PERIOD_S="0")
-                harness = KubexHarness(config)
-                await harness.run()
+        with patch("kubex_harness.harness.os.kill"), patch("kubex_harness.harness.os.write"):
+            config = make_harness_config(KUBEX_ABORT_GRACE_PERIOD_S="0")
+            harness = KubexHarness(config)
+            await harness.run()
 
         final_chunks = [b for b in posted_bodies if b.get("final") is True]
         assert len(final_chunks) >= 1
@@ -789,9 +763,7 @@ class TestHarnessHealthCheck:
         assert len(version) > 0
 
     @patch("kubex_harness.harness.subprocess.run")
-    def test_harness_version_check_calls_openclaw_version_flag(
-        self, mock_subprocess_run: MagicMock
-    ) -> None:
+    def test_harness_version_check_calls_openclaw_version_flag(self, mock_subprocess_run: MagicMock) -> None:
         """HARNESS-HEALTH-02: Version check runs 'openclaw --version' subprocess.
 
         Spec: 'Harness reports agent's OpenClaw version on health check'
@@ -866,7 +838,7 @@ class TestHarnessConfig:
 @_skip_wave4b
 class TestBaseImageEntrypoint:
     """Spec ref: 'agents/_base/entrypoint.sh — bootstrap: write ~/.openclaw/openclaw.json
-                  from mounted config, load skills into ~/.openclaw/skills/, invoke kubex-harness'
+    from mounted config, load skills into ~/.openclaw/skills/, invoke kubex-harness'
     """
 
     @patch("subprocess.run")
@@ -906,14 +878,15 @@ class TestBaseImageEntrypoint:
         with open(entrypoint_path) as f:
             content = f.read()
 
-        assert ".openclaw/openclaw.json" in content or "openclaw.json" in content, (
-            "entrypoint.sh must write openclaw.json to ~/.openclaw/"
-        )
+        assert (
+            ".openclaw/openclaw.json" in content or "openclaw.json" in content
+        ), "entrypoint.sh must write openclaw.json to ~/.openclaw/"
 
 
 # ===========================================================================
 # Helper: async iterator for mock pub/sub
 # ===========================================================================
+
 
 async def aiter(items):  # type: ignore[no-untyped-def]
     """Async iterator from a list — used to mock Redis pubsub.listen()."""
