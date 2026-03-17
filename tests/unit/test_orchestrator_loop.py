@@ -32,9 +32,8 @@ sys.path.insert(0, os.path.join(_ROOT, "agents", "_base"))
 sys.path.insert(0, os.path.join(_ROOT, "libs", "kubex-common", "src"))
 
 
-from kubex_harness.config_loader import AgentConfig
-from kubex_harness.standalone import StandaloneAgent
-
+from kubex_harness.config_loader import AgentConfig  # noqa: E402
+from kubex_harness.standalone import StandaloneAgent  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -121,13 +120,40 @@ def agent(agent_config, tmp_path) -> StandaloneAgent:
                     "context_message": {"type": "string", "required": True},
                 },
             },
-            {"name": "check_task_status", "description": "Check status", "parameters": {"task_id": {"type": "string", "required": True}}},
-            {"name": "cancel_task", "description": "Cancel task", "parameters": {"task_id": {"type": "string", "required": True}}},
+            {
+                "name": "check_task_status",
+                "description": "Check status",
+                "parameters": {"task_id": {"type": "string", "required": True}},
+            },
+            {
+                "name": "cancel_task",
+                "description": "Cancel task",
+                "parameters": {"task_id": {"type": "string", "required": True}},
+            },
             {"name": "list_agents", "description": "List agents", "parameters": {}},
-            {"name": "query_registry", "description": "Query registry", "parameters": {"capability": {"type": "string", "required": True}}},
-            {"name": "wait_for_result", "description": "Wait for result", "parameters": {"task_id": {"type": "string", "required": True}}},
-            {"name": "query_knowledge", "description": "Query knowledge", "parameters": {"query": {"type": "string", "required": True}}},
-            {"name": "store_knowledge", "description": "Store knowledge", "parameters": {"content": {"type": "string", "required": True}, "summary": {"type": "string", "required": True}}},
+            {
+                "name": "query_registry",
+                "description": "Query registry",
+                "parameters": {"capability": {"type": "string", "required": True}},
+            },
+            {
+                "name": "wait_for_result",
+                "description": "Wait for result",
+                "parameters": {"task_id": {"type": "string", "required": True}},
+            },
+            {
+                "name": "query_knowledge",
+                "description": "Query knowledge",
+                "parameters": {"query": {"type": "string", "required": True}},
+            },
+            {
+                "name": "store_knowledge",
+                "description": "Store knowledge",
+                "parameters": {
+                    "content": {"type": "string", "required": True},
+                    "summary": {"type": "string", "required": True},
+                },
+            },
         ],
     }
 

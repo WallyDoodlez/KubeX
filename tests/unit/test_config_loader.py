@@ -166,6 +166,16 @@ class TestEnvVarFallback:
         with pytest.raises(ValueError, match="config"):
             load_agent_config("/nonexistent/config.yaml")
 
+    def test_missing_agent_id_raises(self, tmp_path: Path) -> None:
+        """Config file with no agent.id field raises ValueError.
+
+        agent.id is a required field — absence must be caught at load time, not silently
+        defaulted to an empty string.
+        """
+        config_path = write_config(tmp_path / "config.yaml", {"agent": {"model": "gpt-4o"}})
+        with pytest.raises(ValueError, match="agent.id"):
+            load_agent_config(config_path)
+
 
 # ---------------------------------------------------------------------------
 # Tests — harness mode routing (BASE-04)

@@ -79,7 +79,7 @@ def load_agent_config(config_path: str = "/app/config.yaml") -> AgentConfig:
             raw = yaml.safe_load(fh)
         logger.debug("Loaded agent config from %s", config_path)
     except FileNotFoundError:
-        raise ValueError(f"Required config file not found: {config_path}")
+        raise ValueError(f"Required config file not found: {config_path}") from None
     except Exception as exc:
         raise ValueError(f"Failed to read config file {config_path}: {exc}") from exc
 

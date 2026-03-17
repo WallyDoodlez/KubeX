@@ -13,6 +13,7 @@ Run only this test with:
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 import pytest
@@ -84,10 +85,8 @@ def _run_container(
         exit_code = result.get("StatusCode", -1)
         return exit_code, logs
     finally:
-        try:
+        with contextlib.suppress(Exception):
             container.remove(force=True)
-        except Exception:
-            pass
 
 
 # ===========================================================================

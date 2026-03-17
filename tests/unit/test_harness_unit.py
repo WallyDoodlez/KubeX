@@ -6,13 +6,12 @@ Coverage target: >=90% on agents/_base/kubex_harness/harness.py
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import signal
 import sys
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -23,11 +22,11 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 sys.path.insert(0, os.path.join(_ROOT, "agents/_base"))
 sys.path.insert(0, os.path.join(_ROOT, "libs/kubex-common/src"))
 
-from kubex_harness.harness import (
-    KubexHarness,
-    HarnessConfig,
-    ExitReason,
+from kubex_harness.harness import (  # noqa: E402
     _SIGKILL,
+    ExitReason,
+    HarnessConfig,
+    KubexHarness,
 )
 
 # ---------------------------------------------------------------------------
@@ -631,11 +630,10 @@ class TestKubexHarnessCancelEscalation:
         mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_http_client)
         mock_httpx.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("kubex_harness.harness.os.kill") as mock_os_kill:
-            with patch("kubex_harness.harness.os.write"):
-                config = make_config()
-                harness = KubexHarness(config)
-                await harness.run()
+        with patch("kubex_harness.harness.os.kill") as mock_os_kill, patch("kubex_harness.harness.os.write"):
+            config = make_config()
+            harness = KubexHarness(config)
+            await harness.run()
 
         sigterm_calls = [c for c in mock_os_kill.call_args_list if c.args[1] == signal.SIGTERM]
         assert len(sigterm_calls) >= 1
@@ -678,11 +676,10 @@ class TestKubexHarnessCancelEscalation:
         mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_http_client)
         mock_httpx.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("kubex_harness.harness.os.kill") as mock_os_kill:
-            with patch("kubex_harness.harness.os.write"):
-                config = make_config()
-                harness = KubexHarness(config)
-                await harness.run()
+        with patch("kubex_harness.harness.os.kill") as mock_os_kill, patch("kubex_harness.harness.os.write"):
+            config = make_config()
+            harness = KubexHarness(config)
+            await harness.run()
 
         sigkill_calls = [c for c in mock_os_kill.call_args_list if c.args[1] == _SIGKILL]
         assert len(sigkill_calls) >= 1
@@ -731,11 +728,10 @@ class TestKubexHarnessCancelEscalation:
         mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_http_client)
         mock_httpx.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("kubex_harness.harness.os.kill"):
-            with patch("kubex_harness.harness.os.write"):
-                config = make_config()
-                harness = KubexHarness(config)
-                result = await harness.run()
+        with patch("kubex_harness.harness.os.kill"), patch("kubex_harness.harness.os.write"):
+            config = make_config()
+            harness = KubexHarness(config)
+            result = await harness.run()
 
         assert result == ExitReason.CANCELLED
         final_chunks = [b for b in posted_bodies if b.get("final") is True]
@@ -811,10 +807,10 @@ class TestKubexHarnessVersion:
 # ===========================================================================
 
 
-class _no_httpx_calls:
+class _no_httpx_calls:  # noqa: N801
     """Async context manager that patches httpx.AsyncClient to do nothing."""
 
-    async def __aenter__(self) -> "_no_httpx_calls":
+    async def __aenter__(self) -> _no_httpx_calls:
         self._patcher = patch("kubex_harness.harness.httpx.AsyncClient")
         self._mock = self._patcher.start()
         mock_http_client = AsyncMock()
@@ -831,8 +827,8 @@ class _no_httpx_calls:
 # Standalone — Skill Injection
 # ===========================================================================
 
-from kubex_harness.standalone import _load_skill_files, StandaloneAgent
-from kubex_harness.config_loader import AgentConfig
+from kubex_harness.config_loader import AgentConfig  # noqa: E402
+from kubex_harness.standalone import StandaloneAgent, _load_skill_files  # noqa: E402
 
 
 class TestSkillInjection:
@@ -963,7 +959,8 @@ class TestBootTimeDependencyTrust:
         # Check entrypoint.sh — should install deps but not call /actions
         entrypoint_path = os.path.join(root, "agents/_base/entrypoint.sh")
         if os.path.exists(entrypoint_path):
-            content = open(entrypoint_path).read()
+            with open(entrypoint_path) as _f:
+                content = _f.read()
             # If pip install is in the entrypoint, verify no policy call accompanies it
             if "pip install" in content:
                 # entrypoint.sh should not contain Gateway /actions curl calls
@@ -980,7 +977,8 @@ class TestBootTimeDependencyTrust:
         ]
         for loader_path in config_loader_candidates:
             if os.path.exists(loader_path):
-                content = open(loader_path).read()
+                with open(loader_path) as _f:
+                    content = _f.read()
                 # Boot config loader must NOT send install_dependency action requests
                 assert "install_dependency" not in content or "PSEC-01" in content, (
                     f"{loader_path}: config_loader appears to policy-gate boot deps — "

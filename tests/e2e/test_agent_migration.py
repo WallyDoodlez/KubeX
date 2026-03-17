@@ -14,6 +14,7 @@ Run only these tests with:
 
 from __future__ import annotations
 
+import contextlib
 import sys
 from pathlib import Path
 
@@ -86,10 +87,8 @@ def _run_container(
         exit_code = result.get("StatusCode", -1)
         return exit_code, logs
     finally:
-        try:
+        with contextlib.suppress(Exception):
             container.remove(force=True)
-        except Exception:
-            pass
 
 
 # ===========================================================================

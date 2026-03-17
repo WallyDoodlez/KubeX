@@ -122,18 +122,20 @@ def _load_tool_definitions(skills_dir: str = "/app/skills") -> list[dict[str, An
                     if param_info.get("required", False):
                         required.append(param_name)
 
-                tools.append({
-                    "type": "function",
-                    "function": {
-                        "name": tool_def["name"],
-                        "description": tool_def.get("description", ""),
-                        "parameters": {
-                            "type": "object",
-                            "properties": properties,
-                            "required": required,
+                tools.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool_def["name"],
+                            "description": tool_def.get("description", ""),
+                            "parameters": {
+                                "type": "object",
+                                "properties": properties,
+                                "required": required,
+                            },
                         },
-                    },
-                })
+                    }
+                )
         except Exception:
             logger.warning("Failed to load tool definitions from %s", manifest_file)
 
@@ -163,12 +165,8 @@ class StandaloneAgent:
             "OPENAI_BASE_URL",
             f"{config.gateway_url}/v1/proxy/openai",
         )
-        self.poll_interval = float(
-            os.environ.get("KUBEX_POLL_INTERVAL", str(DEFAULT_POLL_INTERVAL))
-        )
-        self.max_iterations = int(
-            os.environ.get("KUBEX_MAX_ITERATIONS", str(DEFAULT_MAX_ITERATIONS))
-        )
+        self.poll_interval = float(os.environ.get("KUBEX_POLL_INTERVAL", str(DEFAULT_POLL_INTERVAL)))
+        self.max_iterations = int(os.environ.get("KUBEX_MAX_ITERATIONS", str(DEFAULT_MAX_ITERATIONS)))
         self.poll_timeout = int(os.environ.get("KUBEX_POLL_TIMEOUT", "30"))
         self.registry_url = os.environ.get("REGISTRY_URL", "http://registry:8070")
 
@@ -212,9 +210,7 @@ class StandaloneAgent:
             for msg in messages:
                 await self._handle_message(client, msg, capability)
 
-    async def _consume(
-        self, client: httpx.AsyncClient, capability: str
-    ) -> list[dict[str, Any]]:
+    async def _consume(self, client: httpx.AsyncClient, capability: str) -> list[dict[str, Any]]:
         """GET /messages/consume/{capability} from the Broker."""
         url = f"{self.config.broker_url}/messages/consume/{capability}"
         try:
@@ -242,9 +238,7 @@ class StandaloneAgent:
         logger.info("Processing task %s: %s", task_id, context_message[:100])
 
         # Post initial progress
-        await self._post_progress(
-            client, task_id, f"Agent {self.config.agent_id} starting task...\n", final=False
-        )
+        await self._post_progress(client, task_id, f"Agent {self.config.agent_id} starting task...\n", final=False)
 
         # Call LLM (single-shot or multi-turn depending on tool definitions)
         try:
@@ -260,9 +254,7 @@ class StandaloneAgent:
         await self._post_progress(client, task_id, llm_response, final=False)
 
         # Post final progress
-        await self._post_progress(
-            client, task_id, "", final=True, exit_reason="completed"
-        )
+        await self._post_progress(client, task_id, "", final=True, exit_reason="completed")
 
         # Store result via broker
         await self._store_result(client, task_id, llm_response)
@@ -273,9 +265,7 @@ class StandaloneAgent:
 
         logger.info("Task %s completed", task_id)
 
-    async def _call_llm(
-        self, client: httpx.AsyncClient, user_message: str, task_id: str
-    ) -> str:
+    async def _call_llm(self, client: httpx.AsyncClient, user_message: str, task_id: str) -> str:
         """Call the OpenAI-compatible chat completions endpoint (single-shot).
 
         Used for agents without tool definitions.
@@ -307,9 +297,7 @@ class StandaloneAgent:
             return choices[0].get("message", {}).get("content", "")
         return json.dumps(data)
 
-    async def _call_llm_with_tools(
-        self, client: httpx.AsyncClient, user_message: str, task_id: str
-    ) -> str:
+    async def _call_llm_with_tools(self, client: httpx.AsyncClient, user_message: str, task_id: str) -> str:
         """Multi-turn tool-use loop.
 
         Maintains a conversation history, sending it to the LLM with tool
@@ -326,12 +314,12 @@ class StandaloneAgent:
         for iteration in range(self.max_iterations):
             logger.info(
                 "Task %s: tool-use iteration %d/%d",
-                task_id, iteration + 1, self.max_iterations,
+                task_id,
+                iteration + 1,
+                self.max_iterations,
             )
 
-            response_message = await self._chat_completion(
-                client, messages, task_id, use_tools=True
-            )
+            response_message = await self._chat_completion(client, messages, task_id, use_tools=True)
 
             # Append the assistant message to history
             messages.append(response_message)
@@ -343,7 +331,8 @@ class StandaloneAgent:
                 content = response_message.get("content", "")
                 logger.info(
                     "Task %s: LLM returned final response after %d iterations",
-                    task_id, iteration + 1,
+                    task_id,
+                    iteration + 1,
                 )
                 return content or ""
 
@@ -360,13 +349,13 @@ class StandaloneAgent:
 
                 logger.info(
                     "Task %s: executing tool %s(%s)",
-                    task_id, tool_name, json.dumps(tool_args)[:200],
+                    task_id,
+                    tool_name,
+                    json.dumps(tool_args)[:200],
                 )
 
                 # Execute the tool
-                tool_result = await self._execute_tool(
-                    client, tool_name, tool_args, task_id
-                )
+                tool_result = await self._execute_tool(client, tool_name, tool_args, task_id)
 
                 # Post progress update showing tool activity
                 await self._post_progress(
@@ -377,27 +366,30 @@ class StandaloneAgent:
                 )
 
                 # Append tool result to conversation
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call_id,
-                    "content": json.dumps(tool_result) if not isinstance(tool_result, str) else tool_result,
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,
+                        "content": json.dumps(tool_result) if not isinstance(tool_result, str) else tool_result,
+                    }
+                )
 
         # Hit iteration limit — ask LLM for a final summary without tools
         logger.warning(
             "Task %s: hit max iterations (%d), requesting final summary",
-            task_id, self.max_iterations,
+            task_id,
+            self.max_iterations,
         )
-        messages.append({
-            "role": "user",
-            "content": (
-                "You have reached the maximum number of tool-call iterations. "
-                "Please provide your final answer now based on the information gathered so far."
-            ),
-        })
-        response_message = await self._chat_completion(
-            client, messages, task_id, use_tools=False
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "You have reached the maximum number of tool-call iterations. "
+                    "Please provide your final answer now based on the information gathered so far."
+                ),
+            }
         )
+        response_message = await self._chat_completion(client, messages, task_id, use_tools=False)
         return response_message.get("content", "") or ""
 
     async def _chat_completion(
@@ -524,9 +516,7 @@ class StandaloneAgent:
         except Exception:
             logger.debug("Failed to post progress for task %s", task_id)
 
-    async def _store_result(
-        self, client: httpx.AsyncClient, task_id: str, result_text: str
-    ) -> None:
+    async def _store_result(self, client: httpx.AsyncClient, task_id: str, result_text: str) -> None:
         """Store task result via Broker POST /tasks/{task_id}/result."""
         url = f"{self.config.broker_url}/tasks/{task_id}/result"
         payload = {
@@ -543,9 +533,7 @@ class StandaloneAgent:
         except Exception:
             logger.debug("Failed to store result for task %s", task_id)
 
-    async def _ack(
-        self, client: httpx.AsyncClient, message_id: str, group: str
-    ) -> None:
+    async def _ack(self, client: httpx.AsyncClient, message_id: str, group: str) -> None:
         """Acknowledge a message on the Broker."""
         url = f"{self.config.broker_url}/messages/{message_id}/ack"
         payload = {"message_id": message_id, "group": group}
@@ -579,13 +567,13 @@ async def _run() -> None:
     agent = StandaloneAgent(config)
 
     # Graceful shutdown on SIGTERM/SIGINT
+    import contextlib  # noqa: PLC0415
+
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
-        try:
-            loop.add_signal_handler(sig, agent.stop)
-        except NotImplementedError:
+        with contextlib.suppress(NotImplementedError):
             # Windows doesn't support add_signal_handler
-            pass
+            loop.add_signal_handler(sig, agent.stop)
 
     await agent.run()
 
