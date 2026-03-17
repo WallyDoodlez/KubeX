@@ -35,11 +35,11 @@
 
 ### Migration
 
-- [ ] **MIGR-01**: Orchestrator agent migrated to `kubexclaw-base`
-- [ ] **MIGR-02**: Instagram-scraper agent migrated to `kubexclaw-base`
-- [ ] **MIGR-03**: Knowledge agent migrated to `kubexclaw-base`
-- [ ] **MIGR-04**: Per-agent Dockerfiles removed after migration proven
-- [ ] **MIGR-05**: All 703+ existing tests pass against refactored agents
+- [x] **MIGR-01**: Orchestrator agent migrated to `kubexclaw-base`
+- [x] **MIGR-02**: Instagram-scraper agent migrated to `kubexclaw-base`
+- [x] **MIGR-03**: Knowledge agent migrated to `kubexclaw-base`
+- [x] **MIGR-04**: Per-agent Dockerfiles removed after migration proven
+- [x] **MIGR-05**: All 703+ existing tests pass against refactored agents
 
 ## v2 Requirements
 
@@ -91,11 +91,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PSEC-01 | Phase 6 | Complete |
 | PSEC-02 | Phase 6 | Complete |
 | PSEC-03 | Phase 6 | Complete |
-| MIGR-01 | Phase 7 | Pending |
-| MIGR-02 | Phase 7 | Pending |
-| MIGR-03 | Phase 7 | Pending |
-| MIGR-04 | Phase 7 | Pending |
-| MIGR-05 | Phase 7 | Pending |
+| MIGR-01 | Phase 7 | Complete |
+| MIGR-02 | Phase 7 | Complete |
+| MIGR-03 | Phase 7 | Complete |
+| MIGR-04 | Phase 7 | Complete |
+| MIGR-05 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 21 total
