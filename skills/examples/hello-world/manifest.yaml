@@ -1,0 +1,11 @@
+name: "hello-world"
+version: "0.1.0"
+description: "Template skill for new agent creation"
+category: "examples"
+capabilities:
+  - "hello"
+tools: []
+dependencies:
+  pip: []
+  system: []
+egress_domains: []

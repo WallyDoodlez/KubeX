@@ -1,0 +1,11 @@
+name: "review"
+version: "0.1.0"
+description: "Security review for escalated action requests"
+category: "security"
+capabilities:
+  - "security_review"
+tools: []
+dependencies:
+  pip: []
+  system: []
+egress_domains: []

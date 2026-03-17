@@ -1,0 +1,89 @@
+name: "task-management"
+version: "0.1.0"
+description: "Multi-turn tool-use orchestration for task coordination"
+category: "orchestration"
+capabilities:
+  - "task_orchestration"
+  - "task_management"
+tools:
+  - name: "dispatch_task"
+    description: "Dispatch a subtask to a worker Kubex by capability"
+    parameters:
+      capability:
+        type: string
+        required: true
+        description: "The capability identifier to resolve (e.g. 'scrape_instagram')"
+      context_message:
+        type: string
+        required: true
+        description: "The task instruction for the worker agent"
+      workflow_id:
+        type: string
+        required: false
+        description: "Optional workflow ID for task grouping"
+  - name: "check_task_status"
+    description: "Check the status/result of a dispatched task by task_id"
+    parameters:
+      task_id:
+        type: string
+        required: true
+        description: "The task ID to query"
+  - name: "cancel_task"
+    description: "Cancel a running task. Only the originating agent can cancel."
+    parameters:
+      task_id:
+        type: string
+        required: true
+        description: "The task ID to cancel"
+      reason:
+        type: string
+        required: false
+        description: "Reason for cancellation"
+  - name: "list_agents"
+    description: "List all registered agent Kubexes and their capabilities."
+    parameters: {}
+  - name: "query_registry"
+    description: "Resolve a capability to available agent Kubexes."
+    parameters:
+      capability:
+        type: string
+        required: true
+        description: "The capability to resolve (e.g. 'scrape_instagram')"
+  - name: "wait_for_result"
+    description: "Poll for a task result with a timeout. Blocks until the task completes or the timeout is reached."
+    parameters:
+      task_id:
+        type: string
+        required: true
+        description: "The task ID to wait for"
+      timeout_seconds:
+        type: integer
+        required: false
+        description: "Maximum seconds to wait (default: 30)"
+  - name: "query_knowledge"
+    description: "Search the KubexClaw knowledge graph for relevant information."
+    parameters:
+      query:
+        type: string
+        required: true
+        description: "Natural language query to search the knowledge graph"
+      entity_types:
+        type: array
+        required: false
+        description: "Optional entity type filters (e.g. ['Organization', 'Person'])"
+  - name: "store_knowledge"
+    description: "Persist new knowledge to the knowledge graph and document corpus."
+    parameters:
+      content:
+        type: string
+        required: true
+        description: "The content to store"
+      summary:
+        type: string
+        required: true
+        description: "Brief summary for indexing"
+dependencies:
+  pip:
+    - "httpx>=0.27.0"
+  system: []
+egress_domains: []

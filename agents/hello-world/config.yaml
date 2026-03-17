@@ -1,0 +1,9 @@
+agent:
+  id: "hello-world"
+  model: "gpt-5.2"
+  skills:
+    - "hello-world"
+  capabilities:
+    - "hello"
+  gateway_url: "http://gateway:8080"
+  broker_url: "http://broker:8060"
