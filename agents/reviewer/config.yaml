@@ -1,29 +1,16 @@
 agent:
   id: "reviewer"
+  model: "o3-mini"
   boundary: "default"
+  harness_mode: "standalone"
+  gateway_url: "http://gateway:8080"
+  broker_url: "http://broker:8060"
 
-  prompt: |
-    You are a security reviewer for KubexClaw. You evaluate action
-    requests that the policy engine could not deterministically decide.
-    You receive structured action payloads and return ALLOW, DENY,
-    or ESCALATE with reasoning.
-    You never execute actions yourself.
-    You must be conservative — when in doubt, DENY or ESCALATE.
-
-  skills: []
+  skills:
+    - "review"
 
   capabilities:
     - "security_review"
-
-  models:
-    allowed:
-      - id: "o3-mini"
-        provider: "openai"
-        tier: "standard"
-    default: "o3-mini"
-
-  providers:
-    - openai
 
   policy:
     allowed_actions:

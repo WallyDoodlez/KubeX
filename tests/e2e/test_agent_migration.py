@@ -8,17 +8,6 @@ Covers:
 - MIGR-05: StandaloneConfig removed — load_agent_config fails fast with no config file.
 - Reviewer agent (Phase 7 scope): boots from kubexclaw-base with o3-mini model from config.
 
-All tests are marked xfail(strict=True) because the migration has not yet been
-implemented.  Specifically:
-- MIGR-01/02/03: production config.yaml files use old 'models.default' schema and
-  action-name skills instead of the migrated stem cell format (top-level 'model' field,
-  skill directory names like 'task-management' instead of 'dispatch_task').
-- MIGR-04: per-agent Dockerfiles still exist.
-- MIGR-05: StandaloneConfig fallback still present.
-- Reviewer: config.yaml uses 'models.default: o3-mini' — harness defaults to 'gpt-5.2'.
-
-They will turn green after Plan 02+03 complete the migration.
-
 Run only these tests with:
     pytest tests/e2e/test_agent_migration.py -m e2e -v
 """
@@ -119,14 +108,6 @@ class TestOrchestratorBootsFromBase:
     - Boot and load config with correct values
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "MIGR-01: orchestrator config.yaml uses old action-name skills "
-            "('dispatch_task', 'check_task_status', ...) instead of migrated "
-            "skill directory name 'task-management'"
-        ),
-    )
     def test_orchestrator_boots_from_base(self, docker_client) -> None:
         """Container from kubexclaw-base loads production orchestrator config with migrated schema."""
         config_path = _AGENTS_DIR / "orchestrator" / "config.yaml"
@@ -168,14 +149,6 @@ class TestInstagramScraperBootsFromBase:
     - Reference skill directory 'web-scraping' (not action names like 'scrape_profile')
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "MIGR-02: instagram-scraper config.yaml uses old action-name skills "
-            "('scrape_profile', 'extract_metrics', ...) instead of migrated "
-            "skill directory name 'web-scraping'"
-        ),
-    )
     def test_instagram_scraper_boots_from_base(self, docker_client) -> None:
         """Container from kubexclaw-base loads production instagram-scraper config with migrated schema."""
         config_path = _AGENTS_DIR / "instagram-scraper" / "config.yaml"
@@ -217,14 +190,6 @@ class TestKnowledgeAgentBootsFromBase:
     - Reference skill directory 'recall' (not action names like 'query_knowledge')
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "MIGR-03: knowledge config.yaml uses old action-name skills "
-            "('query_knowledge', 'store_knowledge', ...) instead of migrated "
-            "skill directory name 'recall'"
-        ),
-    )
     def test_knowledge_agent_boots_from_base(self, docker_client) -> None:
         """Container from kubexclaw-base loads production knowledge config with migrated schema."""
         config_path = _AGENTS_DIR / "knowledge" / "config.yaml"
@@ -266,14 +231,6 @@ class TestReviewerBootsFromBase:
     - Currently harness defaults to 'gpt-5.2' since 'agent.model' key is absent.
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "MIGR (reviewer): reviewer config.yaml uses 'models.default: o3-mini' but "
-            "harness reads 'agent.model' — defaults to gpt-5.2, not o3-mini. "
-            "Will pass once config is migrated to top-level 'model: o3-mini'."
-        ),
-    )
     def test_reviewer_boots_from_base(self, docker_client) -> None:
         """Container from kubexclaw-base loads production reviewer config with o3-mini model."""
         config_path = _AGENTS_DIR / "reviewer" / "config.yaml"
@@ -306,10 +263,6 @@ class TestReviewerBootsFromBase:
 class TestFullSuiteRegression:
     """MIGR-05: StandaloneConfig removed — harness fails fast if no /app/config.yaml."""
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="MIGR-05: StandaloneConfig not yet removed; currently falls back to env vars silently",
-    )
     def test_load_agent_config_raises_without_config_file(self, tmp_path: Path, monkeypatch) -> None:
         """After StandaloneConfig removal, load_agent_config raises ValueError with no file.
 

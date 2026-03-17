@@ -1,13 +1,9 @@
-"""Agent configuration loader — reads config.yaml with env var fallback (BASE-02, BASE-04).
+"""Agent configuration loader — reads config.yaml and fails fast if missing (BASE-02, BASE-04).
 
-Provides ``load_agent_config()`` which tries to read ``/app/config.yaml`` first,
-then falls back to environment variables for backward compatibility with containers
-that don't have a config file mounted.
-
-Priority (highest to lowest):
-    1. Environment variables (always override file values when set)
-    2. config.yaml file
-    3. Built-in defaults
+Provides ``load_agent_config()`` which reads ``/app/config.yaml`` and raises
+``ValueError`` if the file is not found or the required ``agent.id`` field is
+missing.  There are no environment variable overrides — ``config.yaml`` is the
+sole source of truth for agent identity and routing.
 
 Usage:
     from kubex_harness.config_loader import load_agent_config, AgentConfig
@@ -19,7 +15,6 @@ Usage:
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
 
 import yaml
@@ -34,16 +29,16 @@ logger = logging.getLogger("kubex_harness.config_loader")
 
 
 class AgentConfig(BaseModel):
-    """Harness agent configuration, loaded from config.yaml or env vars.
+    """Harness agent configuration, loaded exclusively from config.yaml.
 
     Fields:
-        agent_id:     Unique agent identifier (env: KUBEX_AGENT_ID)
-        model:        LLM model name to use (env: KUBEX_MODEL)
+        agent_id:     Unique agent identifier (required — read from agent.id)
+        model:        LLM model name to use (default: gpt-5.2)
         skills:       Ordered list of skill directory names to load
-        capabilities: List of broker consumer group / capability names (env: KUBEX_CAPABILITIES)
-        harness_mode: "standalone" (default) or "openclaw" (env: KUBEX_HARNESS_MODE)
-        gateway_url:  Gateway base URL (env: GATEWAY_URL)
-        broker_url:   Broker base URL (env: BROKER_URL)
+        capabilities: List of broker consumer group / capability names
+        harness_mode: "standalone" (default) or "openclaw"
+        gateway_url:  Gateway base URL (default: http://gateway:8080)
+        broker_url:   Broker base URL (default: http://broker:8060)
     """
 
     agent_id: str = ""
@@ -61,72 +56,49 @@ class AgentConfig(BaseModel):
 
 
 def load_agent_config(config_path: str = "/app/config.yaml") -> AgentConfig:
-    """Load agent configuration from a YAML file with environment variable fallback.
+    """Load agent configuration from a YAML file.
 
-    Steps:
-    1. Try to read ``config_path`` as YAML.
-    2. Parse the ``agent:`` stanza into base values.
-    3. Override with any set environment variables.
+    Reads ``config_path`` as YAML and parses the ``agent:`` stanza.
+    No environment variable overrides are applied — config.yaml is the sole
+    source of truth.  ``gateway_url`` and ``broker_url`` are read from the
+    config file; if absent they use the built-in defaults from ``AgentConfig``.
 
     Args:
         config_path: Path to the config YAML file. Defaults to ``/app/config.yaml``.
 
     Returns:
-        AgentConfig instance populated from file + env var overrides.
+        AgentConfig instance populated from the file.
 
     Raises:
-        ValueError: If no agent_id can be determined (neither file nor env var).
+        ValueError: If the config file is not found at ``config_path``.
+        ValueError: If the config file is missing the required ``agent.id`` field.
     """
-    file_data: dict[str, Any] = {}
-    file_found = False
-
-    # Step 1: try to read config file
+    # Step 1: read config file — fail fast if missing
     try:
         with open(config_path, encoding="utf-8") as fh:
             raw = yaml.safe_load(fh)
-        if isinstance(raw, dict):
-            file_data = raw.get("agent", {}) or {}
-            file_found = True
-            logger.debug("Loaded agent config from %s", config_path)
+        logger.debug("Loaded agent config from %s", config_path)
     except FileNotFoundError:
-        logger.debug("Config file not found: %s — falling back to env vars", config_path)
+        raise ValueError(f"Required config file not found: {config_path}")
     except Exception as exc:
-        logger.warning("Failed to read config file %s: %s", config_path, exc)
+        raise ValueError(f"Failed to read config file {config_path}: {exc}") from exc
 
-    # Step 2: build base config from file data
-    config = AgentConfig(
-        agent_id=file_data.get("id", ""),
+    # Step 2: parse the agent: stanza
+    file_data: dict[str, Any] = {}
+    if isinstance(raw, dict):
+        file_data = raw.get("agent", {}) or {}
+
+    # Step 3: validate required fields
+    agent_id = file_data.get("id", "")
+    if not agent_id:
+        raise ValueError("Config missing required field: agent.id")
+
+    return AgentConfig(
+        agent_id=agent_id,
         model=file_data.get("model", "gpt-5.2"),
         skills=file_data.get("skills", []) or [],
         capabilities=file_data.get("capabilities", []) or [],
         harness_mode=file_data.get("harness_mode", "standalone"),
-        gateway_url=os.environ.get("GATEWAY_URL", "http://gateway:8080"),
-        broker_url=os.environ.get("BROKER_URL", "http://broker:8060"),
+        gateway_url=file_data.get("gateway_url", "http://gateway:8080"),
+        broker_url=file_data.get("broker_url", "http://broker:8060"),
     )
-
-    # Step 3: apply env var overrides (always take priority)
-    env_agent_id = os.environ.get("KUBEX_AGENT_ID")
-    if env_agent_id:
-        config.agent_id = env_agent_id
-
-    env_model = os.environ.get("KUBEX_MODEL")
-    if env_model:
-        config.model = env_model
-
-    env_capabilities = os.environ.get("KUBEX_CAPABILITIES")
-    if env_capabilities:
-        config.capabilities = [c.strip() for c in env_capabilities.split(",") if c.strip()]
-
-    env_harness_mode = os.environ.get("KUBEX_HARNESS_MODE")
-    if env_harness_mode:
-        config.harness_mode = env_harness_mode
-
-    # If no config file was found and no agent_id env var is set, fall back
-    # to a permissive state (let caller raise if agent_id is required).
-    if not file_found and not config.agent_id:
-        logger.warning(
-            "No config.yaml found at %s and KUBEX_AGENT_ID not set. " "Agent will not have a valid identity.",
-            config_path,
-        )
-
-    return config

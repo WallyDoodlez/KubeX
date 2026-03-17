@@ -7,13 +7,6 @@ Proves that an operator can create a new agent role by:
 
 No Docker build step required — this is the core stem cell value proposition.
 
-The test is marked xfail(strict=True) because:
-- The hello-world skill directory does not yet exist in skills/examples/hello-world/
-- The harness currently uses StandaloneConfig fallback rather than config.yaml-only
-
-After Plan 02+03 create the hello-world template and remove StandaloneConfig,
-this test will pass.
-
 Run only this test with:
     pytest tests/e2e/test_hello_world_spawn.py -m e2e -v
 """
@@ -112,13 +105,6 @@ class TestHelloWorldSpawn:
     no code changes — just files.
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "hello-world skill directory (skills/examples/hello-world/) does not yet exist; "
-            "will pass after Plan 02+03 commit the hello-world template agent"
-        ),
-    )
     def test_hello_world_agent_boots(self, docker_client, tmp_path: Path) -> None:
         """New agent boots from kubexclaw-base using the REPO hello-world template skill.
 
@@ -126,21 +112,16 @@ class TestHelloWorldSpawn:
         - Mount the REPO skill directory (skills/examples/hello-world/) into the container
         - Write a config.yaml referencing that skill
         - Run kubexclaw-base and verify agent boots + loads both config and skill
-
-        The test is xfail because skills/examples/hello-world/ doesn't exist yet.
         """
         try:
             import yaml  # type: ignore[import]
         except ImportError:
             pytest.skip("PyYAML required for hello-world spawn test")
 
-        # Require the REPO template skill directory — this is what makes the test red
+        # Require the REPO template skill directory
         hello_skill_dir = _SKILLS_DIR / "examples" / "hello-world"
         if not hello_skill_dir.exists():
-            # Raise AssertionError to trigger xfail — directory not committed yet
-            raise AssertionError(
-                f"Template skill directory not found: {hello_skill_dir.relative_to(_ROOT)}"
-            )
+            pytest.skip(f"Template skill directory not found: {hello_skill_dir.relative_to(_ROOT)}")
 
         # --- Write config.yaml that references the repo template skill ---
         config_data = {
@@ -175,17 +156,10 @@ class TestHelloWorldSpawn:
         assert "hello-world" in logs, f"Expected 'hello-world' in logs, got:\n{logs[:500]}"
         assert "['hello-world']" in logs, f"Expected skills list in logs, got:\n{logs[:500]}"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "skills/examples/hello-world/ template directory does not yet exist; "
-            "will pass after Plan 02+03 commit the hello-world template to the repo"
-        ),
-    )
     def test_hello_world_skill_template_exists_in_repo(self) -> None:
         """The hello-world template skill directory is committed to the repo.
 
-        After Plan 02+03, operators can find a working example at:
+        Operators can find a working example at:
             skills/examples/hello-world/SKILL.md
             skills/examples/hello-world/manifest.yaml
 

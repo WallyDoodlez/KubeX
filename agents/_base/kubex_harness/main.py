@@ -1,17 +1,19 @@
 """kubex-harness unified entry point — invoked by entrypoint.sh (BASE-04).
 
 Routes to either the standalone agent loop or the OpenClaw harness based on
-the ``harness_mode`` field in config.yaml (or KUBEX_HARNESS_MODE env var).
+the ``harness_mode`` field in config.yaml.
 
 Modes:
     standalone (default): Polls Broker, calls LLM via Gateway proxy, posts results.
         Uses StandaloneAgent from standalone.py.
+        For agents with tool definitions in their skill manifest, the agent loop
+        automatically uses a multi-turn function-calling loop.
 
     openclaw: Spawns the OpenClaw CLI agent loop via KubexHarness.
         Uses KubexHarness from harness.py.
 
 Boot sequence:
-    1. Load config via load_agent_config()
+    1. Load config via load_agent_config() — fails fast if /app/config.yaml missing
     2. Log structured boot summary
     3. Route to the appropriate harness based on harness_mode
 """
@@ -52,16 +54,15 @@ async def _run() -> None:
     if config.harness_mode == "openclaw":
         # Route to OpenClaw harness
         try:
-            from kubex_harness.harness import HarnessConfig, KubexHarness
+            from kubex_harness.harness import HarnessConfig, KubexHarness  # noqa: F401
         except ImportError:
             logger.error("OpenClaw harness not available — falling back to standalone")
             config.harness_mode = "standalone"
 
     if config.harness_mode == "standalone":
-        from kubex_harness.standalone import StandaloneAgent, StandaloneConfig
+        from kubex_harness.standalone import StandaloneAgent
 
-        standalone_config = StandaloneConfig()
-        agent = StandaloneAgent(standalone_config)
+        agent = StandaloneAgent(config)
 
         # Graceful shutdown on SIGTERM/SIGINT
         import signal

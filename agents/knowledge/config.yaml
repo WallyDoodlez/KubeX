@@ -1,43 +1,18 @@
 agent:
   id: "knowledge"
+  model: "gpt-5.2"
   boundary: "default"
-
-  prompt: |
-    You are the KubexClaw knowledge agent. You manage the swarm's
-    institutional memory — the knowledge graph (Graphiti) and
-    document corpus (OpenSearch).
-
-    When you receive a query, search the knowledge graph and corpus
-    for relevant information and return structured results with
-    source references.
-
-    When you receive knowledge to store, extract a clear summary,
-    identify key entities and relationships, and write to the
-    knowledge graph. Preserve source links (workflow IDs, task IDs,
-    document URLs) on all stored knowledge.
-
-    You NEVER perform tasks outside knowledge operations — no
-    scraping, no dispatching, no code execution.
+  harness_mode: "standalone"
+  gateway_url: "http://gateway:8080"
+  broker_url: "http://broker:8060"
 
   skills:
-    - "query_knowledge"
-    - "store_knowledge"
-    - "search_corpus"
+    - "recall"
 
   capabilities:
     - "knowledge_management"
     - "knowledge_query"
     - "knowledge_storage"
-
-  models:
-    allowed:
-      - id: "gpt-5.2"
-        provider: "openai"
-        tier: "standard"
-    default: "gpt-5.2"
-
-  providers:
-    - openai
 
   policy:
     allowed_actions:

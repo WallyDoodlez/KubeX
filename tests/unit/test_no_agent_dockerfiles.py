@@ -3,9 +3,6 @@
 After Phase 7 migration, agents/ should contain only config.yaml and
 policies/ per-agent directory — no Dockerfiles.  The _base/ subdirectory
 is the only permitted location for a Dockerfile (it builds kubexclaw-base).
-
-This test is marked xfail(strict=True) because the agent Dockerfiles still
-exist pre-migration.  It will turn green after Plan 02+03 delete them.
 """
 
 from __future__ import annotations
@@ -24,10 +21,6 @@ _AGENTS_DIR = _ROOT / "agents"
 class TestNoAgentDockerfiles:
     """MIGR-04: No Dockerfile exists in any agent directory except _base/."""
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="MIGR-04: per-agent Dockerfiles not yet deleted (migration plan 02+03 pending)",
-    )
     def test_no_agent_dockerfiles(self) -> None:
         """Scan agents/ subdirectories (excluding _base) — assert no Dockerfile found.
 

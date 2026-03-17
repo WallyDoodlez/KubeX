@@ -831,7 +831,8 @@ class _no_httpx_calls:
 # Standalone — Skill Injection
 # ===========================================================================
 
-from kubex_harness.standalone import _load_skill_files, StandaloneConfig
+from kubex_harness.standalone import _load_skill_files, StandaloneAgent
+from kubex_harness.config_loader import AgentConfig
 
 
 class TestSkillInjection:
@@ -884,47 +885,53 @@ class TestSkillInjection:
         assert a_pos < b_pos
 
     def test_config_injects_skills_into_prompt(self, tmp_path: Any) -> None:
-        """StandaloneConfig appends skill content to the system prompt."""
+        """StandaloneAgent loads skill content into the system prompt from skills dir."""
         skill_file = tmp_path / "SKILL.md"
         skill_file.write_text("# Scraping Instructions\nScrape carefully.", encoding="utf-8")
+        agent_config = AgentConfig(
+            agent_id="test-agent",
+            model="gpt-5.2",
+            skills=["test-skill"],
+            capabilities=["test"],
+        )
         env = {
-            "KUBEX_AGENT_ID": "test-agent",
-            "GATEWAY_URL": "http://gateway:8080",
             "KUBEX_SKILLS_DIR": str(tmp_path),
         }
         with patch.dict(os.environ, env, clear=False):
-            config = StandaloneConfig()
-        assert "KubexClaw worker agent" in config.system_prompt
-        assert "# Scraping Instructions" in config.system_prompt
-        assert "Scrape carefully." in config.system_prompt
+            agent = StandaloneAgent(agent_config)
+        assert "# Scraping Instructions" in agent.system_prompt
+        assert "Scrape carefully." in agent.system_prompt
 
     def test_config_no_skills_dir_uses_base_prompt(self) -> None:
         """When skills dir doesn't exist, system prompt is just the base prompt."""
+        agent_config = AgentConfig(
+            agent_id="test-agent",
+            model="gpt-5.2",
+        )
         env = {
-            "KUBEX_AGENT_ID": "test-agent",
-            "GATEWAY_URL": "http://gateway:8080",
             "KUBEX_SKILLS_DIR": "/nonexistent/skills/path",
         }
         with patch.dict(os.environ, env, clear=False):
-            config = StandaloneConfig()
-        assert config.system_prompt == (
+            agent = StandaloneAgent(agent_config)
+        assert agent.system_prompt == (
             "You are a KubexClaw worker agent. Complete the task described in the user message. "
             "Be concise and return structured results when possible."
         )
 
     def test_config_custom_prompt_plus_skills(self, tmp_path: Any) -> None:
-        """Custom KUBEX_AGENT_PROMPT is used as base, skills appended after."""
+        """Skills SKILL.md content is loaded as the system prompt."""
         (tmp_path / "recall.md").write_text("recall instructions", encoding="utf-8")
+        agent_config = AgentConfig(
+            agent_id="knowledge",
+            model="gpt-5.2",
+            skills=["recall"],
+        )
         env = {
-            "KUBEX_AGENT_ID": "knowledge",
-            "GATEWAY_URL": "http://gateway:8080",
-            "KUBEX_AGENT_PROMPT": "You are the knowledge agent.",
             "KUBEX_SKILLS_DIR": str(tmp_path),
         }
         with patch.dict(os.environ, env, clear=False):
-            config = StandaloneConfig()
-        assert config.system_prompt.startswith("You are the knowledge agent.")
-        assert "recall instructions" in config.system_prompt
+            agent = StandaloneAgent(agent_config)
+        assert "recall instructions" in agent.system_prompt
 
 
 # ===========================================================================

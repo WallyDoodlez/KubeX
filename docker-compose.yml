@@ -18,6 +18,14 @@ volumes:
   opensearch-data:
 
 services:
+  # ── Base image (build once, used by all agents) ──────────────────
+
+  kubexclaw-base:
+    build:
+      context: .
+      dockerfile: agents/_base/Dockerfile
+    image: kubexclaw-base:latest
+
   # ── Infrastructure (always running) ─────────────────────────────
 
   gateway:
@@ -255,12 +263,10 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # ── Orchestrator (always running) ────────────────────────────────
+  # ── Agents (kubexclaw-base image, specialized via skill mounts) ──
 
   orchestrator:
-    build:
-      context: .
-      dockerfile: agents/orchestrator/Dockerfile
+    image: kubexclaw-base:latest
     container_name: kubexclaw-orchestrator
     labels:
       kubex.agent_id: "orchestrator"
@@ -268,17 +274,16 @@ services:
     volumes:
       - ./agents/orchestrator/config.yaml:/app/config.yaml:ro
       - ./agents/orchestrator/policies:/app/policies:ro
+      - ./skills/orchestration/task-management:/app/skills/task-management:ro
     environment:
       - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
       - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
-      - GATEWAY_URL=http://gateway:8080
-      - BROKER_URL=http://kubex-broker:8060
       - REGISTRY_URL=http://kubex-registry:8070
-      - KUBEX_AGENT_ID=orchestrator
-      - KUBEX_CAPABILITIES=task_orchestration,task_management
     networks:
       - kubex-internal
     depends_on:
+      kubexclaw-base:
+        condition: service_started
       gateway:
         condition: service_healthy
     deploy:
@@ -286,6 +291,90 @@ services:
         limits:
           memory: 2048M
           cpus: '1.0'
-    # Orchestrator runs the tool-use loop: polls broker, uses function calling
-    # to coordinate worker agents via Gateway/Registry/Broker
+    restart: unless-stopped
+
+  instagram-scraper:
+    image: kubexclaw-base:latest
+    container_name: kubexclaw-instagram-scraper
+    labels:
+      kubex.agent_id: "instagram-scraper"
+      kubex.boundary: "default"
+    volumes:
+      - ./agents/instagram-scraper/config.yaml:/app/config.yaml:ro
+      - ./agents/instagram-scraper/policies:/app/policies:ro
+      - ./skills/data-collection/web-scraping:/app/skills/web-scraping:ro
+    environment:
+      - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
+      - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
+      - REGISTRY_URL=http://kubex-registry:8070
+    networks:
+      - kubex-internal
+      - kubex-external
+    depends_on:
+      kubexclaw-base:
+        condition: service_started
+      gateway:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    restart: unless-stopped
+
+  knowledge:
+    image: kubexclaw-base:latest
+    container_name: kubexclaw-knowledge
+    labels:
+      kubex.agent_id: "knowledge"
+      kubex.boundary: "default"
+    volumes:
+      - ./agents/knowledge/config.yaml:/app/config.yaml:ro
+      - ./agents/knowledge/policies:/app/policies:ro
+      - ./skills/knowledge/recall:/app/skills/recall:ro
+    environment:
+      - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
+      - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
+      - REGISTRY_URL=http://kubex-registry:8070
+    networks:
+      - kubex-internal
+      - kubex-data
+    depends_on:
+      kubexclaw-base:
+        condition: service_started
+      gateway:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    restart: unless-stopped
+
+  reviewer:
+    image: kubexclaw-base:latest
+    container_name: kubexclaw-reviewer
+    labels:
+      kubex.agent_id: "reviewer"
+      kubex.boundary: "default"
+    volumes:
+      - ./agents/reviewer/config.yaml:/app/config.yaml:ro
+      - ./agents/reviewer/policies:/app/policies:ro
+      - ./skills/security/review:/app/skills/review:ro
+    environment:
+      - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
+      - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
+      - REGISTRY_URL=http://kubex-registry:8070
+    networks:
+      - kubex-internal
+    depends_on:
+      kubexclaw-base:
+        condition: service_started
+      gateway:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
     restart: unless-stopped

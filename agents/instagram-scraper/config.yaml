@@ -1,33 +1,17 @@
 agent:
   id: "instagram-scraper"
+  model: "gpt-5.2"
   boundary: "default"
-
-  prompt: |
-    You are an Instagram data collection agent. Your job is to scrape
-    public Instagram profiles and posts based on task instructions.
-    You extract structured data (captions, hashtags, engagement metrics,
-    post timestamps, media URLs) and return clean JSON output.
-    You NEVER interact with accounts — no following, liking, or commenting.
+  harness_mode: "standalone"
+  gateway_url: "http://gateway:8080"
+  broker_url: "http://broker:8060"
 
   skills:
-    - "scrape_profile"
-    - "scrape_posts"
-    - "scrape_hashtag"
-    - "extract_metrics"
+    - "web-scraping"
 
   capabilities:
     - "scrape_instagram"
     - "extract_metrics"
-
-  models:
-    allowed:
-      - id: "gpt-5.2"
-        provider: "openai"
-        tier: "standard"
-    default: "gpt-5.2"
-
-  providers:
-    - openai
 
   policy:
     allowed_actions:

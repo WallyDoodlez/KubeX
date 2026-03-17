@@ -468,7 +468,8 @@ class TestReviewerModelSeparation:
         with open(reviewer_config_path) as f:
             reviewer_config = yaml.safe_load(f)
 
-        reviewer_default_model = reviewer_config["agent"]["models"]["default"]
+        # New flat config schema: agent.model (not agent.models.default)
+        reviewer_default_model = reviewer_config["agent"]["model"]
 
         # Load worker configs and verify no overlap
         worker_agents = ["instagram-scraper", "knowledge"]
@@ -481,18 +482,12 @@ class TestReviewerModelSeparation:
             with open(worker_config_path) as f:
                 worker_config = yaml.safe_load(f)
 
-            worker_default_model = worker_config["agent"]["models"]["default"]
+            worker_default_model = worker_config["agent"]["model"]
 
-            # Extract all allowed model IDs for the worker
-            worker_model_ids = [
-                m["id"]
-                for m in worker_config["agent"]["models"].get("allowed", [])
-            ]
-
-            # Reviewer's default model must NOT be in worker's allowed models
-            assert reviewer_default_model not in worker_model_ids, (
+            # Reviewer's model must differ from worker's model (anti-collusion)
+            assert reviewer_default_model != worker_default_model, (
                 f"Anti-collusion violation: reviewer model '{reviewer_default_model}' "
-                f"is also allowed for worker '{worker_id}' (models: {worker_model_ids})"
+                f"is the same as worker '{worker_id}' model '{worker_default_model}'"
             )
 
     def test_reviewer_policy_specifies_exclusive_model(self) -> None:
