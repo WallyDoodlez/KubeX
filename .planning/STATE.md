@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Stem Cell Kubex
 status: completed
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-03-17T03:04:24.027Z"
+stopped_at: Completed 07-03-PLAN.md
+last_updated: "2026-03-17T03:25:16.725Z"
 last_activity: "2026-03-14 — Phase 5 plan 04 complete (gap closure: SKIL-02 + SKIL-04 wired end-to-end, 332 tests passing, 0 new regressions)"
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 44
 ---
 
@@ -56,6 +56,7 @@ Progress: [████░░░░░░] 44% (v1.1 scope, 4 of 9 plans done)
 | Phase 06-manager-spawn-policy-gates P03 | 17 | 1 tasks | 6 files |
 | Phase 07-agent-migration-and-dockerfile-removal P01 | 6 | 2 tasks | 3 files |
 | Phase 07-agent-migration-and-dockerfile-removal P02 | 14 | 2 tasks | 30 files |
+| Phase 07-agent-migration-and-dockerfile-removal P03 | 18 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Recent decisions affecting current work:
 - [Phase 07-01]: Hello-world spawn tests require REPO template skill directory to stay red until template is committed
 - [Phase 07-02]: StandaloneAgent._call_llm_with_tools contains the multi-turn loop (not a separate OrchestratorAgent)
 - [Phase 07-02]: config.yaml is sole source of truth: no KUBEX_AGENT_ID, KUBEX_MODEL, GATEWAY_URL, BROKER_URL env reads
+- [Phase 07-03]: Session-scoped conftest fixture writes real config.yaml to tmp_path — exercises real file-reading code path (not mocked)
+- [Phase 07-03]: Autouse _patch_default_config_path patches __defaults__ tuple directly — zero per-test boilerplate, tests with explicit paths unaffected
 
 ### Pending Todos
 
@@ -103,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T03:04:24.024Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-03-17T03:25:16.722Z
+Stopped at: Completed 07-03-PLAN.md
 Resume file: None
