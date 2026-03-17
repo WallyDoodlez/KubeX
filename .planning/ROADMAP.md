@@ -85,4 +85,4 @@ Plans:
 | 1-4. MVP | v1.0 | — | Complete | 2026-03-09 |
 | 5. Base Image and Skill Schema | v1.1 | 4/4 | Complete | 2026-03-14 |
 | 6. Manager Spawn Logic and Policy Gates | v1.1 | 3/3 | Complete | 2026-03-16 |
-| 7. Agent Migration and Dockerfile Removal | 1/3 | In Progress|  | - |
+| 7. Agent Migration and Dockerfile Removal | 2/3 | In Progress|  | - |
