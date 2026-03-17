@@ -128,9 +128,7 @@ class TestEnvVarOverride:
         # Model must come from config.yaml, not the env var
         assert config.model == "gpt-4o"
 
-    def test_env_var_capabilities_do_not_override(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_var_capabilities_do_not_override(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """KUBEX_CAPABILITIES env var is ignored — capabilities come from config.yaml only."""
         config_path = write_config(tmp_path / "config.yaml", MINIMAL_CONFIG)
         monkeypatch.setenv("KUBEX_CAPABILITIES", "cap_a,cap_b")
@@ -148,9 +146,7 @@ class TestEnvVarOverride:
 class TestEnvVarFallback:
     """When config.yaml does not exist, load_agent_config fails fast (no env var fallback)."""
 
-    def test_missing_config_raises_value_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_missing_config_raises_value_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """With a nonexistent config path, load_agent_config raises ValueError immediately.
 
         No fallback to env vars — config.yaml is the sole source of truth.

@@ -118,14 +118,14 @@ class TestOrchestratorBootsFromBase:
         }
         # After migration: config must have skill dir 'task-management' (not action names)
         cmd = (
-            "python -c \""
+            'python -c "'
             "from kubex_harness.config_loader import load_agent_config; "
             "c = load_agent_config(); "
             "assert c.agent_id == 'orchestrator', f'bad agent_id: {c.agent_id}'; "
             "assert c.model == 'gpt-5.2', f'bad model: {c.model}'; "
             "assert 'task-management' in c.skills, "
             "  f'expected task-management skill dir in skills, got: {c.skills}'; "
-            "print(c.agent_id)\""
+            'print(c.agent_id)"'
         )
         exit_code, logs = _run_container(docker_client, _BASE_IMAGE_TAG, volumes=volumes, command=cmd)
 
@@ -159,14 +159,14 @@ class TestInstagramScraperBootsFromBase:
         }
         # After migration: config must have skill dir 'web-scraping' (not action names)
         cmd = (
-            "python -c \""
+            'python -c "'
             "from kubex_harness.config_loader import load_agent_config; "
             "c = load_agent_config(); "
             "assert c.agent_id == 'instagram-scraper', f'bad agent_id: {c.agent_id}'; "
             "assert c.model == 'gpt-5.2', f'bad model: {c.model}'; "
             "assert 'web-scraping' in c.skills, "
             "  f'expected web-scraping skill dir in skills, got: {c.skills}'; "
-            "print(c.agent_id)\""
+            'print(c.agent_id)"'
         )
         exit_code, logs = _run_container(docker_client, _BASE_IMAGE_TAG, volumes=volumes, command=cmd)
 
@@ -200,14 +200,14 @@ class TestKnowledgeAgentBootsFromBase:
         }
         # After migration: config must have skill dir 'recall' (not action names)
         cmd = (
-            "python -c \""
+            'python -c "'
             "from kubex_harness.config_loader import load_agent_config; "
             "c = load_agent_config(); "
             "assert c.agent_id == 'knowledge', f'bad agent_id: {c.agent_id}'; "
             "assert c.model == 'gpt-5.2', f'bad model: {c.model}'; "
             "assert 'recall' in c.skills, "
             "  f'expected recall skill dir in skills, got: {c.skills}'; "
-            "print(c.agent_id)\""
+            'print(c.agent_id)"'
         )
         exit_code, logs = _run_container(docker_client, _BASE_IMAGE_TAG, volumes=volumes, command=cmd)
 
@@ -241,12 +241,12 @@ class TestReviewerBootsFromBase:
         }
         # After migration: config must have model: o3-mini at top level
         cmd = (
-            "python -c \""
+            'python -c "'
             "from kubex_harness.config_loader import load_agent_config; "
             "c = load_agent_config(); "
             "assert c.agent_id == 'reviewer', f'bad agent_id: {c.agent_id}'; "
             "assert c.model == 'o3-mini', f'bad model: {c.model}'; "
-            "print(c.agent_id)\""
+            'print(c.agent_id)"'
         )
         exit_code, logs = _run_container(docker_client, _BASE_IMAGE_TAG, volumes=volumes, command=cmd)
 

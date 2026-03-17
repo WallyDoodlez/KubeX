@@ -158,9 +158,7 @@ class TestKubexHarnessSpawning:
     @patch("kubex_harness.harness.pty.openpty")
     @patch("kubex_harness.harness.subprocess.Popen")
     @pytest.mark.asyncio
-    async def test_spawns_openclaw_agent_local(
-        self, mock_popen: MagicMock, mock_openpty: MagicMock
-    ) -> None:
+    async def test_spawns_openclaw_agent_local(self, mock_popen: MagicMock, mock_openpty: MagicMock) -> None:
         """Harness spawns 'openclaw agent --local --message ...' command."""
         mock_openpty.return_value = (10, 11)
         mock_proc = make_mock_proc()
@@ -182,9 +180,7 @@ class TestKubexHarnessSpawning:
     @patch("kubex_harness.harness.pty.openpty")
     @patch("kubex_harness.harness.subprocess.Popen")
     @pytest.mark.asyncio
-    async def test_passes_task_message_as_argument(
-        self, mock_popen: MagicMock, mock_openpty: MagicMock
-    ) -> None:
+    async def test_passes_task_message_as_argument(self, mock_popen: MagicMock, mock_openpty: MagicMock) -> None:
         """Task message is passed as --message argument."""
         mock_openpty.return_value = (10, 11)
         mock_popen.return_value = make_mock_proc()
@@ -203,9 +199,7 @@ class TestKubexHarnessSpawning:
     @patch("kubex_harness.harness.pty.openpty")
     @patch("kubex_harness.harness.subprocess.Popen")
     @pytest.mark.asyncio
-    async def test_opens_pty(
-        self, mock_popen: MagicMock, mock_openpty: MagicMock
-    ) -> None:
+    async def test_opens_pty(self, mock_popen: MagicMock, mock_openpty: MagicMock) -> None:
         """Harness calls pty.openpty() to create a PTY pair."""
         mock_openpty.return_value = (10, 11)
         mock_popen.return_value = make_mock_proc()
@@ -221,9 +215,7 @@ class TestKubexHarnessSpawning:
     @patch("kubex_harness.harness.pty.openpty")
     @patch("kubex_harness.harness.subprocess.Popen")
     @pytest.mark.asyncio
-    async def test_run_returns_completed_on_zero_exit(
-        self, mock_popen: MagicMock, mock_openpty: MagicMock
-    ) -> None:
+    async def test_run_returns_completed_on_zero_exit(self, mock_popen: MagicMock, mock_openpty: MagicMock) -> None:
         """run() returns ExitReason.COMPLETED when process exits with code 0."""
         mock_openpty.return_value = (10, 11)
         mock_popen.return_value = make_mock_proc(returncode=0)
@@ -239,9 +231,7 @@ class TestKubexHarnessSpawning:
     @patch("kubex_harness.harness.pty.openpty")
     @patch("kubex_harness.harness.subprocess.Popen")
     @pytest.mark.asyncio
-    async def test_run_returns_failed_on_nonzero_exit(
-        self, mock_popen: MagicMock, mock_openpty: MagicMock
-    ) -> None:
+    async def test_run_returns_failed_on_nonzero_exit(self, mock_popen: MagicMock, mock_openpty: MagicMock) -> None:
         """run() returns ExitReason.FAILED when process exits with non-zero code."""
         mock_openpty.return_value = (10, 11)
         mock_popen.return_value = make_mock_proc(returncode=1)
@@ -587,8 +577,7 @@ class TestKubexHarnessCancelEscalation:
             await harness.run()
 
         keystroke_writes = [
-            c for c in mock_os_write.call_args_list
-            if c.args[0] == 10 and b"\x03" in (c.args[1] if c.args else b"")
+            c for c in mock_os_write.call_args_list if c.args[0] == 10 and b"\x03" in (c.args[1] if c.args else b"")
         ]
         assert len(keystroke_writes) >= 1
 

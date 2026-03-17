@@ -38,7 +38,8 @@ class TestNoAgentDockerfiles:
             if dockerfile.exists():
                 offending.append(dockerfile)
 
-        assert offending == [], (
-            "Found per-agent Dockerfiles that should have been deleted during migration:\n"
-            + "\n".join(f"  {p.relative_to(_ROOT)}" for p in offending)
+        assert (
+            offending == []
+        ), "Found per-agent Dockerfiles that should have been deleted during migration:\n" + "\n".join(
+            f"  {p.relative_to(_ROOT)}" for p in offending
         )

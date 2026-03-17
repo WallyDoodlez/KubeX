@@ -141,13 +141,13 @@ class TestHelloWorldSpawn:
         }
         # Verify: config loads correctly and skill directory is visible
         cmd = (
-            "python -c \""
+            'python -c "'
             "from kubex_harness.config_loader import load_agent_config; "
             "c = load_agent_config(); "
             "assert c.agent_id == 'hello-world', f'bad agent_id: {c.agent_id}'; "
             "assert c.model == 'gpt-5.2', f'bad model: {c.model}'; "
             "assert c.skills == ['hello-world'], f'bad skills: {c.skills}'; "
-            "print(c.agent_id, c.skills)\""
+            'print(c.agent_id, c.skills)"'
         )
         exit_code, logs = _run_container(docker_client, _BASE_IMAGE_TAG, volumes=volumes, command=cmd)
 
@@ -171,22 +171,18 @@ class TestHelloWorldSpawn:
         )
 
         skill_md = hello_skill_dir / "SKILL.md"
-        assert skill_md.exists(), (
-            f"SKILL.md missing from hello-world template: {skill_md.relative_to(_ROOT)}"
-        )
+        assert skill_md.exists(), f"SKILL.md missing from hello-world template: {skill_md.relative_to(_ROOT)}"
 
         manifest = hello_skill_dir / "manifest.yaml"
-        assert manifest.exists(), (
-            f"manifest.yaml missing from hello-world template: {manifest.relative_to(_ROOT)}"
-        )
+        assert manifest.exists(), f"manifest.yaml missing from hello-world template: {manifest.relative_to(_ROOT)}"
 
         # Verify manifest declares the hello capability
         try:
             import yaml  # type: ignore[import]
 
             data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
-            assert "hello" in data.get("capabilities", []), (
-                f"Expected 'hello' in manifest capabilities, got: {data.get('capabilities')}"
-            )
+            assert "hello" in data.get(
+                "capabilities", []
+            ), f"Expected 'hello' in manifest capabilities, got: {data.get('capabilities')}"
         except ImportError:
             pass  # yaml not required for this check

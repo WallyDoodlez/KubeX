@@ -51,27 +51,37 @@ def _mock_response(status_code: int = 200, json_data: Any = None, text: str = ""
 
 def _llm_text_response(content: str) -> httpx.Response:
     """Mock LLM response with text only (no tool calls)."""
-    return _mock_response(200, {
-        "choices": [{
-            "message": {
-                "role": "assistant",
-                "content": content,
-            }
-        }]
-    })
+    return _mock_response(
+        200,
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": content,
+                    }
+                }
+            ]
+        },
+    )
 
 
 def _llm_tool_response(tool_calls: list[dict]) -> httpx.Response:
     """Mock LLM response with tool calls."""
-    return _mock_response(200, {
-        "choices": [{
-            "message": {
-                "role": "assistant",
-                "content": None,
-                "tool_calls": tool_calls,
-            }
-        }]
-    })
+    return _mock_response(
+        200,
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": tool_calls,
+                    }
+                }
+            ]
+        },
+    )
 
 
 def _tool_call(name: str, args: dict, call_id: str = "call_1") -> dict:
@@ -193,9 +203,14 @@ class TestToolDefinitions:
     def test_required_tools_present(self, agent):
         names = {t["function"]["name"] for t in agent.tool_definitions}
         expected = {
-            "dispatch_task", "check_task_status", "cancel_task",
-            "list_agents", "query_registry", "wait_for_result",
-            "query_knowledge", "store_knowledge",
+            "dispatch_task",
+            "check_task_status",
+            "cancel_task",
+            "list_agents",
+            "query_registry",
+            "wait_for_result",
+            "query_knowledge",
+            "store_knowledge",
         }
         assert expected == names
 
@@ -232,9 +247,11 @@ class TestToolUseLoop:
         client = AsyncMock(spec=httpx.AsyncClient)
 
         # First LLM call: wants to call list_agents
-        tool_resp = _llm_tool_response([
-            _tool_call("list_agents", {}, "call_1"),
-        ])
+        tool_resp = _llm_tool_response(
+            [
+                _tool_call("list_agents", {}, "call_1"),
+            ]
+        )
         # list_agents GET to registry returns agents
         agents_resp = _mock_response(200, [{"agent_id": "worker-1"}])
         # Second LLM call: final text
@@ -272,10 +289,12 @@ class TestToolUseLoop:
         """LLM returns multiple tool calls in a single response."""
         client = AsyncMock(spec=httpx.AsyncClient)
 
-        tool_resp = _llm_tool_response([
-            _tool_call("list_agents", {}, "call_1"),
-            _tool_call("query_registry", {"capability": "scrape"}, "call_2"),
-        ])
+        tool_resp = _llm_tool_response(
+            [
+                _tool_call("list_agents", {}, "call_1"),
+                _tool_call("query_registry", {"capability": "scrape"}, "call_2"),
+            ]
+        )
         text_resp = _llm_text_response("Done.")
 
         # post: LLM #1, progress1, progress2, LLM #2
@@ -376,22 +395,29 @@ class TestErrorHandling:
         client = AsyncMock(spec=httpx.AsyncClient)
 
         # LLM returns tool call with invalid JSON
-        bad_tool_resp = _mock_response(200, {
-            "choices": [{
-                "message": {
-                    "role": "assistant",
-                    "content": None,
-                    "tool_calls": [{
-                        "id": "call_bad",
-                        "type": "function",
-                        "function": {
-                            "name": "list_agents",
-                            "arguments": "not valid json{{{",
-                        },
-                    }],
-                }
-            }]
-        })
+        bad_tool_resp = _mock_response(
+            200,
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": "call_bad",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "list_agents",
+                                        "arguments": "not valid json{{{",
+                                    },
+                                }
+                            ],
+                        }
+                    }
+                ]
+            },
+        )
         text_resp = _llm_text_response("Recovered.")
 
         client.post.side_effect = [bad_tool_resp, None, text_resp]
