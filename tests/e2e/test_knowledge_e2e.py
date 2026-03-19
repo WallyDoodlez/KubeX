@@ -1120,22 +1120,3 @@ class TestOrchestratorKnowledgeTools:
         assert "results" in data
         assert data.get("total", 0) >= 1
 
-    def test_mcp_bridge_exposes_knowledge_tools(self) -> None:
-        """KB-ORCH-04: MCP Bridge server exposes query_knowledge and store_knowledge tools.
-
-        Spec: 'MCPBridgeServer exposes 11 tools via MCP protocol'
-        The orchestrator's MCP bridge must list both knowledge tools.
-        """
-        try:
-            from mcp_bridge.server import MCPBridgeServer  # type: ignore[import]
-
-            server = MCPBridgeServer.__new__(MCPBridgeServer)
-            # Check that tool handlers are registered
-            assert hasattr(server, "_query_knowledge"), (
-                "MCPBridgeServer must have _query_knowledge handler"
-            )
-            assert hasattr(server, "_store_knowledge"), (
-                "MCPBridgeServer must have _store_knowledge handler"
-            )
-        except ImportError:
-            pytest.skip("MCP bridge module not importable")

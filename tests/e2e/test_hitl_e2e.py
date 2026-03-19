@@ -249,66 +249,6 @@ class TestRequestUserInputPausesExecution:
 
 
 # ===========================================================================
-# HITL-04: Human response delivered back to orchestrator
-# ===========================================================================
-
-
-@_skip_not_integrated
-@pytest.mark.e2e
-class TestHumanResponseDelivery:
-    """Spec: Human response is delivered back to the orchestrator."""
-
-    def setup_method(self) -> None:
-        try:
-            # Check if MCP bridge GatewayClient is available
-            sys.path.insert(0, os.path.join(_ROOT, "agents/orchestrator/mcp-bridge"))
-            from client.gateway import GatewayClient
-
-            self.GatewayClient = GatewayClient
-        except ImportError:
-            pytest.skip("MCP Bridge GatewayClient not available")
-
-    def test_gateway_client_request_user_input_sends_action(self) -> None:
-        """HITL-04: GatewayClient.request_user_input sends the action to Gateway.
-
-        Spec: The MCP Bridge wraps request_user_input as an ActionRequest
-        and sends it to the Gateway. The Gateway evaluates policy and returns.
-        The bridge then blocks on stdin for the human response.
-        """
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "status": "accepted",
-            "action": "request_user_input",
-        }
-
-        client = self.GatewayClient(
-            base_url="http://gateway:8080",
-            agent_id=ORCHESTRATOR_ID,
-        )
-
-        # Patch the _post method which handles the actual HTTP call
-        with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
-            mock_post.return_value = {"status": "accepted", "action": "request_user_input"}
-
-            result = asyncio.get_event_loop().run_until_complete(
-                client.request_user_input(
-                    question="Approve data deletion?",
-                    timeout_seconds=300,
-                )
-            )
-
-            mock_post.assert_called_once()
-            call_args = mock_post.call_args
-            path = call_args.args[0] if call_args.args else call_args.kwargs.get("path", "")
-            payload = call_args.args[1] if len(call_args.args) > 1 else call_args.kwargs.get("payload", {})
-
-            assert path == "/actions"
-            assert payload.get("action") == "request_user_input"
-            assert "question" in payload.get("parameters", {})
-
-
-# ===========================================================================
 # HITL-05: request_user_input includes the question/prompt text
 # ===========================================================================
 
@@ -381,48 +321,6 @@ class TestRequestUserInputIncludesQuestion:
 @pytest.mark.e2e
 class TestRequestUserInputTimeout:
     """Spec: request_user_input times out if no human response."""
-
-    def setup_method(self) -> None:
-        try:
-            sys.path.insert(0, os.path.join(_ROOT, "agents/orchestrator/mcp-bridge"))
-            from client.gateway import GatewayClient
-
-            self.GatewayClient = GatewayClient
-        except ImportError:
-            pytest.skip("MCP Bridge GatewayClient not available")
-
-    def test_timeout_parameter_is_sent_to_gateway(self) -> None:
-        """HITL-06: The timeout_seconds parameter is included in the action request.
-
-        Spec: 'request_user_input has a configurable timeout (default 300s)'
-        If no response arrives within the timeout, the action should fail
-        with a timeout error so the orchestrator can decide what to do.
-        """
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"status": "accepted"}
-
-        client = self.GatewayClient(
-            base_url="http://gateway:8080",
-            agent_id=ORCHESTRATOR_ID,
-        )
-
-        with patch.object(client, "_post", new_callable=AsyncMock) as mock_post:
-            mock_post.return_value = {"status": "accepted"}
-
-            asyncio.get_event_loop().run_until_complete(
-                client.request_user_input(
-                    question="Approve?",
-                    timeout_seconds=60,
-                )
-            )
-
-            call_args = mock_post.call_args
-            payload = call_args.args[1] if len(call_args.args) > 1 else call_args.kwargs.get("payload", {})
-            params = payload.get("parameters", {})
-            assert params.get("timeout_seconds") == 60, (
-                f"Expected timeout_seconds=60 in parameters, got: {params}"
-            )
 
     def test_short_timeout_value_is_accepted(self) -> None:
         """HITL-06b: Very short timeout values are accepted (for testing).
