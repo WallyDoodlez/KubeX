@@ -9,13 +9,10 @@ networks:
       kubex.network: internal
   kubex-external:
     driver: bridge
-  kubex-data:
-    driver: bridge
 
 volumes:
   redis-data:
-  neo4j-data:
-  opensearch-data:
+  knowledge-vault:
 
 services:
   # ── Base image (build once, used by all agents) ──────────────────
@@ -48,7 +45,6 @@ services:
     networks:
       - kubex-internal
       - kubex-external
-      - kubex-data
     depends_on:
       redis:
         condition: service_healthy
@@ -85,7 +81,6 @@ services:
       - SERVICE_NAME=kubex-manager
     networks:
       - kubex-internal
-      - kubex-data
     depends_on:
       gateway:
         condition: service_healthy
@@ -111,7 +106,6 @@ services:
       - SERVICE_NAME=kubex-broker
     networks:
       - kubex-internal
-      - kubex-data
     depends_on:
       redis:
         condition: service_healthy
@@ -139,7 +133,6 @@ services:
       - SERVICE_NAME=kubex-registry
     networks:
       - kubex-internal
-      - kubex-data
     depends_on:
       redis:
         condition: service_healthy
@@ -169,7 +162,7 @@ services:
       --appendfsync everysec
       --maxmemory 512mb
     networks:
-      - kubex-data
+      - kubex-internal
     deploy:
       resources:
         limits:
@@ -180,87 +173,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    restart: unless-stopped
-
-  # ── Knowledge Base ──────────────────────────────────────────────
-
-  neo4j:
-    image: neo4j:5-community
-    container_name: kubexclaw-neo4j
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    volumes:
-      - neo4j-data:/data
-    environment:
-      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
-      - NEO4J_PLUGINS=["apoc"]
-    networks:
-      - kubex-data
-    deploy:
-      resources:
-        limits:
-          memory: 1536M
-          cpus: '0.5'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7474"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
-  graphiti:
-    image: zepai/graphiti:latest
-    container_name: kubexclaw-graphiti
-    ports:
-      - "8100:8100"
-    environment:
-      - OPENAI_API_KEY=placeholder
-      - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
-      - MODEL_NAME=${DEFAULT_LLM_MODEL}
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
-    networks:
-      - kubex-data
-    depends_on:
-      neo4j:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.25'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8100/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  opensearch:
-    image: opensearchproject/opensearch:2
-    container_name: kubexclaw-opensearch
-    ports:
-      - "9200:9200"
-    volumes:
-      - opensearch-data:/usr/share/opensearch/data
-    environment:
-      - discovery.type=single-node
-      - DISABLE_SECURITY_PLUGIN=true
-      - OPENSEARCH_JAVA_OPTS=-Xms1536m -Xmx1536m
-    networks:
-      - kubex-data
-    deploy:
-      resources:
-        limits:
-          memory: 3G
-          cpus: '1.0'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
     restart: unless-stopped
 
   # ── Agents (kubexclaw-base image, specialized via skill mounts) ──
@@ -331,14 +243,15 @@ services:
     volumes:
       - ./agents/knowledge/config.yaml:/app/config.yaml:ro
       - ./agents/knowledge/policies:/app/policies:ro
-      - ./skills/knowledge/recall:/app/skills/recall:ro
+      - ./skills/knowledge/obsidian-vault:/app/skills/obsidian-vault:ro
+      - knowledge-vault:/app/vault
     environment:
       - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
       - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
       - REGISTRY_URL=http://kubex-registry:8070
+      - VAULT_PATH=/app/vault
     networks:
       - kubex-internal
-      - kubex-data
     depends_on:
       kubexclaw-base:
         condition: service_started
@@ -347,8 +260,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.5'
+          memory: 256M
+          cpus: '0.25'
     restart: unless-stopped
 
   reviewer:
@@ -377,4 +290,35 @@ services:
         limits:
           memory: 512M
           cpus: '0.5'
+    restart: unless-stopped
+
+  # ── Command Center (web admin dashboard) ─────────────────────────
+
+  command-center:
+    build:
+      context: ./command-center
+      dockerfile: Dockerfile
+      args:
+        - VITE_GATEWAY_URL=http://localhost:8080
+        - VITE_REGISTRY_URL=http://localhost:8070
+        - VITE_MANAGER_URL=http://localhost:8090
+        - VITE_MANAGER_TOKEN=${MANAGER_TOKEN:-changeme-manager-token}
+    container_name: kubexclaw-command-center
+    ports:
+      - "3000:3000"
+    networks:
+      - kubex-external
+    depends_on:
+      gateway:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.1'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
