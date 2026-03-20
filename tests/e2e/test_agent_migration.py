@@ -186,7 +186,7 @@ class TestKnowledgeAgentBootsFromBase:
 
     After migration, the config must:
     - Use top-level 'model: gpt-5.2' (not 'models.default')
-    - Reference skill directory 'recall' (not action names like 'query_knowledge')
+    - Reference skill directory 'obsidian-vault' (Obsidian markdown vault, replaces Neo4j/Graphiti)
     """
 
     def test_knowledge_agent_boots_from_base(self, docker_client) -> None:
@@ -198,15 +198,15 @@ class TestKnowledgeAgentBootsFromBase:
         volumes = {
             str(config_path): {"bind": "/app/config.yaml", "mode": "ro"},
         }
-        # After migration: config must have skill dir 'recall' (not action names)
+        # After migration: config must have skill dir 'obsidian-vault' (not 'recall')
         cmd = (
             'python -c "'
             "from kubex_harness.config_loader import load_agent_config; "
             "c = load_agent_config(); "
             "assert c.agent_id == 'knowledge', f'bad agent_id: {c.agent_id}'; "
             "assert c.model == 'gpt-5.2', f'bad model: {c.model}'; "
-            "assert 'recall' in c.skills, "
-            "  f'expected recall skill dir in skills, got: {c.skills}'; "
+            "assert 'obsidian-vault' in c.skills, "
+            "  f'expected obsidian-vault skill dir in skills, got: {c.skills}'; "
             'print(c.agent_id)"'
         )
         exit_code, logs = _run_container(docker_client, _BASE_IMAGE_TAG, volumes=volumes, command=cmd)

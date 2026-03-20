@@ -1,0 +1,111 @@
+name: "obsidian-vault"
+description: "Knowledge management via Obsidian-style markdown vault with wiki-links"
+version: "1.0.0"
+category: "knowledge"
+capabilities:
+  - "knowledge_management"
+  - "knowledge_query"
+  - "knowledge_storage"
+tools:
+  - name: "create_note"
+    description: "Create a new markdown note in the vault"
+    parameters:
+      title:
+        type: string
+        required: true
+        description: "Human-readable title for the note"
+      content:
+        type: string
+        required: true
+        description: "Full markdown body (frontmatter will be auto-generated)"
+      folder:
+        type: string
+        required: true
+        description: "Vault folder: facts, entities, events, decisions, logs"
+      tags:
+        type: array
+        required: true
+        description: "List of lowercase kebab-case tags"
+      links:
+        type: array
+        required: false
+        description: "List of note names to link to in the Related section"
+      source:
+        type: string
+        required: false
+        description: "Source task ID, workflow ID, or URL"
+      note_type:
+        type: string
+        required: false
+        description: "Override note type (default derived from folder)"
+  - name: "update_note"
+    description: "Update an existing vault note"
+    parameters:
+      path:
+        type: string
+        required: true
+        description: "Vault-relative path (e.g. facts/openai-rate-limits.md)"
+      content:
+        type: string
+        required: true
+        description: "New markdown content"
+      mode:
+        type: string
+        required: false
+        description: "append (default) or replace"
+  - name: "search_notes"
+    description: "Full-text search across note titles and content"
+    parameters:
+      query:
+        type: string
+        required: true
+        description: "Search keywords"
+      folder:
+        type: string
+        required: false
+        description: "Limit search to this folder"
+      tag:
+        type: string
+        required: false
+        description: "Filter by tag"
+      limit:
+        type: integer
+        required: false
+        description: "Max results (default 10)"
+  - name: "get_note"
+    description: "Read a single vault note"
+    parameters:
+      path:
+        type: string
+        required: true
+        description: "Vault-relative path"
+  - name: "list_notes"
+    description: "List notes in a vault folder"
+    parameters:
+      folder:
+        type: string
+        required: false
+        description: "Folder to list (omit for all)"
+  - name: "find_backlinks"
+    description: "Find all notes that link to the given note name"
+    parameters:
+      note_name:
+        type: string
+        required: true
+        description: "Note name to search for (without .md)"
+  - name: "commit_and_push"
+    description: "Git commit pending vault changes and optionally push"
+    parameters:
+      message:
+        type: string
+        required: true
+        description: "Git commit message"
+      push:
+        type: boolean
+        required: false
+        description: "Whether to push to remote (default false)"
+dependencies:
+  pip: []
+  system:
+    - git
+egress_domains: []
