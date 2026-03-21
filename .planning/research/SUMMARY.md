@@ -1,214 +1,217 @@
 # Project Research Summary
 
-**Project:** KubexClaw v1.1 — Stem Cell Kubex Refactor
-**Domain:** Dynamic container specialization for AI agent infrastructure
-**Researched:** 2026-03-11
+**Project:** KubexClaw v1.2 — MCP Bridge + CLI Runtime
+**Domain:** Agent infrastructure platform — brownfield addition to existing Python/Docker/FastAPI pipeline
+**Researched:** 2026-03-21
 **Confidence:** HIGH
 
 ## Executive Summary
 
-KubexClaw v1.1 is a brownfield refactor of a working AI agent pipeline (703+ tests passing) to replace per-agent Dockerfiles with a single universal base image (`kubexclaw-base`) that is specialized at spawn time via skill files and config injection. This is the "stem cell" model: one image, any agent identity, capabilities delivered by mounting skill markdown files at container creation rather than baking them into images. The stack requires no new production dependencies — the refactor uses docker-py's `put_archive()` and bind-mount mechanisms (already present in `lifecycle.py`), stdlib `tarfile`/`BytesIO`, and the existing pydantic/pyyaml toolchain. The primary deliverables are: a `SkillResolver` that maps skill names to file paths, a `ConfigBuilder` that merges skill manifests into a unified `config.yaml`, policy-gated skill assignment enforced at spawn, and migration of all three current agents off their per-agent Dockerfiles.
+KubexClaw v1.2 adds two orthogonal capabilities to a fully operational v1.1 system (789 tests, 5 live services, 4 agents): an MCP Bridge that replaces the orchestrator's custom 8-tool OpenAI function-calling loop with standard MCP protocol, and a CLI Runtime that lets any Kubex container run Claude Code, Codex CLI, or Gemini CLI as its LLM instead of direct API calls. Both features extend the existing stem cell architecture — specialization is config-driven via two new fields (`harness_mode: mcp-bridge`, `runtime: claude-code`) rather than new Docker images or new services. All existing workers remain unchanged on `harness_mode: standalone`. The dependency delta is exactly three new Python libraries (`mcp[cli]>=1.26`, `ptyprocess>=0.7`, `watchfiles>=1.1.1`) plus `claude-agent-sdk` for the Claude Code runtime.
 
-The recommended approach is a strict four-layer build order: first establish the skill catalog and schema (`skill.yaml`), then build the Manager's config generation and policy gating as pure Python logic, then wire skill mounts into the actual Docker spawn call, and only then delete per-agent Dockerfiles. This sequence keeps the highest-risk change (Dockerfile removal) behind validated infrastructure and uses the existing 703-test suite as the go/no-go gate. Bind mounts (not `put_archive()`) are the right mechanism for static skill injection — they are already used for credential files in `lifecycle.py`, the pattern is established, and the harness's `_load_skill_files` already handles the consumer side.
+The recommended build sequence is MCP Bridge first (validates MCP coordination in isolation using the existing OpenAI LLM — workers untouched), then CLI Runtime for Claude Code via the official `claude-agent-sdk` Python package (not raw PTY), then hooks-based monitoring, then Codex/Gemini runtimes, then OAuth web flow. The MCP Bridge phase carries the highest architectural risk because it replaces working orchestration code — the old custom tool loop must be kept live in parallel until full E2E parity is verified against all 789 existing tests. The CLI Runtime phases carry operational risk from OAuth token management, PTY signal handling, and hook injection security.
 
-The dominant risk is the orchestrator agent, which runs a bespoke tool-use loop (`orchestrator_loop.py`) that is not the same runtime as worker agents. Treating it as "just another container with a different config.yaml" will produce a container that starts but cannot coordinate workers. The resolution is to define two harness modes in the base image (`standalone` and `tool_use`) and select at spawn time via `KUBEX_HARNESS_MODE`. Three additional critical risks require proactive design before code ships: skill file prompt injection (skills are concatenated directly into the LLM system prompt with no validation), Manager in-memory state loss on restart (currently a plain Python dict, catastrophic with dynamic spawning), and Docker network name hardcoding that breaks outside the local dev environment.
+The three sharpest risks require design decisions before any code ships: (1) MCP tool timeouts crashing the bridge process during long-running policy escalations — requires an async task_id pattern rather than holding tool calls open, and this must be the primary design from the start, not a retrofit; (2) hook scripts becoming a prompt injection amplifier (CVE-2025-59536, CVE-2026-21852 confirmed) — requires read-only hook config mounts and static pipe-relay hook scripts; and (3) in-process vault writes bypassing the Gateway policy engine — requires either a Gateway vault write endpoint or replicated injection scanning in the MCP bridge write handlers.
 
 ## Key Findings
 
 ### Recommended Stack
 
-This refactor requires zero new production dependencies. The existing stack — docker-py 7.1.0, pydantic 2.x, pyyaml, httpx, redis, FastAPI — covers every requirement. The only mechanism additions are `container.put_archive()` (already in docker-py) for pre-start file injection (optional backup path) and the `volumes=` dict in `containers.create()` for bind mounts (already used in `lifecycle.py` for credentials). Stdlib `tarfile` and `BytesIO` handle in-memory tar construction without disk writes if `put_archive()` is needed. The only dev-dependency note: `pytest-asyncio` 1.3.0 requires `asyncio_mode = "auto"` in `pyproject.toml` to avoid per-test marker noise.
+The v1.2 stack is a minimal brownfield addition. Three new Python libraries are required: `mcp[cli]>=1.26` (official Anthropic MCP SDK, covers FastMCP server decorator API for workers and `ClientSession` for the orchestrator bridge), `ptyprocess>=0.7` (PTY subprocess management for non-SDK CLI runtimes), and `watchfiles>=1.1.1` (async-native credential file watching via `awatch()` generator, optional substitute with `os.path.exists` polling). For the Claude Code runtime specifically, `claude-agent-sdk` is required — using raw PTY to spawn `claude` is explicitly documented as the wrong approach because terminal output uses ANSI codes and interactive prompts that make stdout parsing fragile and version-dependent. No new services. No new Docker images. The only service-level change is adding `PUBLISH registry:agent_changed` to `services/registry/registry/store.py` on register/deregister events.
 
-**Core technologies:**
-- `docker` (docker-py) 7.1.0: bind-mount assembly at spawn, `put_archive()` for pre-start injection — already installed, pin to 7.x for Python 3.12 compat
-- `pydantic` 2.12.5: typed `AgentSpawnConfig` and `SkillManifest` models replace the current `dict[str, Any]` — already installed, add models for new spawn contract
-- `pyyaml` 6.0+: `safe_load()` for `skill.yaml` metadata — already installed, no change
-- `tarfile` + `BytesIO` (stdlib): in-memory tar archives for `put_archive()` path — no install needed
-- `pathlib` (stdlib): `Path.rglob("*.md")` for skill catalog discovery — no install needed
+**Core new technologies:**
+- `mcp[cli]>=1.26`: MCP server (FastMCP decorator API) + MCP client (`ClientSession`) — official Anthropic SDK, v1.x stable, v2 is pre-alpha, do not use
+- `claude-agent-sdk`: Structured NDJSON subprocess interface to Claude Code CLI — required for `claude-code` runtime; raw PTY is the anti-pattern
+- `ptyprocess>=0.7`: PTY subprocess for `codex-cli` and `gemini-cli` where no SDK exists — Unix only, all Kubex containers are Linux
+- `watchfiles>=1.1.1`: Rust-backed asyncio-native `awatch()` generator for credential directory monitoring — optional if Rust extension is undesirable (polling works)
+- Claude Code Hooks (HTTP type): Zero-token passive monitoring via `PostToolUse`, `Stop`, `SessionEnd` — no new library, written as JSON to `.claude/settings.json` at container boot
 
 ### Expected Features
 
-All v1.1 features are P1 (required for a coherent stem cell refactor). No table-stakes feature can be deferred without collapsing the architecture's core promise.
+**Must have (table stakes) — MCP Bridge:**
+- MCP server in harness exposing one tool per registered worker agent (capability = tool name, description from `config.yaml`)
+- `harness_mode: mcp-bridge` config routing in `main.py`; `description` field added to all worker `config.yaml` files
+- All worker delegations still route through Gateway `POST /actions` — no policy bypass whatsoever
+- Async task_id dispatch pattern (tool call returns task_id immediately; separate `kubex__poll_task` tool checks status) — required to prevent bridge crash on long-running tasks
+- Vault tools exposed as in-process MCP tools with policy check enforced (Gateway endpoint or inline injection scan)
+- Tool cache invalidated on new agent registration via Registry pub/sub (`registry:agent_changed`)
+- Old custom tool loop kept alive in parallel until MCP bridge passes full E2E parity against all 789 tests
 
-**Must have (table stakes — v1.1):**
-- Universal base image (`kubexclaw-base`) — without a single image there is no stem cell, just renamed per-agent images
-- Skill file mounting at spawn — volume mounts are the identity mechanism; baked-in skills require image rebuilds
-- Harness auto-load of mounted skills — already implemented in `kubex-common`; gap is Manager driving the mounts
-- Skill manifest schema (`skill.yaml`) — machine-readable skill contract enables policy gating and composition
-- Skill composition engine — action union, policy-most-restrictive-wins, resource stacking for multi-skill agents
-- Policy-gated skill injection — boundary allowlists and global blocklists enforced before container creation
-- Config-driven agent identity — `config.yaml` generated from merged skill manifests at spawn time
-- Graceful shutdown with task drain — SIGTERM handler, 30s grace, `draining` health status
-- Health check polling — poll `/health` every 5s, 120s timeout, already specified in `docs/kubex-manager.md`
-- Remove per-agent Dockerfiles — explicit v1.1 goal; deletion gates on all 703+ tests passing against base image
-- Backward compatibility — all existing E2E, integration, and unit tests must pass
+**Must have (table stakes) — CLI Runtime:**
+- PTY-based subprocess launch via `ptyprocess` for codex-cli and gemini-cli; `claude-agent-sdk.query()` for claude-code
+- `runtime` config field in `config.yaml` with routing in `main.py`
+- Credential check at startup with HITL re-auth via existing `request_user_input`
+- Failure pattern detection per CLI type with typed `reason` in `task_failed` payload (`subscription_limit`, `auth_expired`, `cli_crash`, `runtime_not_available`)
+- Explicit SIGTERM handler: forward to PTY child → wait 5s → SIGKILL → exit harness; exec-form CMD + `tini` as PID 1
 
-**Should have (differentiators — v1.x):**
-- Policy-gated runtime dependency requests — agents request `pip install` through ESCALATE path; genuinely novel vs. AWS/Azure/OpenAI platforms; defer until first real-world escalation
-- Skill versioning and per-Kubex pinning — defer until skill catalog grows beyond 5 skills
-- Custom skill validation at deploy time — 5-step pre-spawn validation; defer until external contributors write skills
-- Skill scaffolding CLI (`kubexclaw skills create`) — defer until creation friction is measurable
+**Should have (differentiators):**
+- Concurrent tool dispatch via `asyncio.gather()` for parallel worker delegation
+- Meta-tools: `kubex__list_agents`, `kubex__agent_status`, `kubex__cancel_task`
+- Hooks-based monitoring for Claude Code (`PostToolUse`, `Stop`, `SessionEnd`) — zero prompt tokens, read-only hook config mount
+- Skills injected as `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` at spawn — extends existing stem cell skill injection
+- Named Docker volumes for OAuth token persistence across container restarts (one volume per agent_id)
+- Lifecycle events: `cli_starting`, `cli_ready`, `cli_stopped`, `cli_timeout` via Redis pub/sub
+- Container lifecycle state machine: `BOOTING → CREDENTIAL_WAIT → READY ↔ BUSY`
 
 **Defer (v2+):**
-- SSE progress streaming — explicitly deferred in `.planning/PROJECT.md`, v1.2 scope
-- Live Graphiti/OpenSearch backend — wiring live backends risks masking refactor regressions; v1.2 after refactor is stable
-- Full `kubexclaw` CLI — v1.2 scope; `kclaw.py` covers current needs
-- Kubernetes/Swarm deployment — deferred until scale requires it
-
-**Anti-features (never build):**
-- Per-agent Dockerfiles kept "just in case" — erodes single-image principle
-- Real-time skill hot-swap on running containers — prompt injection vector, split-brain LLM behavior
-- Agent self-modification of skill loadout — privilege escalation path
-- Skill content fetched from the internet at spawn — supply chain attack surface
+- Worker "need_info" cross-Kubex collaboration protocol — not yet designed
+- OAuth Command Center web flow — `docker exec` + HITL works; web flow is UX polish
+- Bidirectional MCP for Codex CLI — complex, Codex is third-priority CLI
+- Tool output `outputSchema` validation — add after core bridge is stable
+- Gemini CLI hooks — same pattern as Claude Code hooks but lower priority
+- SSE streaming of CLI stdout — explicitly Out of Scope per PROJECT.md
 
 ### Architecture Approach
 
-The refactor introduces two new Python modules in `services/kubex-manager/`: `skill_resolver.py` (reads skill catalog, resolves skill names to file paths, validates against policy) and `config_builder.py` (merges capabilities and policies from all assigned skills into a `config.yaml`). These are pure computation components with no Docker dependency — they can be built and unit-tested independently. The existing `lifecycle.py` `create_kubex` method receives additions: call SkillResolver, call the Gateway policy check endpoint (`POST /policy/skill-check` — new endpoint), call ConfigBuilder, then add skill bind mounts to the `volumes` dict before `docker.containers.create()`. Agent directories shed their Dockerfiles and become config-only (`config.yaml` only). The skill catalog lives at `skills/*/` with each skill having `SKILL.md` (LLM instructions) and `skill.yaml` (metadata).
+The architecture introduces two new orthogonal config axes: `harness_mode` controls the task coordination model (standalone = existing poll-LLM-store loop; mcp-bridge = `MCPBridgeServer` runs in-process) and `runtime` controls the LLM invocation method (openai-api = existing HTTP path; claude-code = Agent SDK subprocess; codex-cli / gemini-cli = raw PTY subprocess). These axes are orthogonal by design — the valid v1.2 combinations are `mcp-bridge` + `openai-api` (Phase 1) and `mcp-bridge` + `claude-code` (Phase 2 onward). The invalid combination `standalone` + `claude-code` must be caught at boot with a clear error. `MCPBridgeServer` runs in-process inside the orchestrator container — not as a sidecar service — and exposes three tool categories: worker delegation tools (one per registered agent, dispatches via Broker), vault direct tools (in-process `vault_ops` calls with policy gate), and meta-tools (thin Registry/Broker HTTP wrappers). Workers receive zero changes.
 
-**Major components:**
-1. **Kubex Manager** (`skill_resolver.py`, `config_builder.py`, updated `lifecycle.py`) — the spawn controller; resolves skills, enforces policy, generates config, assembles Docker create call
-2. **Skill Catalog** (`skills/category/skill-name/SKILL.md` + `skill.yaml`) — the source of truth for agent capabilities; read by Manager at spawn, mounted read-only into containers
-3. **Policy Engine** (Gateway, updated `policies/default-boundary.yaml`) — enforces boundary-level skill allowlists and global blocklists at spawn time; requires new `POST /policy/skill-check` endpoint
-4. **`kubexclaw-base`** (single Dockerfile in `agents/_base/`) — universal Python 3.12-slim runtime with kubex-common and kubex-harness; supports both `standalone` and `tool_use` harness modes
-5. **StandaloneAgent** (existing, in `agents/_base/kubex_harness/standalone.py`) — agent poll loop; `_load_skill_files` already handles mounted skills; `StandaloneConfig` needs to read from `/app/config.yaml`
+**Major new components:**
+1. `agents/_base/kubex_harness/mcp_bridge.py` — `MCPBridgeServer` class; FastMCP server; Registry pub/sub subscription for live tool cache invalidation; concurrent dispatch via `asyncio.gather()`
+2. `agents/_base/kubex_harness/cli_runtime.py` — `CLIRuntime` base + per-runtime strategies; `claude-agent-sdk.query()` for claude-code; `asyncio.create_subprocess_exec()` for codex/gemini; credential gate at boot; failure pattern detection
+3. `agents/_base/kubex_harness/hooks_configurator.py` — writes and deep-merges `.claude/settings.json` idempotently; marks harness hooks with `_kubex_managed: true`; mounts config read-only
+4. `agents/_base/kubex_harness/credential_watcher.py` — watches OAuth credential directories via `watchfiles.awatch()`; signals `asyncio.Event` to `CLIRuntime`
 
 ### Critical Pitfalls
 
-1. **Orchestrator is a different runtime, not just a different config** — `orchestrator_loop.py` is not `kubex_harness.standalone`. Define two harness modes in the base image (`KUBEX_HARNESS_MODE=standalone|tool_use`); select at spawn. Address in Phase 1 before writing any Dockerfile.
+1. **MCP tool timeouts crash the bridge process** — Worker tasks can take minutes (human policy escalation). MCP default timeouts (10-30s) fire, triggering uncaught `CancelledError` on the cancellation path, crashing the bridge and orphaning all in-flight tasks (SDK Issue #212 confirmed production). Prevention: async task_id pattern (tool call returns ID immediately; `kubex__poll_task` checks status); wrap all handlers in `try/except Exception`; set `MCP_TOOL_TIMEOUT` to 300s minimum. Must be the primary design from day one, not a retrofit.
 
-2. **Skill files are a prompt injection vector with no validation today** — `_load_skill_files()` concatenates every `.md` in `/app/skills` directly into the LLM system prompt. Mount path allowlisting, content hash verification, and injection pattern stripping must be built into the spawn mechanism — not added after. Address in Phase 2; do not ship v1.1 with unvalidated mounts.
+2. **Hook scripts as prompt injection amplifier (CVE-2025-59536, CVE-2026-21852)** — Malicious task content can cause the CLI to rewrite `.claude/settings.json`, injecting hook commands that execute as arbitrary shell code with container-process permissions. Prevention: mount hook config read-only (`.claude/settings.json:ro`); hook scripts must be static pipe-relay executables with no string interpolation of task content; validate all hook event payloads against JSON schema before processing.
 
-3. **Manager in-memory state is lost on restart** — `self._kubexes` is a Python dict. With dynamic spawning, Manager restart = orphaned containers that cannot be managed. Persist to Redis; add startup reconciliation loop querying Docker for `label=kubex.managed=true`. Address in Phase 2 before dynamic spawning ships.
+3. **Gateway policy bypass for in-process vault writes** — MCP bridge calling `vault_ops` directly skips the Gateway injection scan and audit log, creating an unguarded write path for a prompt-injected orchestrator. Prevention: route vault writes through a Gateway endpoint that runs policy evaluation, or replicate the injection scan inline in MCP bridge vault write handlers. Reads can remain in-process.
 
-4. **Docker network name is environment-dependent** — `openclaw_kubex-internal` is the Compose-prefixed name that only works in the `openclaw` project directory. Resolve the network name at startup by querying Docker labels, never hardcode. Address in Phase 2; breaks CI in every non-local environment.
+4. **Docker PID 1 signal blindness kills CLI subprocess without cleanup** — Shell-form CMD makes the shell PID 1, which does not forward SIGTERM to the Python harness. Prevention: exec-form CMD; add `tini` as PID 1 wrapper in base image; implement explicit SIGTERM handler in harness that forwards to PTY child, waits 5s, then SIGKILL; set `stop_grace_period: 30s` for CLI runtime agents.
 
-5. **Existing tests test per-agent image behavior, not base image + volume behavior** — mocks stub `docker.from_env()` entirely; they do not exercise real skill loading or volume semantics. Add a base image integration test suite against a real Docker daemon before any Dockerfile is removed. Address in Phase 1 alongside Dockerfile definition.
+5. **Replacing the working tool loop without a feature parity gate** — MCP bridge can pass all new MCP-specific unit tests while silently breaking existing orchestration workflows (ESCALATE → human approval → resume, concurrent worker dispatch, vault CRUD). Prevention: write parity integration tests for every current orchestrator workflow; run the full 789-test E2E suite against `harness_mode: mcp-bridge` before deleting the custom tool loop. Deletion is the final step, not the first.
 
 ## Implications for Roadmap
 
-Based on research, the refactor has a clear four-phase dependency structure. Each phase produces testable artifacts that gate the next.
+Based on combined research, the suggested phase structure follows the dependency chain documented in FEATURES.md and ARCHITECTURE.md:
 
-### Phase 1: Base Image and Skill Catalog Foundation
+### Phase 1: MCP Bridge (API Runtime)
 
-**Rationale:** Every downstream component depends on a finalized `skill.yaml` schema and a base image that supports both harness modes. The orchestrator's distinct runtime (Pitfall 1) and the test coverage gap for base image behavior (Pitfall 7) must be resolved here — both are "impossible to retrofit" problems if discovered later.
+**Rationale:** Replaces the orchestrator's custom tool loop with MCP protocol while keeping the existing OpenAI LLM. Validates the entire MCP coordination layer — tool discovery, worker delegation via Broker, vault direct tools, Registry pub/sub cache invalidation — in isolation with no CLI runtime complexity. Workers are completely unchanged. If the bridge breaks, only the orchestrator is affected and the old `standalone` mode is immediate fallback.
 
-**Delivers:** Finalized `skill.yaml` schema; `SKILL.md` files for all 3 current agents (dispatch/task-management, knowledge/recall, web-scraping); `kubexclaw-base` Dockerfile with `KUBEX_HARNESS_MODE` support; base image integration test suite that exercises real skill loading against a real Docker daemon; skill file linter asserting no YAML front matter or capability directives in `.md` files.
+**Delivers:** Orchestrator running `harness_mode: mcp-bridge` + `runtime: openai-api`; `MCPBridgeServer` with all three tool categories; async task_id dispatch pattern; live agent discovery via Registry pub/sub; full 789-test suite passing against new code path; old custom tool loop deleted after parity verified.
 
-**Addresses features:** Universal base image, harness auto-load, backward compatibility (integration test gate)
+**Features addressed:** All MCP Bridge table stakes + concurrent dispatch + meta-tools. Vault tool policy gate is a security requirement, not optional.
 
-**Avoids pitfalls:** Orchestrator silent fallback to wrong harness mode (Pitfall 1); test suite validating mocks rather than real behavior (Pitfall 7); skills inadvertently changing capabilities via structured metadata (Pitfall 6)
+**Pitfalls to pre-empt (all must be resolved before any code ships):** MCP tool timeout crash (async task_id pattern); policy bypass for vault writes (Gateway routing or inline scan decided explicitly); replacing tool loop without parity gate (golden prompt routing tests + full E2E suite before deletion).
 
-**Research flag:** Standard patterns — Docker bind mounts and harness modes are well-documented. No additional research phase needed.
-
----
-
-### Phase 2: Kubex Manager Spawn Logic
-
-**Rationale:** Pure Python logic (SkillResolver, ConfigBuilder, policy gating) has no Docker runtime dependency and can be built and unit-tested before any container changes. Manager state persistence (Pitfall 3) and network name resolution (Pitfall 4) must be built here — before any dynamic spawning test runs in CI.
-
-**Delivers:** `skill_resolver.py` with path resolution and allowlist enforcement; `config_builder.py` with action union + policy-most-restrictive-wins + resource stacking; `POST /policy/skill-check` endpoint in Gateway; skill allowlist schema in `policies/default-boundary.yaml`; Redis persistence for kubex records with startup reconciliation; dynamic Docker network name resolution; skill mount integrity checks (hash verification, injection pattern stripping).
-
-**Uses stack:** docker-py `containers.create()` volumes dict, pydantic `AgentSpawnConfig`/`SkillManifest` models, pyyaml `safe_load()`, stdlib `tarfile`/`BytesIO`
-
-**Implements architecture components:** SkillResolver, ConfigBuilder, Policy Engine skill-check endpoint, Manager persistence
-
-**Avoids pitfalls:** Skill prompt injection (Pitfall 2); Manager state loss on restart (Pitfall 3); Docker network name hardcoding (Pitfall 4)
-
-**Research flag:** Standard patterns for config builder and skill resolver. The policy-gating endpoint is a new API surface — review existing Gateway policy engine patterns before implementation to ensure consistent behavior with existing action-gating logic.
+**Research flag:** Standard patterns — MCP SDK is well-documented via official spec and official Anthropic docs (HIGH confidence). No phase-research needed.
 
 ---
 
-### Phase 3: Spawn Handler Wiring and Agent Migration
+### Phase 2: CLI Runtime — Claude Code via Agent SDK
 
-**Rationale:** With SkillResolver, ConfigBuilder, and policy gating validated as units, wire them into the actual Docker spawn call in `lifecycle.py`. Then migrate the three existing agents. This is the integration risk phase — spawn handler changes touch the most critical path in the system.
+**Rationale:** Adds Claude Code as an LLM runtime using the official `claude-agent-sdk`, which provides structured NDJSON output and avoids PTY parsing fragility. `MCPBridgeServer` from Phase 1 is reused — the Claude Code CLI connects to it as an MCP client. Phase 2 only adds `CLIRuntime`, `CredentialWatcher`, and `HooksConfigurator`. Depends on Phase 1.
 
-**Delivers:** Updated `lifecycle.py` `create_kubex` calling SkillResolver → policy check → ConfigBuilder → volumes assembly → Docker create; `StandaloneConfig` reading from `/app/config.yaml` (falling back to env vars); `KUBEX_CAPABILITIES` derived from merged skill manifests; `config.yaml` for orchestrator, instagram-scraper, knowledge, reviewer agents; all 703+ tests passing against updated spawn handler.
+**Delivers:** Orchestrator running `mcp-bridge` + `claude-code`; credential gate at boot with HITL re-auth; named Docker volumes for OAuth token persistence; container lifecycle state machine; lifecycle events (`cli_starting`, `cli_ready`, `cli_stopped`) via Redis pub/sub; skills injected as `CLAUDE.md` at spawn.
 
-**Implements architecture component:** Updated `KubexLifecycle.create_kubex` integration point
+**Stack required:** `claude-agent-sdk` + `watchfiles>=1.1.1` added to `pyproject.toml`.
 
-**Avoids pitfalls:** Capabilities hardcoded outside skill manifests (anti-pattern 2 from ARCHITECTURE.md); config baked into image rather than externalized
+**Pitfalls to pre-empt:** Docker PID 1 signal blindness (exec-form CMD + tini + explicit SIGTERM handler must be implemented before kill switch integration test); OAuth token never as env var (named volume pattern established before first auth flow); bidirectional MCP startup race (MCP server readiness gate before CLI spawn).
 
-**Research flag:** Standard integration work. The orchestrator `orchestrator_loop.py`-to-harness-mode migration is the highest-complexity item; if it stalls, have a documented fallback (keep orchestrator Dockerfile as explicit technical debt with a follow-up task) rather than blocking Phase 4.
+**Research flag:** Standard patterns for credential watching. Known gotcha: `CLAUDECODE=1` env var inheritance bug (SDK Issue #573) — must unset env var via `env=filtered_env` in `query()` call. HIGH confidence overall, one known bug with known fix.
 
 ---
 
-### Phase 4: Per-Agent Dockerfile Removal and Validation
+### Phase 3: Hooks Monitoring
 
-**Rationale:** Dockerfile removal is the riskiest single change and must come last. The new infrastructure must be proven before the old safety net is removed. The test suite — not the Dockerfiles — is the safety net.
+**Rationale:** Once Claude Code CLI runtime is working (Phase 2), hooks provide zero-token passive observability into tool invocations, turn completion, and session end. The security constraints (read-only mount, no string interpolation in hook scripts, JSON schema validation of hook payloads) are cleaner as a focused phase rather than mixed into Phase 2.
 
-**Delivers:** Deleted `agents/orchestrator/Dockerfile`, `agents/instagram-scraper/Dockerfile`, `agents/knowledge/Dockerfile`, `agents/reviewer/Dockerfile`; updated `docker-compose.yml` building all agent services from `agents/_base/`; all 703+ tests (unit, integration, E2E) passing against `kubexclaw-base` with skill mounts; agent directories reduced to `config.yaml` only.
+**Delivers:** `PostToolUse`, `Stop`, `SessionEnd` hook events received at harness HTTP endpoint (`localhost:8099`); `task_progress` lifecycle events from `Stop` hook; audit trail of CLI tool invocations; hook config mounted read-only enforced.
 
-**Avoids pitfalls:** Per-agent Dockerfiles retained as "exceptions" that erode the single-image principle over time
+**Pitfalls to pre-empt:** Hook scripts as injection amplifier — read-only hook config mount and static pipe-relay hook scripts must be the initial implementation, not added after observing injection attempts.
 
-**Research flag:** No additional research needed. This phase is pure migration validation — gate on green test suite.
+**Research flag:** Standard patterns — official Claude Code hooks reference is HIGH confidence. No phase-research needed.
+
+---
+
+### Phase 4: Codex CLI and Gemini CLI Runtimes
+
+**Rationale:** Extends `CLIRuntime` to the two remaining CLI types via raw `asyncio.create_subprocess_exec()` (no equivalent Python SDK). Different credential paths, config file formats (Codex TOML, Gemini JSON), and output parsers per CLI. Additive — failure here does not affect Phases 1-3.
+
+**Delivers:** `runtime: codex-cli` and `runtime: gemini-cli` support; per-CLI failure pattern libraries; hooks monitoring for Gemini CLI; bidirectional MCP fallback for Codex CLI (harness as FastMCP server); PTY fallback via `ptyprocess` if CLI detects non-TTY.
+
+**Pitfalls to pre-empt:** PTY buffer deadlock for large CLI output (stress test with >100KB output before declaring done); Codex hooks experimental (bidirectional MCP fallback is the reliable path — treat hooks as bonus).
+
+**Research flag:** Needs phase-research. Codex CLI hook spec is marked "experimental" in OpenAI docs (MEDIUM confidence). Gemini CLI MCP support is confirmed but less stable than Claude Code. Run `/gsd:research-phase` before planning Phase 4 to verify current hook/MCP spec status for both CLIs.
+
+---
+
+### Phase 5: OAuth Command Center Web Flow
+
+**Rationale:** Replaces `docker exec` HITL OAuth with a web-based flow through Command Center UI. Lowest urgency — the HITL docker exec flow from Phase 2 works. This is a UX improvement requiring a new Command Center component, a Gateway token relay endpoint, and Kubex Manager spawn parameter changes.
+
+**Delivers:** Command Center OAuth UI; Gateway `/oauth/token` relay endpoint; Kubex Manager spawn endpoint accepts token parameter; pre-provisioned containers start in READY state without CREDENTIAL_WAIT. Also: pre-flight expiry check before task dispatch to CLI agents; `task_id` idempotency keys for vault writes to handle mid-task token expiry cleanly.
+
+**Pitfalls to pre-empt:** OAuth token mid-task expiry and idempotency gaps — pre-flight expiry check and idempotency key design must be resolved at Phase 5 planning, not discovered from duplicate vault entries in production.
+
+**Research flag:** Needs phase-research for Command Center web OAuth UI — project-specific frontend component. Run `/gsd:research-phase` before planning Phase 5.
 
 ---
 
 ### Phase Ordering Rationale
 
-- **Skill catalog first** because SkillResolver and ConfigBuilder have no inputs without a finalized `skill.yaml` schema. Nothing downstream can be implemented against moving schema.
-- **Manager logic before spawn wiring** because pure Python units are independently testable and faster to iterate on than Docker integration tests. Errors surface as unit test failures, not as "container started but behaves wrong."
-- **Spawn wiring before Dockerfile removal** because the old Dockerfiles are the rollback path. Removing them before the new path is validated leaves no recovery option except rebuilding from git history.
-- **Orchestrator harness mode decision in Phase 1** (not Phase 3) because discovering the orchestrator needs special handling during Dockerfile removal would require backtracking through all four phases.
-- **All security measures (Pitfalls 1-4) built into Phase 1 and Phase 2** — not deferred. Pitfall research was explicit that prompt injection and state loss cannot be retrofitted.
+- Phase 1 before Phase 2: `MCPBridgeServer` must exist before any CLI runtime can connect to it as an MCP client. `mcp-bridge` + `openai-api` validates the bridge machinery without CLI complexity.
+- Phases 2-4 sequential by CLI priority: Claude Code has the most stable integration surface (official SDK, HTTP hooks, HIGH-confidence official docs) and highest strategic value. Codex and Gemini are additive.
+- Phase 3 (hooks) after Phase 2 (CLI runtime): hooks require a running Claude Code runtime to test meaningfully. Separating them keeps Phase 2 focused on the subprocess supervision problem.
+- Phase 5 last: replaces HITL `docker exec` with web OAuth — a UX improvement with no functional gap. Never blocks other phases.
+- All three design-level decisions (async task_id pattern, vault write policy gate, hook config read-only mount) must be resolved at the start of their respective phases — not mid-implementation.
 
 ### Research Flags
 
-Phases needing additional research attention:
-- **Phase 2 (Kubex Manager Spawn Logic):** Review the existing Gateway policy engine implementation before adding `POST /policy/skill-check`. The new endpoint must follow the same authorization, logging, and error-response patterns as existing action-gating endpoints to avoid inconsistent behavior.
-- **Phase 3 (Spawn Handler Wiring):** The `orchestrator_loop.py` migration path needs a decision checkpoint before implementation begins. Option 1 (harness mode via config) is recommended; have the fallback (explicit technical debt) documented and accepted before starting.
+Phases needing deeper research during planning:
+- **Phase 4 (Codex/Gemini runtimes):** Codex CLI hooks are experimental (MEDIUM confidence). Gemini CLI MCP config format and hook system confirmed but integration surface changes frequently. Run `/gsd:research-phase` before planning Phase 4 tasks.
+- **Phase 5 (OAuth web flow):** Command Center frontend is project-specific. No standard off-the-shelf reference for web OAuth flow into Docker containers. Run `/gsd:research-phase` before planning Phase 5.
 
 Phases with standard patterns (skip research-phase):
-- **Phase 1 (Base Image):** Docker bind mounts and Python harness modes are well-documented. ARCHITECTURE.md provides the exact code patterns.
-- **Phase 4 (Dockerfile Removal):** Pure deletion + test validation. No research needed.
+- **Phase 1 (MCP Bridge):** Official MCP SDK, official spec, HIGH confidence across all sources.
+- **Phase 2 (Claude Code CLI):** Official `claude-agent-sdk`, official hooks docs, HIGH confidence. Known gotcha (env var bug #573) already identified and fix is known.
+- **Phase 3 (Hooks monitoring):** Official Claude Code hooks reference, HIGH confidence. Direct HTTP hook type confirmed with exact JSON schema.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All technologies are existing dependencies with official docs. No new packages. Version compatibility verified against PyPI. |
-| Features | HIGH | Grounded in existing project docs (`docs/skill-catalog.md`, `docs/kubex-manager.md`, `.planning/PROJECT.md`) plus ecosystem comparison. Feature boundaries are clear. |
-| Architecture | HIGH | Derived from direct codebase analysis. Component boundaries, data flows, and build order are grounded in the running v1.0 system. |
-| Pitfalls | HIGH | All critical pitfalls grounded in direct codebase analysis (specific files and line numbers cited) plus external sources (arXiv 2510.26328, OWASP LLM Top 10, PyPI supply chain). One prior incident (network naming) confirmed in project history. |
+| Stack | HIGH | All libraries verified on PyPI; versions confirmed; official SDKs. `watchfiles` Rust extension pre-built wheels confirmed for Linux amd64/arm64. One optional substitution (polling vs watchfiles). |
+| Features | HIGH | Grounded in official MCP spec, official Claude Code hooks docs, and existing project design docs (`design-mcp-bridge.md`, `design-oauth-runtime.md`). Codex CLI hooks are the only MEDIUM item. |
+| Architecture | HIGH | Existing codebase read directly. Component boundaries are precise (file paths, class names, exact changes identified). `CLAUDECODE=1` env var bug (#573) is a live open issue — confirmed. |
+| Pitfalls | HIGH | 10 pitfalls, all grounded in confirmed CVEs (CVE-2025-59536, CVE-2026-21852), confirmed GitHub issues (MCP SDK #212, claude-code #12447, #17662), and direct design doc analysis. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Orchestrator loop migration path:** Three options exist (harness mode, skill plugin, keep Dockerfile). Option 1 is recommended but the exact implementation of `HarnessMode` in `standalone.py` is not designed yet. Needs a design decision at the start of Phase 3, not mid-implementation.
-- **Skill integrity mechanism:** SHA-256 hash manifest and injection pattern stripping are specified in PITFALLS.md but the exact implementation (where manifest lives, when it is generated, how harness reads it at startup) is not detailed. Needs design in Phase 2 before implementation.
-- **`POST /policy/skill-check` API contract:** The endpoint is identified as needed but the request/response schema, how boundary allowlists are stored in `policies/default-boundary.yaml`, and what "approved vs denied" returns is not specified. Needs design in Phase 2 before touching Gateway.
-- **Config.yaml externalization:** `StandaloneConfig` must fall back to env vars if no `/app/config.yaml` is present (for backward compat with existing tests). The fallback logic needs to be specified to avoid breaking the 703-test suite during migration.
+- **Async task_id pattern design:** Pitfall research strongly recommends async task_id (tool returns ID immediately; separate poll tool checks status) but the existing design docs do not fully specify how the orchestrator LLM manages this two-step flow. Must be resolved during Phase 1 planning before any implementation — this is a protocol design decision, not an implementation detail.
+- **Vault write policy gate implementation choice:** Two options identified (Gateway endpoint route vs inline injection scan in MCP bridge). Design docs flag this as an open gap. The implementation team must make an explicit choice at the start of Phase 1 — it affects how all vault tool handlers are written.
+- **`CLAUDECODE=1` env var inheritance (SDK bug #573):** Open GitHub issue. Fix (`env=filtered_env` on `query()`) is straightforward but must be applied and verified in Phase 2 integration tests. Track as a known issue on Phase 2.
+- **Codex CLI hooks stability:** Marked "experimental" in OpenAI docs. Phase 4 plan should include a decision gate: if hooks remain experimental at Phase 4 planning time, skip to bidirectional MCP fallback as primary strategy.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- `docs/architecture.md` — Core system design, stem cell architecture diagram, repo layout spec
-- `docs/kubex-manager.md` Section 19.3 — Dynamic Skill Injection specification
-- `docs/skill-catalog.md` — Skill manifest schema, composition rules, scaffolding CLI spec
-- `docs/agents.md` — Stem cell design philosophy, spawn flow, per-agent config examples
-- `services/kubex-manager/kubex_manager/lifecycle.py` — Current `create_kubex` implementation (in-memory state, network constant, credential mounts)
-- `agents/_base/kubex_harness/standalone.py` — `_load_skill_files`, `StandaloneConfig` (no validation confirmed)
-- `docker-compose.yml` — Network naming, service definitions, volume mounts
-- [Docker SDK for Python 7.1.0](https://docker-py.readthedocs.io/en/stable/containers.html) — `containers.create()` volumes parameter, `put_archive()` method
-- [Docker Docs — Bind mounts](https://docs.docker.com/engine/storage/bind-mounts/) — bind mount vs named volume tradeoffs
-- [Pydantic PyPI](https://pypi.org/project/pydantic/) — v2.12.5 API
-- [pytest-asyncio PyPI](https://pypi.org/project/pytest-asyncio/) — v1.3.0 `asyncio_mode` requirement
+- [MCP Python SDK — PyPI](https://pypi.org/project/mcp/) — version 1.26.0, FastMCP API patterns, transport options
+- [MCP Python SDK — GitHub](https://github.com/modelcontextprotocol/python-sdk) — client/server API, concurrent tool call patterns
+- [Claude Agent SDK overview](https://platform.claude.com/docs/en/agent-sdk/overview) — `claude_agent_sdk.query()` API, hooks callbacks, MCP server injection
+- [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks) — 21 hook events, HTTP hook type, JSON config format, async flag
+- [Gemini CLI hooks reference](https://geminicli.com/docs/hooks/reference/) — BeforeTool/AfterTool confirmed
+- [ptyprocess — PyPI](https://pypi.org/project/ptyprocess/) — version 0.7.0, Unix PTY subprocess
+- [watchfiles — GitHub](https://github.com/samuelcolvin/watchfiles) — version 1.1.1, asyncio awatch, Rust-backed
+- [Caught in the Hook: RCE via Claude Code Project Files (CVE-2025-59536, CVE-2026-21852)](https://research.checkpoint.com/2026/rce-and-api-token-exfiltration-through-claude-code-project-files-cve-2025-59536/) — hook injection attack surface, Check Point Research January 2026
+- Existing KubexClaw codebase: `agents/_base/kubex_harness/`, `services/registry/`, `docs/design-mcp-bridge.md`, `docs/design-oauth-runtime.md`
 
 ### Secondary (MEDIUM confidence)
-- [kubernetes.recipes — OpenClaw custom Docker image](https://kubernetes.recipes/recipes/deployments/openclaw-custom-docker-image/) — cold start ~5s with cached base image
-- [Andrii Tkachuk on Medium — Agent skills in production](https://medium.com/@andrii.tkachuk7/agents-skills-in-production-how-to-bring-skills-to-docker-deployed-agents-vendor-agnostic-4282cf567930) — vendor-agnostic skill injection patterns
-- [Codefresh — Docker Anti-Patterns](https://codefresh.io/blog/docker-anti-patterns/) — one image per environment, not per agent type
-- [onereach.ai — Agentic AI Orchestration](https://onereach.ai/blog/agentic-ai-orchestration-enterprise-workflow-automation/) — escalation as standard 2026 enterprise pattern
-- [Docker — Secure AI Agents at Runtime](https://www.docker.com/blog/secure-ai-agents-runtime-security/) — container runtime security for AI agents
-- Project memory: `docker-learnings.md` — "Docker Compose prefixes network names: `openclaw_kubex-internal`" (confirmed prior incident)
+- [MCP Tool timeout causing MCP server disconnect — SDK Issue #212](https://github.com/modelcontextprotocol/python-sdk/issues/212) — timeout/crash confirmed production issue
+- [OAuth token expiration disrupts autonomous workflows — claude-code Issue #12447](https://github.com/anthropics/claude-code/issues/12447) — 8-12 hour expiry, no pause/resume
+- [Claude Agent SDK bug #573 — CLAUDECODE=1 env inheritance](https://github.com/anthropics/claude-agent-sdk-python/issues/573) — open issue, fix identified
+- [The Silent Breakage: MCP Tool Versioning](https://minherz.medium.com/the-silent-breakage-a-versioning-strategy-for-production-ready-mcp-tools-fbb998e3f71f) — description changes cause silent LLM routing breakage
+- [Codex CLI features](https://developers.openai.com/codex/cli/features) — hooks marked experimental
+- [FastMCP vs MCP SDK discussion](https://github.com/PrefectHQ/fastmcp/discussions/2557) — FastMCP 2.0 scope comparison
 
-### Tertiary (HIGH confidence — security sources)
-- [arXiv 2510.26328 — Agent Skills Enable Prompt Injections](https://arxiv.org/html/2510.26328v1) — skill-file prompt injection attack class (October 2025)
-- [OWASP Top 10 for LLMs 2025: LLM01 Prompt Injection](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) — primary LLM attack vector
-- [Repello AI 2026 — AI Agent Skill Scanner](https://repello.ai/blog/ai-agent-skill-scanner) — SKILL.md injection as documented attack vector
-- [PyPI Supply Chain Attacks of 2025](https://medium.com/@joyichiro/the-pypi-supply-chain-attacks-of-2025-what-every-python-backend-engineer-should-learn-from-the-875ba4568d10) — runtime pip install risk
+### Tertiary (LOW confidence)
+- None — all findings have at least MEDIUM confidence backing.
 
 ---
-*Research completed: 2026-03-11*
+*Research completed: 2026-03-21*
 *Ready for roadmap: yes*

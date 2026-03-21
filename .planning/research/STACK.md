@@ -1,176 +1,263 @@
 # Stack Research
 
-**Domain:** Dynamic container specialization — runtime skill injection and policy-gated dependency management for a Python/Docker/Redis agent pipeline
-**Researched:** 2026-03-11
-**Confidence:** HIGH (core mechanisms verified against official Docker SDK docs and PyPI; version numbers spot-checked)
+**Domain:** MCP Bridge + CLI Runtime additions to existing Python/Docker/FastAPI agent infrastructure
+**Researched:** 2026-03-21
+**Confidence:** HIGH (MCP SDK verified via PyPI + official docs; PTY/file-watcher via PyPI; hooks via official Claude Code docs)
 
 ---
 
-## Context
+## Context: What Already Exists (Do Not Re-add)
 
-This is a brownfield refactor. The existing stack (Python 3.12, FastAPI, Redis, docker-py, pydantic, httpx) is **not changing**. This document covers only the incremental stack additions needed for v1.1: making Kubex Manager inject skill files and configs into containers at spawn time, and letting agents request runtime dependencies through the policy pipeline.
+This is a brownfield addition. The following stack is live and must NOT be re-researched or re-added:
 
----
+| Existing | Version | Role |
+|----------|---------|------|
+| Python | 3.12 | Runtime |
+| FastAPI + uvicorn | current | All five services |
+| httpx | >=0.27 | HTTP client in harness |
+| redis | >=5.0 | Task queue, pub/sub |
+| docker (docker-py) | >=7.1 | Container lifecycle in Manager |
+| pydantic | >=2.12 | Data validation |
+| pyyaml | >=6.0 | Config loading |
+| asyncio | stdlib | Concurrency throughout |
+| Docker Compose | current | Container orchestration |
 
-## What Already Exists (Do Not Revisit)
-
-| Technology | Version in Use | Role |
-|------------|----------------|------|
-| `docker` (docker-py) | `>=7.0` | Container lifecycle — already in `lifecycle.py` |
-| `pydantic` | `>=2.0` | Data validation — in `kubex-common` |
-| `pyyaml` | `>=6.0` | YAML config loading — in `kubex-common` |
-| `httpx` | `>=0.27` | Async HTTP client — harness and services |
-| `redis` | `>=5.0` | Task queue and lifecycle events |
-| `fastapi` / `uvicorn` | `>=0.115` / `>=0.32` | Service HTTP layer |
-| `python:3.12-slim` | latest 3.12.x | Base Docker image |
-
----
-
-## Recommended Stack (New Additions Only)
-
-### Core Technologies
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `docker` (docker-py) | `7.1.0` (already present, pin) | `container.put_archive()` for file injection and `containers.create(volumes=...)` for bind mounts | Already in use. `put_archive()` is the only SDK-native way to copy files into a created-but-not-yet-started container without rebuild; bind mounts are the right mechanism for persistent skill directories. Pin to 7.1.0 — the 7.x line includes Python 3.12 compatibility fixes that 6.x lacks. |
-| `pydantic` | `2.12.5` (already present, upgrade if needed) | Schema validation for spawn configs — `AgentSpawnConfig`, `SkillManifest`, `RuntimeDepRequest` | Already in use. v2 model validation is the right fit: field types, required vs optional, list validators. Avoids writing manual validation logic for config dicts that currently flow untyped through `CreateKubexRequest.config`. |
-| `pyyaml` | `>=6.0` (already present) | Load `config.yaml` files from agent directories | Already in use. `yaml.safe_load()` is sufficient for reading agent config files. No need for ruamel.yaml (comment-preserving roundtrip) since these configs are read-only at spawn time, never written back. |
-
-### Supporting Libraries
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| `tarfile` (stdlib) | Python 3.12 stdlib | Build in-memory tar archives for `container.put_archive()` | Use when injecting skill `.md` files into a created-but-not-started container via the Docker SDK. No install required — this is in the Python standard library. |
-| `io` / `BytesIO` (stdlib) | Python 3.12 stdlib | In-memory byte stream for tar construction | Pair with `tarfile` to build tar archives without touching disk. No install required. |
-| `pathlib` (stdlib) | Python 3.12 stdlib | Resolving skill file paths on the Kubex Manager host | Already used in `standalone.py`. Use `Path.rglob("*.md")` to discover skill files. |
-| `pydantic-settings` | `2.7.x` | `BaseSettings` for Kubex Manager config (env vars + YAML overlay) | Use if Kubex Manager gains complex config with env var overrides. Currently not needed — `os.environ.get()` is sufficient for the single new env var `KUBEX_SKILLS_BASE_PATH`. Defer unless config grows. |
-
-### Development Tools (Existing — No Changes)
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `pytest` + `pytest-asyncio 1.3.0` | Test framework | `asyncio_mode = "auto"` should be added to `pyproject.toml` — strict mode (current default in 1.3.0) requires explicit markers on every async test. Already used project-wide. |
-| `fakeredis` | Redis stub for unit tests | Already in dev deps. No change. |
-| `ruff` + `black` | Linting and formatting | Already configured in `pyproject.toml`. No change. |
+The harness `pyproject.toml` currently lists only `httpx>=0.27` and `redis>=5.0`. Everything below is new.
 
 ---
 
-## Installation
+## New Dependencies Required
 
-No new packages required. The refactor uses stdlib (`tarfile`, `io`, `pathlib`) plus docker-py which is already installed.
+### MCP Bridge
 
-```bash
-# No new production dependencies.
-# Verify existing versions if upgrading:
-pip install "docker==7.1.0"
-pip install "pydantic>=2.12.5"
+**Requirement:** Workers expose their tools as MCP servers. Orchestrator connects to workers as an MCP client. Standard MCP protocol replaces the custom tool-use loop.
 
-# Dev-only: if not already pinned
-pip install "pytest-asyncio>=1.3.0"
+| Library | Version | Purpose | Why Recommended |
+|---------|---------|---------|-----------------|
+| `mcp[cli]` | `>=1.26` | MCP server + client in one package. FastMCP decorator API for workers (`@mcp.tool()`), `ClientSession` + `stdio_client` for the orchestrator bridge. | Official Anthropic SDK. FastMCP 1.0 was absorbed into this package in 2024. Version 1.26.0 is current stable (released January 2026). v2 is pre-alpha — use v1.x for production. |
+
+Install: `pip install "mcp[cli]>=1.26"`
+
+The `[cli]` extra pulls in `rich` for diagnostics. No alternative needed — this is the canonical SDK.
+
+**Key API surface:**
+
+```python
+# Worker side — MCP server (stdio transport)
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP(name="engineer")
+
+@mcp.tool()
+async def run_task(task: str) -> str:
+    """Execute an engineering task."""
+    ...
+
+mcp.run(transport="stdio")  # launched as subprocess by orchestrator bridge
+
+# Orchestrator side — MCP client
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+server_params = StdioServerParameters(command="python", args=["-m", "kubex_harness.main"])
+async with stdio_client(server_params) as (read, write):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        tools = await session.list_tools()
+        result = await session.call_tool("run_task", arguments={"task": "..."})
 ```
+
+**Transport decision:** Use stdio for intra-Docker-network worker connections. Workers are on `kubexclaw-internal` — there is no need for Streamable HTTP (the MCP-recommended remote transport) for v1.2. The design doc (Gap 3) notes SSE/HTTP for external access; that can be added later via a `mcp-server-http` harness mode. This is a config-driven switch: `mcp.run(transport="streamable-http")` on the worker and `streamable_http_client` on the orchestrator side.
+
+**Tool list refresh:** The `notifications/tools/list_changed` MCP notification is already in the protocol. Pair with the existing Redis pub/sub (`PUBLISH registry:agent_changed`) from `services/registry/store.py` to trigger client-side `session.list_tools()` re-fetch. No new infrastructure needed.
+
+**Concurrent tool calls:** Use `asyncio.gather()` for parallel dispatch across multiple workers. The `ClientSession` is async — multiple calls can be issued concurrently.
+
+---
+
+### CLI Runtime
+
+**Requirement:** Run Claude Code, Codex CLI, or Gemini CLI inside a Kubex container in a PTY so the CLI behaves as if it has a real terminal. Feed it tasks, stream output, detect failures.
+
+| Library | Version | Purpose | Why Recommended |
+|---------|---------|---------|-----------------|
+| `ptyprocess` | `>=0.7` | Launch CLI tools in a pseudo-terminal. Provides `PtyProcessUnicode.spawn()` which allocates a real PTY and starts the process, plus `read()` / `write()` for I/O. | Stable and minimal. ptyprocess is the exact primitive needed — allocates a PTY, spawns the process, provides fd-level I/O. No pattern-matching overhead. pexpect (4.9.0) wraps this and adds pattern matching that is not needed here. |
+
+Install: `pip install "ptyprocess>=0.7"`
+
+**Why not alternatives:**
+
+- `pexpect` (4.9.0): Higher-level wrapper around ptyprocess that adds `expect()` pattern matching. Not needed — failure detection is done via string matching on output, not blocking waits for patterns. pexpect is not asyncio-native and adds weight for no benefit.
+- `asyncio.create_subprocess_exec()`: Cannot allocate a PTY. CLI tools (Claude Code, Codex, Gemini CLI) detect whether stdout is a TTY and change behavior — they suppress interactive prompts or exit when piped. A real PTY is required.
+- `subprocess.Popen` + `pty.openpty()`: Requires manual fd management. ptyprocess does this correctly already.
+
+**Asyncio integration:** ptyprocess is synchronous. Wrap reads in `loop.run_in_executor(None, pty_proc.read, 4096)` to avoid blocking the event loop. This is the standard pattern — no extra library needed.
+
+**Platform note:** ptyprocess requires Unix (`pty` stdlib module). All Kubex containers are Linux — no constraint. The harness already has `contextlib.suppress(NotImplementedError)` guards for Windows signal handlers, confirming container code is Unix-only.
+
+---
+
+### OAuth Credential Detection
+
+**Requirement:** When a CLI runtime container starts, detect when OAuth credentials appear in `~/.claude/`, `~/.codex/`, or `~/.gemini/` after the user completes browser login.
+
+| Library | Version | Purpose | Why Recommended |
+|---------|---------|---------|-----------------|
+| `watchfiles` | `>=1.1.1` | Async-native file watching via `awatch()` generator. Detects when credential files are created or modified in the OAuth credential directories. | Rust-backed (via the Notify crate), asyncio-native. `awatch` is an async generator — no thread bridging needed. watchdog (6.0.0) uses threaded observers requiring manual `run_in_executor()` for async code. watchfiles is the right choice for an async codebase. |
+
+Install: `pip install "watchfiles>=1.1.1"`
+
+```python
+from watchfiles import awatch
+
+async def wait_for_credentials(credential_dir: str, stop_event: asyncio.Event) -> None:
+    async for changes in awatch(credential_dir, stop_event=stop_event):
+        if any("credentials" in str(path) or "token" in str(path) for _, path in changes):
+            return  # credentials appeared — proceed with boot
+```
+
+**Alternative:** Plain polling with `asyncio.sleep(2)` and `os.path.exists()`. Lower dependency, acceptable for this use case since credential appearance is a one-time infrequent event (once per container boot). Use watchfiles for event-driven zero-latency detection; polling if you want to minimize dependencies.
+
+---
+
+### Claude Code Hooks Integration
+
+**Requirement:** Passive monitoring of Claude Code tool use, turn completion, and session end. Zero prompt tokens — hooks fire out-of-band.
+
+**No new Python library required.** Claude Code hooks are configured via JSON written to `.claude/settings.json` inside the container. The harness writes this file at boot time from `config.yaml`.
+
+Hook delivery mechanism — use **HTTP hooks** (not command hooks). FastAPI is already in the stack. Add a `POST /hooks/{event_name}` internal endpoint to the harness's local HTTP server (or a minimal bare asyncio HTTP server on `localhost:9090`).
+
+The Claude Code hooks reference (verified 2026-03-21) documents 21 lifecycle events. The three events needed for v1.2:
+
+| Hook Event | Purpose | `async` |
+|------------|---------|---------|
+| `PostToolUse` | Track which tools the CLI called — passive audit trail | `true` (fire-and-forget) |
+| `Stop` | Detect when Claude Code finishes a turn — trigger result collection | `true` |
+| `SessionEnd` | Detect clean CLI exit — harness reports task complete | `false` (synchronous, must ack) |
+
+Hooks config written at container boot:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{"matcher": "*", "hooks": [{"type": "http", "url": "http://localhost:9090/hooks/PostToolUse", "async": true}]}],
+    "Stop":        [{"matcher": "*", "hooks": [{"type": "http", "url": "http://localhost:9090/hooks/Stop", "async": true}]}],
+    "SessionEnd":  [{"matcher": "*", "hooks": [{"type": "http", "url": "http://localhost:9090/hooks/SessionEnd"}]}]
+  }
+}
+```
+
+Hook input format (Claude Code sends JSON to stdin / POST body):
+
+```json
+{
+  "session_id": "abc123",
+  "transcript_path": "/path/to/transcript.jsonl",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {"command": "ls /app"},
+  "tool_response": {"output": "..."}
+}
+```
+
+**Codex CLI:** No native hooks. Use the bidirectional MCP fallback — harness runs an MCP server that Codex calls to report results. `mcp[cli]` covers this.
+
+---
+
+### WebSocket / Command Center OAuth Flow
+
+**For v1.2:** The design doc (`design-oauth-runtime.md`) specifies `docker exec -it` as the OAuth provisioning UX, using the existing `request_user_input` HITL mechanism. No WebSocket needed.
+
+**If the plan shifts to a web-based OAuth flow post-v1.2:** FastAPI already includes WebSocket support (`from fastapi import WebSocket`) — no new dependency. The OAuth redirect URL becomes a Command Center endpoint (`/oauth/callback?token=...&agent_id=...`) which pushes completion to the browser via WebSocket and forwards the token to the container via the Manager API.
+
+Do not add WebSocket infrastructure in v1.2.
+
+---
+
+## Complete Dependency Delta for `agents/_base/pyproject.toml`
+
+```toml
+dependencies = [
+    "httpx>=0.27",          # existing
+    "redis>=5.0",            # existing
+    "mcp[cli]>=1.26",       # NEW — MCP server (workers) + client (orchestrator bridge)
+    "ptyprocess>=0.7",      # NEW — PTY subprocess manager for CLI runtimes
+    "watchfiles>=1.1.1",    # NEW — async credential file watching (can substitute with polling)
+]
+```
+
+`watchfiles` is the only optional substitution — polling works if you want to avoid the Rust extension. `mcp` and `ptyprocess` are required for v1.2.
 
 ---
 
 ## Alternatives Considered
 
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| Bind mounts (`volumes=` in `containers.create()`) for skill directories | Named Docker volumes | Bind mounts let Kubex Manager control which host directory is mounted per-agent at creation time — different agents get different `/app/skills` directories. Named volumes would require a volume-per-agent management layer with no benefit. |
-| `container.put_archive()` for pre-start file injection | Building a new Docker image per agent (current approach) | The current per-agent Dockerfile approach is exactly what we are eliminating. `put_archive()` copies a tar archive into a created container before `container.start()` is called — the target directory must exist in the base image (already does: `/app/skills` is created in `_base/Dockerfile`). |
-| `put_archive()` for pre-start OR bind mounts at create time | `exec_run("pip install ...")` at runtime | `put_archive()` and bind mounts are the two valid paths for injecting static files (skills). `exec_run()` is appropriate only for runtime dependency requests (the policy-gated pip install flow), not for static skill injection. Keep them separate. |
-| `pyyaml.safe_load()` for agent config | `ruamel.yaml` | Ruamel is superior for roundtrip editing (preserves comments). But agent configs are read-only at spawn time — Kubex Manager reads them, never writes them back. `pyyaml.safe_load()` is already present and sufficient. Don't add a dependency. |
-| `pydantic` BaseModel for spawn config validation | Untyped dict passing (current) | Current `CreateKubexRequest.config: dict[str, Any]` passes config as an opaque dict. Adding typed Pydantic models (`AgentSpawnConfig`, `SkillManifest`) for the new spawn payload catches malformed inputs at the API boundary and makes the skill-injection logic explicit and testable. |
-| `tarfile` + `BytesIO` (stdlib) for skill archive | Writing skills to a temp dir on disk first | Avoid disk writes in Kubex Manager — the manager runs as a container itself. In-memory tar via `BytesIO` is cleaner and avoids temp file cleanup logic. |
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| MCP framework | `mcp` (official SDK) | `fastmcp` 2.0 (separate project) | FastMCP 2.0 adds client proxying, routing, and server composition not needed here. Official SDK covers all required use cases. FastMCP 1.0 is already inside the official SDK. |
+| PTY management | `ptyprocess` | `pexpect` (4.9.0) | pexpect wraps ptyprocess and adds `expect()` pattern matching not needed for CLI output streaming. Not asyncio-native. More weight, no benefit. |
+| PTY management | `ptyprocess` | `asyncio.create_subprocess_exec` | Cannot allocate a PTY. CLIs behave differently when stdout is a pipe, breaking interactive auth flows. |
+| File watching | `watchfiles` | `watchdog` (6.0.0) | watchdog uses threaded observers requiring `run_in_executor` bridging for async code. watchfiles is asyncio-native via `awatch` generator. |
+| File watching | `watchfiles` | polling with `os.path.exists()` | Polling works — 1-2s latency on credential detection is acceptable since auth happens once at boot. Use if Rust extension is unwanted. |
+| Hook delivery | HTTP hook (FastAPI route) | Command hook (shell script) | HTTP hook integrates directly with the async harness event loop. No shell scripts, no named pipes, no fd management. |
+| MCP transport | stdio | Streamable HTTP | Streamable HTTP is correct for remote/multi-host deployments. All workers are on the same Docker network — stdio subprocess is lower complexity for v1.2. Config-driven switch later. |
+| OAuth flow | `docker exec` + HITL | Command Center web OAuth | Web OAuth is better UX but adds significant complexity: WebSocket push, browser redirect handler, Manager token-forwarding API. Defer to post-v1.2. |
 
 ---
 
-## What NOT to Use
+## What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| Per-agent Dockerfiles | Requires a Docker build per new agent type — defeats the stem cell philosophy. Every build is a CI gate, a registry push, a deployment. Skills are markdown; they must not require image builds. | Bind mounts or `put_archive()` at spawn time |
-| `docker.types.Mount` (high-level) over `volumes=` dict | `docker.types.Mount` is correct for K8s/Swarm deploy configs. For local Docker Engine usage (which this is), the `volumes=` dict in `containers.create()` is simpler, already used in `lifecycle.py` for credential mounts, and fully supported in docker-py 7.1. | `volumes=` dict parameter in `containers.create()` |
-| `exec_run("pip install X")` without policy gate | Arbitrary package installation by an agent is a supply-chain attack surface. An agent that can self-install packages can escalate its own capabilities. | Route all runtime dep requests through the Gateway policy engine (ESCALATE path) before calling `exec_run()` in Kubex Manager |
-| Runtime `pip install` into a running container as the primary dep mechanism | This approach mutates container state, making containers non-reproducible. Two containers of the same agent image with the same "approved" pip installs can still diverge. | Pre-install all realistic dependencies in the base image. Runtime pip is the escape hatch for unusual requests, not the normal path. |
-| Building a new base image per release with agent-specific code | Reintroduces the per-agent image problem. New agents should require zero Docker builds. | Skill files mounted at spawn + config YAML passed via env or volume |
-
----
-
-## Mechanism Summary: Skill Injection at Spawn Time
-
-Two approaches are valid. The choice depends on whether skills change after a container starts.
-
-**Approach A — Bind Mount (recommended for static skills)**
-
-Kubex Manager creates a per-agent skill directory on the host (e.g., `/app/skills/{agent_id}/`) and mounts it read-only into the container at `/app/skills`:
-
-```python
-volumes={
-    f"/app/skills/{agent_id}": {"bind": "/app/skills", "mode": "ro"},
-    f"/app/secrets/cli-credentials/{provider}": {"bind": f"/run/secrets/{provider}", "mode": "ro"},
-}
-```
-
-The harness's `_load_skill_files("/app/skills")` already handles this — no harness changes needed.
-
-**Approach B — `put_archive()` (for dynamic file injection post-create, pre-start)**
-
-After `containers.create()` and before `container.start()`, inject skill files as a tar archive:
-
-```python
-import io, tarfile
-
-buf = io.BytesIO()
-with tarfile.open(fileobj=buf, mode="w") as tar:
-    for skill_path in skill_files:
-        tar.add(skill_path, arcname=skill_path.name)
-buf.seek(0)
-container.put_archive("/app/skills", buf.read())
-container.start()
-```
-
-**Recommendation: use Approach A (bind mounts) for the v1.1 refactor.** Bind mounts are already used for credential files in `lifecycle.py`. Kubex Manager already has `/app/skills` mounted into its own container (`docker-compose.yml` line: `- ./skills:/app/skills:ro`). Extending the existing bind-mount pattern is the lowest-risk path. `put_archive()` is the right tool if skills need to be injected into an already-running container, which is not a v1.1 requirement.
-
----
-
-## Mechanism Summary: Runtime Dependency Requests
-
-Agent calls a Gateway action → Gateway policy engine evaluates → if ESCALATE, reviewer approves → Kubex Manager calls `exec_run()`:
-
-```python
-exit_code, output = container.exec_run(
-    ["pip", "install", "--no-cache-dir", package_name],
-    workdir="/app",
-    environment={"PIP_DISABLE_PIP_VERSION_CHECK": "1"},
-)
-```
-
-**Security constraint:** `package_name` must be validated (allowlist or reviewer-approved) before `exec_run()`. The Gateway policy engine is the gate; Kubex Manager must not execute unapproved packages. This uses no new libraries — only `exec_run()` from docker-py.
+| `authlib` / `python-jose` | OAuth flow is handled by the CLI itself (`claude login`, `codex login`). The CLI manages token lifecycle. Python OAuth library would be redundant. | ptyprocess + watchfiles to detect when CLI writes its own credentials |
+| `anthropic` Python SDK | Workers using Claude Code CLI don't need the Anthropic SDK — the CLI handles auth. This would be a duplicate dependency with conflicting version concerns. | ptyprocess subprocess spawning the `claude` CLI binary |
+| `pexpect` | Pattern-matching wrapper around ptyprocess. Adds overhead and is not asyncio-native. | `ptyprocess` directly with `run_in_executor` for async reads |
+| `paramiko` / `fabric` | No SSH needed — everything is intra-container or via Docker socket | ptyprocess for local PTY |
+| `docker` (python SDK additions) | Manager already controls containers via Docker socket. Adding SDK calls in the harness would bypass the existing Manager API surface. | Existing Manager API endpoints |
+| SSE MCP transport (for v1.2) | Being superseded by Streamable HTTP per MCP spec. Adds infrastructure for intra-container calls that don't need it. | stdio transport for local workers |
+| FastMCP 2.0 | Separate project from official SDK, adds client proxying and routing features not needed. The official `mcp` package already includes FastMCP 1.0 patterns. | `mcp[cli]>=1.26` (official SDK) |
 
 ---
 
 ## Version Compatibility
 
-| Package | Version | Compatible With | Notes |
-|---------|---------|-----------------|-------|
-| `docker` | `7.1.0` | Python 3.12 | 7.x required for Python 3.12 compat (6.x had SSL adapter issues) |
-| `pydantic` | `>=2.12.5` | Python 3.12 | v2 API (`model_validate`, `BaseModel`) — project already uses this |
-| `pytest-asyncio` | `>=1.3.0` | `pytest>=8.0` | Set `asyncio_mode = "auto"` in `pyproject.toml` to avoid per-test marker noise |
-| `python:3.12-slim` | `3.12.12` (latest) | All packages above | slim variant is correct — no need for full Debian packages |
+| Package | Python | Notes |
+|---------|--------|-------|
+| `mcp>=1.26` | >=3.10 | Project uses 3.12 — no issue. httpx is also a dependency of mcp; versions are compatible. |
+| `ptyprocess>=0.7` | >=3.6, Unix only | All containers are Linux — no issue. |
+| `watchfiles>=1.1.1` | >=3.8 | Rust extension — pre-built wheels on PyPI for Linux amd64/arm64. No build tools needed in base image. |
+| `mcp` + `redis>=5.0` | — | No conflicts — different subsystems. |
+| `mcp` + `httpx>=0.27` | — | httpx is a shared dependency; versions are compatible. |
+
+---
+
+## Integration Points with Existing Stack
+
+| New Library | Integrates With | How |
+|-------------|----------------|-----|
+| `mcp` (server) | `agents/_base/kubex_harness/main.py` | New `harness_mode: mcp-server` routing branch. Worker starts `mcp.run(transport="stdio")` instead of `StandaloneAgent.run()`. |
+| `mcp` (client) | `agents/_base/kubex_harness/mcp_bridge.py` (new file) | Bridge module reads Registry to discover agents, connects to each via `stdio_client`, exposes combined tool list to orchestrator LLM. |
+| `mcp` (pub/sub notify) | `services/registry/registry/store.py` | Registry already has `HSET` calls. Add `PUBLISH registry:agent_changed` on register/deregister. Bridge subscribes and calls `session.list_tools()` to refresh. |
+| `ptyprocess` | `agents/_base/kubex_harness/cli_runtime.py` (new file) | `CLIRuntime` class wraps `PtyProcessUnicode.spawn()`. Reads config `runtime` field to select `claude`/`codex`/`gemini` binary. |
+| `watchfiles` | `agents/_base/kubex_harness/cli_runtime.py` | `wait_for_credentials()` uses `awatch()` before accepting tasks. |
+| HTTP hooks | `agents/_base/kubex_harness/cli_runtime.py` | Writes `.claude/settings.json` at boot. Receives hook POST requests on `localhost:9090`. |
 
 ---
 
 ## Sources
 
-- [Docker SDK for Python 7.1.0 — Containers](https://docker-py.readthedocs.io/en/stable/containers.html) — `containers.create()` volumes parameter, `put_archive()` method (HIGH confidence — official docs)
-- [Docker SDK for Python — PyPI](https://pypi.org/project/docker/) — version 7.1.0, released May 2024 (HIGH confidence — official PyPI)
-- [Docker Docs — Bind mounts](https://docs.docker.com/engine/storage/bind-mounts/) — bind mount vs named volume tradeoffs (HIGH confidence — official docs)
-- [Pydantic — PyPI](https://pypi.org/project/pydantic/) — version 2.12.5, released November 2025 (HIGH confidence — official PyPI)
-- [pytest-asyncio — PyPI](https://pypi.org/project/pytest-asyncio/) — version 1.3.0, released November 2025; `asyncio_mode = "auto"` (HIGH confidence — official PyPI)
-- [Pydantic Settings docs](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) — BaseSettings env var patterns (MEDIUM confidence — official docs, not yet needed for this scope)
-- [Docker Hub — python:3.12-slim](https://hub.docker.com/_/python/tags) — latest 3.12.12 point release (HIGH confidence — official Docker Hub)
+- [MCP Python SDK — PyPI](https://pypi.org/project/mcp/) — version 1.26.0, current stable, verified 2026-03-21 — HIGH confidence
+- [MCP Python SDK — GitHub](https://github.com/modelcontextprotocol/python-sdk) — client/server API patterns, transport options — HIGH confidence
+- [MCP Transports — official spec](https://modelcontextprotocol.info/docs/concepts/transports/) — stdio vs SSE vs Streamable HTTP — HIGH confidence
+- [ptyprocess — PyPI](https://pypi.org/project/ptyprocess/) — version 0.7.0, Unix PTY subprocess — HIGH confidence
+- [pexpect — PyPI](https://pypi.org/project/pexpect/) — version 4.9.0, compared for decision — HIGH confidence
+- [watchfiles — GitHub](https://github.com/samuelcolvin/watchfiles) — version 1.1.1, asyncio awatch, Rust-backed via Notify — HIGH confidence
+- [watchdog — PyPI](https://pypi.org/project/watchdog/) — version 6.0.0, thread-based, ruled out — HIGH confidence
+- [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks) — 21 hook events, HTTP hook type, JSON config format, async flag — HIGH confidence (official Anthropic docs, verified 2026-03-21)
+- [FastMCP vs MCP SDK discussion](https://github.com/PrefectHQ/fastmcp/discussions/2557) — FastMCP 2.0 scope comparison — MEDIUM confidence (community source)
 
 ---
 
-*Stack research for: KubexClaw v1.1 Stem Cell Kubex Refactor*
-*Researched: 2026-03-11*
+*Stack research for: KubexClaw v1.2 MCP Bridge + CLI Runtime*
+*Researched: 2026-03-21*
