@@ -131,3 +131,116 @@ The Kubex Manager can resolve skills for an agent, validate them through the pol
 
 *Phase: 06-manager-spawn-policy-gates*
 *Context gathered: 2026-03-15*
+
+
+Current Flow (With MCP Bridge, No Fix)
+
+  When the orchestrator LLM wants to call a worker's tool, the request passes through two separate LLM reasoning cycles:
+
+  sequenceDiagram
+      participant OrcLLM as Orchestrator LLM
+      participant MCP as MCP Bridge
+      participant Broker as Broker
+      participant Worker as Worker Harness
+      participant WorkerLLM as Worker LLM (GPT-5.2)
+      participant Tool as create_note()
+
+      Note over OrcLLM: LLM Call #1 (orchestrator)
+      OrcLLM->>MCP: tools/call("knowledge__create_note", {title: "Boot Day", content: "We booted today"})
+      MCP->>Broker: dispatch to knowledge_management capability
+      Note over MCP,Broker: context_message = "Use create_note with {title: 'Boot Day', content: 'We booted today'}"
+      Broker->>Worker: task delivered via Redis stream
+
+      Note over WorkerLLM: LLM Call #2 (worker) — REDUNDANT
+      Worker->>WorkerLLM: system_prompt + context_message
+      Note over WorkerLLM: LLM reads the message,<br/>reasons about it,<br/>decides to call create_note,<br/>generates function call JSON
+      WorkerLLM->>Worker: tool_calls: [{name: "create_note", args: {title: "Boot Day", content: "We booted today"}}]
+      Worker->>Tool: execute create_note(title, content)
+      Tool-->>Worker: {status: "created", path: "events/boot-day.md"}
+
+      Note over WorkerLLM: LLM Call #3 (worker summarizes)
+      Worker->>WorkerLLM: tool result
+      WorkerLLM->>Worker: "I've created the note at events/boot-day.md"
+      Worker-->>Broker: store result
+      Broker-->>MCP: poll returns result
+      MCP-->>OrcLLM: "I've created the note at events/boot-day.md"
+
+  The problem: The orchestrator already knows exactly which tool to call with exactly which arguments. But the worker LLM gets a natural language message, has to reason
+  about it, decide which tool to call, reconstruct the same arguments, then summarize the result. That's 2-3 extra LLM calls that add:
+
+  - Latency: ~3-10 seconds per LLM call × 2-3 calls = 6-30s wasted
+  - Cost: Worker LLM tokens are burned just to parrot back the same tool call
+  - Risk: The worker LLM might misinterpret and call the wrong tool, or modify the arguments
+
+  ---
+  After Fix: Direct Execution Mode
+
+  The worker harness recognizes a structured payload and skips its LLM entirely, calling the tool function directly:
+
+  sequenceDiagram
+      participant OrcLLM as Orchestrator LLM
+      participant MCP as MCP Bridge
+      participant Broker as Broker
+      participant Worker as Worker Harness
+      participant Tool as create_note()
+
+      Note over OrcLLM: LLM Call #1 (orchestrator) — ONLY LLM CALL
+      OrcLLM->>MCP: tools/call("knowledge__create_note", {title: "Boot Day", content: "We booted today"})
+      MCP->>Broker: dispatch to knowledge_management capability
+      Note over MCP,Broker: context_message = {"_mcp_direct": true,<br/>"tool": "create_note",<br/>"arguments": {title: "Boot Day", content: "We booted today"}}
+
+      Broker->>Worker: task delivered via Redis stream
+
+      Note over Worker: Detects _mcp_direct flag<br/>Skips LLM entirely
+      Worker->>Tool: _execute_tool("create_note", {title, content})
+      Tool-->>Worker: {status: "created", path: "events/boot-day.md"}
+
+      Worker-->>Broker: store raw tool result
+      Broker-->>MCP: poll returns result
+      MCP-->>OrcLLM: {status: "created", path: "events/boot-day.md"}
+
+  What changes in the worker harness (_handle_message in standalone.py):
+
+  async def _handle_message(self, client, msg, consumer_group):
+      task_id = msg.get("task_id")
+      context_message = msg.get("context_message", "")
+
+      # Try to parse as direct MCP tool call
+      try:
+          parsed = json.loads(context_message)
+          if parsed.get("_mcp_direct"):
+              # Skip LLM — execute tool directly
+              result = await self._execute_tool(
+                  client, parsed["tool"], parsed["arguments"], task_id
+              )
+              await self._store_result(client, task_id, json.dumps(result))
+              await self._ack(client, message_id, consumer_group)
+              return
+      except (json.JSONDecodeError, KeyError):
+          pass
+
+      # Normal flow — send to LLM
+      llm_response = await self._call_llm_with_tools(client, context_message, task_id)
+      # ... rest unchanged
+
+  Both modes coexist. Natural language tasks ("research trending AI posts and write a summary") still go through the worker LLM. Direct tool calls skip it. The MCP bridge
+  always uses direct mode. The orchestrator in standalone mode (without MCP) still uses natural language dispatch.
+
+  ---
+  Comparison
+
+  ┌────────────────────────┬─────────────────────────────────────────────────────┬─────────────────────────────────────────┐
+  │                        │                     Without Fix                     │                With Fix                 │
+  ├────────────────────────┼─────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+  │ LLM calls per tool     │ 3 (orchestrator + worker reason + worker summarize) │ 1 (orchestrator only)                   │
+  ├────────────────────────┼─────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+  │ Latency                │ 10-30s                                              │ 2-5s                                    │
+  ├────────────────────────┼─────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+  │ Cost                   │ 3× token usage                                      │ 1× token usage                          │
+  ├────────────────────────┼─────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+  │ Accuracy               │ Worker LLM might call wrong tool                    │ Deterministic — exact tool + exact args │
+  ├────────────────────────┼─────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+  │ Result format          │ LLM natural language summary                        │ Raw structured tool output              │
+  ├────────────────────────┼─────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+  │ Natural language tasks │ Works                                               │ Still works (falls through to LLM path) │
+  └────────────────────────┴─────────────────────────────────────────────────────┴─────────────────────────────────────────┘

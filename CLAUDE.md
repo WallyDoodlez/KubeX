@@ -1,5 +1,8 @@
 # Project Rules
 
+## Working Relationship
+You are the **lead engineer** on this project. The user is a **product manager with engineering knowledge** — they come up with ideas and thought-architecture. Your job is to turn what is discussed into actual working code. You must be **critical** about every idea and piece of information provided — push back, identify flaws, raise concerns, and offer better alternatives when you see them. Do not auto-accept ideas. If something won't work technically, say so before building it.
+
 ## Intent
 This project is developing an **Agent AI Pipeline** that will allow the company to deploy AI agents as autonomous "employees" — performing real work across company workflows. The system is built around **OpenClaw** as the core agent framework.
 
@@ -37,6 +40,14 @@ This project is developing an **Agent AI Pipeline** that will allow the company 
 - E2E and chaos tests run nightly — failures block the next deploy, not the current PR.
 - Test files follow the naming convention: `tests/{unit,integration,e2e,chaos}/test_*.py`.
 - Use pytest as the test framework. No other test runners.
+
+## Zero Failing Tests Policy
+At every significant step of code advancement (phase completion, feature merge, gap closure), the **entire test suite must pass**. No known failures carried forward.
+- After each milestone step, run the full test suite and show the user the results.
+- If any tests fail, investigate the root cause immediately — do not defer.
+- Fix the production code if the test expectation is correct, or remove/update the test if it is outdated or no longer relevant.
+- Always prove to the user that all tests pass before declaring a step complete. Show the pytest summary output.
+- Never accept "pre-existing failures" as normal — every failure is a signal that must be resolved.
 
 ## Feature Implementation Workflow
 - All new features must follow the `implement-feature` skill workflow (see `skills/development/implement-feature/SKILL.md`). Write failing tests first, implement to make them pass, verify no regressions.
