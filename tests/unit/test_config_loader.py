@@ -208,3 +208,83 @@ class TestHarnessModeRouting:
         config = load_agent_config(config_path)
         # standalone is the safe default
         assert config.harness_mode in ("standalone", "openclaw")
+
+
+# ---------------------------------------------------------------------------
+# Tests — description and boundary fields (MCP-05)
+# ---------------------------------------------------------------------------
+
+
+class TestDescriptionAndBoundaryFields:
+    """AgentConfig has description and boundary fields populated from config.yaml."""
+
+    def test_description_field_default_is_empty_string(self) -> None:
+        """AgentConfig with no description argument defaults description to empty string."""
+        config = AgentConfig(agent_id="test-agent")
+        assert config.description == ""
+
+    def test_description_field_set_explicitly(self) -> None:
+        """AgentConfig with description set to 'test desc' has config.description == 'test desc'."""
+        config = AgentConfig(agent_id="test-agent", description="test desc")
+        assert config.description == "test desc"
+
+    def test_boundary_field_default_is_default(self) -> None:
+        """AgentConfig with no boundary argument defaults to 'default'."""
+        config = AgentConfig(agent_id="test-agent")
+        assert config.boundary == "default"
+
+    def test_boundary_field_set_explicitly(self) -> None:
+        """AgentConfig with boundary set to 'secure' has config.boundary == 'secure'."""
+        config = AgentConfig(agent_id="test-agent", boundary="secure")
+        assert config.boundary == "secure"
+
+    def test_load_agent_config_parses_description(self, tmp_path: Path) -> None:
+        """load_agent_config() with YAML containing description returns config with that description."""
+        data = {
+            "agent": {
+                "id": "my-agent",
+                "description": "My agent",
+                "model": "gpt-5.2",
+                "skills": [],
+                "capabilities": [],
+            }
+        }
+        config_path = write_config(tmp_path / "config.yaml", data)
+        config = load_agent_config(config_path)
+        assert config.description == "My agent"
+
+    def test_load_agent_config_parses_boundary(self, tmp_path: Path) -> None:
+        """load_agent_config() with YAML containing boundary returns config with that boundary."""
+        data = {
+            "agent": {
+                "id": "my-agent",
+                "boundary": "restricted",
+                "model": "gpt-5.2",
+                "skills": [],
+                "capabilities": [],
+            }
+        }
+        config_path = write_config(tmp_path / "config.yaml", data)
+        config = load_agent_config(config_path)
+        assert config.boundary == "restricted"
+
+    def test_load_agent_config_description_defaults_to_empty(self, tmp_path: Path) -> None:
+        """load_agent_config() with no description in YAML returns config with description == ''."""
+        config_path = write_config(tmp_path / "config.yaml", MINIMAL_CONFIG)
+        config = load_agent_config(config_path)
+        assert config.description == ""
+
+    def test_load_agent_config_boundary_defaults_to_default(self, tmp_path: Path) -> None:
+        """load_agent_config() with no boundary in YAML returns config with boundary == 'default'."""
+        data = {
+            "agent": {
+                "id": "worker",
+                "model": "gpt-4o",
+                "skills": [],
+                "capabilities": [],
+                # no boundary key
+            }
+        }
+        config_path = write_config(tmp_path / "config.yaml", data)
+        config = load_agent_config(config_path)
+        assert config.boundary == "default"
