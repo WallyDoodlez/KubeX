@@ -50,10 +50,10 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details.
   3. Vault read and write tools are available as MCP tools with Gateway policy gate enforced on writes; in-process vault bypass is not possible
   4. Registering or deregistering a worker agent refreshes the available MCP tool set without restarting the orchestrator
   5. Full 789-test E2E suite passes against the mcp-bridge code path before the old custom tool loop is deleted
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 Plans:
-- [ ] 08-01-PLAN.md — Foundation: AgentConfig extension, Registry pub/sub, worker config descriptions
+- [x] 08-01-PLAN.md — Foundation: AgentConfig extension, Registry pub/sub, worker config descriptions
 - [ ] 08-02-PLAN.md — Core MCPBridgeServer with worker delegation, poll tool, pub/sub subscription
 - [ ] 08-03-PLAN.md — Vault tools (reads in-process, writes via Gateway), meta-tools, concurrent dispatch
 - [ ] 08-04-PLAN.md — Dual transport, integration tests, parity verification, orchestrator migration
@@ -108,7 +108,7 @@ Plans:
 | 5. Base Image and Skill Schema | v1.1 | 4/4 | Complete | 2026-03-14 |
 | 6. Manager Spawn Logic and Policy Gates | v1.1 | 3/3 | Complete | 2026-03-16 |
 | 7. Agent Migration and Dockerfile Removal | v1.1 | 3/3 | Complete | 2026-03-17 |
-| 8. MCP Bridge | v1.2 | 0/4 | Planning complete | - |
+| 8. MCP Bridge | v1.2 | 1/4 | In Progress|  |
 | 9. CLI Runtime — Claude Code | v1.2 | 0/? | Not started | - |
 | 10. Hooks Monitoring | v1.2 | 0/? | Not started | - |
 | 11. Codex + Gemini Runtimes | v1.2 | 0/? | Not started | - |

@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
-status: planning
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-21T22:43:37.926Z"
-last_activity: 2026-03-21 — v1.2 roadmap created (Phases 8-12), 25/25 requirements mapped
+status: unknown
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-21T23:37:14.619Z"
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 1
 ---
 
 # Project State
@@ -20,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Any Kubex can become any agent — new capabilities are skill files, not Docker builds.
-**Current focus:** Phase 8 — MCP Bridge
+**Current focus:** Phase 08 — mcp-bridge
 
 ## Current Position
 
-Phase: 8 of 12 (MCP Bridge) — first phase of v1.2
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-03-21 — v1.2 roadmap created (Phases 8-12), 25/25 requirements mapped
-
-Progress: [███░░░░░░░░░] 7/12 phases complete (v1.0 + v1.1 shipped)
+Phase: 08 (mcp-bridge) — EXECUTING
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -47,6 +42,7 @@ Progress: [███░░░░░░░░░] 7/12 phases complete (v1.0 + v1
 | 7. Agent Migration | 3 | Complete 2026-03-17 |
 
 *Updated after each plan completion*
+| Phase 08-mcp-bridge P01 | 2 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -60,6 +56,7 @@ Recent decisions affecting current work:
 - [v1.2]: Hook config mounted read-only — static pipe-relay hook scripts only, no string interpolation (CVE-2025-59536, CVE-2026-21852)
 - [v1.2]: CLI Runtime uses claude-agent-sdk for Claude Code (not raw PTY), ptyprocess for Codex/Gemini
 - [v1.2]: Old custom tool loop kept alive in parallel until MCP bridge passes full E2E parity against 789 tests; deletion is final step
+- [Phase 08-mcp-bridge]: Pub/sub publish placed in own try/except outside hset try/except — publish failure must never block registration success
 
 ### Pending Todos
 
@@ -73,6 +70,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T22:43:37.923Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-mcp-bridge/08-CONTEXT.md
+Last session: 2026-03-21T23:37:14.616Z
+Stopped at: Completed 08-01-PLAN.md
+Resume file: None
