@@ -12,11 +12,11 @@ Requirements for MCP Bridge + CLI Runtime milestone. Each maps to roadmap phases
 - [x] **MCP-01**: Orchestrator exposes one MCP tool per registered worker agent (capability = tool name, description from config.yaml)
 - [x] **MCP-02**: All worker delegations route through Gateway POST /actions — no policy bypass
 - [x] **MCP-03**: Async task_id dispatch pattern — tool call returns task_id immediately, kubex__poll_task checks status
-- [ ] **MCP-04**: Vault tools exposed as in-process MCP tools with policy gate enforced (Gateway endpoint or inline injection scan)
+- [x] **MCP-04**: Vault tools exposed as in-process MCP tools with policy gate enforced (Gateway endpoint or inline injection scan)
 - [x] **MCP-05**: Tool cache invalidated on agent registration/deregistration via Registry pub/sub (registry:agent_changed)
 - [ ] **MCP-06**: Old custom tool loop kept alive until MCP bridge passes full E2E parity against all existing tests
-- [ ] **MCP-07**: Concurrent worker dispatch via asyncio.gather() for parallel tool calls
-- [ ] **MCP-08**: Meta-tools: kubex__list_agents, kubex__agent_status, kubex__cancel_task
+- [x] **MCP-07**: Concurrent worker dispatch via asyncio.gather() for parallel tool calls
+- [x] **MCP-08**: Meta-tools: kubex__list_agents, kubex__agent_status, kubex__cancel_task
 
 ### CLI Runtime
 
@@ -78,11 +78,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MCP-01 | Phase 8 | Complete |
 | MCP-02 | Phase 8 | Complete |
 | MCP-03 | Phase 8 | Complete |
-| MCP-04 | Phase 8 | Pending |
+| MCP-04 | Phase 8 | Complete |
 | MCP-05 | Phase 8 | Complete |
 | MCP-06 | Phase 8 | Pending |
-| MCP-07 | Phase 8 | Pending |
-| MCP-08 | Phase 8 | Pending |
+| MCP-07 | Phase 8 | Complete |
+| MCP-08 | Phase 8 | Complete |
 | CLI-01 | Phase 9 | Pending |
 | CLI-02 | Phase 9 | Pending |
 | CLI-03 | Phase 9 | Pending |

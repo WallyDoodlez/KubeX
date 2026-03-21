@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-03-21T23:44:13.167Z"
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-03-21T23:49:08.616Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 08 (mcp-bridge) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 
 ## Performance Metrics
 
@@ -44,6 +44,7 @@ Plan: 3 of 4
 *Updated after each plan completion*
 | Phase 08-mcp-bridge P01 | 2 | 2 tasks | 9 files |
 | Phase 08-mcp-bridge P02 | 260 | 3 tasks | 3 files |
+| Phase 08-mcp-bridge P03 | 3 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ Recent decisions affecting current work:
 - [Phase 08-mcp-bridge]: Pub/sub publish placed in own try/except outside hset try/except — publish failure must never block registration success
 - [Phase 08-mcp-bridge]: Extracted _handle_poll_task and _handle_worker_dispatch as testable methods (closures delegate to them) to enable unit testing without MCP protocol
 - [Phase 08-mcp-bridge]: MagicMock (not AsyncMock) for redis pubsub fixture -- redis client.pubsub() is synchronous in redis-py
+- [Phase 08-mcp-bridge]: Vault reads call vault_ops in-process (D-01); vault writes route through Gateway POST /actions with action vault_create/vault_update (D-02) enabling Gateway audit logging (D-03)
+- [Phase 08-mcp-bridge]: dispatch_concurrent uses asyncio.gather with return_exceptions=True for partial-failure-safe concurrent worker dispatch (MCP-07)
 
 ### Pending Todos
 
@@ -73,6 +76,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T23:44:13.164Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-03-21T23:49:08.613Z
+Stopped at: Completed 08-03-PLAN.md
 Resume file: None
