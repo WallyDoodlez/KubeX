@@ -68,6 +68,8 @@ class MCPBridgeServer:
 
         # Register static tools (poll_task is always available)
         self._register_poll_tool()
+        self._register_vault_tools()
+        self._register_meta_tools()
 
     def _register_poll_tool(self) -> None:
         """Register kubex__poll_task -- always available."""
@@ -117,6 +119,264 @@ class MCPBridgeServer:
             return {"status": "error", "code": resp.status_code, "message": resp.text[:200]}
         except Exception as exc:
             return {"status": "error", "message": str(exc)}
+
+    # ------------------------------------------------------------------
+    # Vault tools (Plan 03)
+    # ------------------------------------------------------------------
+
+    def _register_vault_tools(self) -> None:
+        """Register vault tools: reads in-process (D-01), writes via Gateway (D-02)."""
+
+        @self._mcp.tool(
+            name="vault_search_notes",
+            description="Search notes in the knowledge vault by query string.",
+        )
+        async def vault_search_notes(query: str, folder: str = "") -> list:
+            return await self._vault_search_notes(query=query, folder=folder)
+
+        @self._mcp.tool(
+            name="vault_get_note",
+            description="Get a specific note by path from the knowledge vault.",
+        )
+        async def vault_get_note(path: str) -> dict:
+            return await self._vault_get_note(path=path)
+
+        @self._mcp.tool(
+            name="vault_list_notes",
+            description="List all notes in the knowledge vault, optionally filtered by folder.",
+        )
+        async def vault_list_notes(folder: str = "") -> list:
+            return await self._vault_list_notes(folder=folder)
+
+        @self._mcp.tool(
+            name="vault_find_backlinks",
+            description="Find notes that link to the specified note path.",
+        )
+        async def vault_find_backlinks(path: str) -> list:
+            return await self._vault_find_backlinks(path=path)
+
+        @self._mcp.tool(
+            name="vault_create_note",
+            description="Create a new note in the knowledge vault. Write is policy-gated through Gateway.",
+        )
+        async def vault_create_note(title: str, content: str, folder: str = "") -> dict:
+            return await self._vault_create_note(title=title, content=content, folder=folder)
+
+        @self._mcp.tool(
+            name="vault_update_note",
+            description="Update an existing note in the knowledge vault. Write is policy-gated through Gateway.",
+        )
+        async def vault_update_note(path: str, content: str) -> dict:
+            return await self._vault_update_note(path=path, content=content)
+
+    # Vault read handlers — in-process, no Gateway (D-01)
+
+    async def _vault_search_notes(self, query: str, folder: str = "") -> list:
+        """Search notes in-process via vault_ops (D-01)."""
+        try:
+            from kubex_harness.vault_ops import search_notes  # noqa: PLC0415
+            return search_notes(query=query, folder=folder)
+        except ImportError:
+            return [{"error": "vault_ops module not available"}]
+        except Exception as exc:
+            return [{"error": str(exc)}]
+
+    async def _vault_get_note(self, path: str) -> dict:
+        """Get a note in-process via vault_ops (D-01)."""
+        try:
+            from kubex_harness.vault_ops import get_note  # noqa: PLC0415
+            return get_note(path=path)
+        except ImportError:
+            return {"error": "vault_ops module not available"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    async def _vault_list_notes(self, folder: str = "") -> list:
+        """List notes in-process via vault_ops (D-01)."""
+        try:
+            from kubex_harness.vault_ops import list_notes  # noqa: PLC0415
+            return list_notes(folder=folder)
+        except ImportError:
+            return [{"error": "vault_ops module not available"}]
+        except Exception as exc:
+            return [{"error": str(exc)}]
+
+    async def _vault_find_backlinks(self, path: str) -> list:
+        """Find backlinks in-process via vault_ops (D-01)."""
+        try:
+            from kubex_harness.vault_ops import find_backlinks  # noqa: PLC0415
+            return find_backlinks(path=path)
+        except ImportError:
+            return [{"error": "vault_ops module not available"}]
+        except Exception as exc:
+            return [{"error": str(exc)}]
+
+    # Vault write handlers — route through Gateway POST /actions (D-02)
+
+    async def _vault_create_note(self, title: str, content: str, folder: str = "") -> dict:
+        """Create note via Gateway POST /actions with action='vault_create' (D-02)."""
+        try:
+            assert self._http is not None
+            resp = await self._http.post(
+                f"{self.config.gateway_url}/actions",
+                json={
+                    "agent_id": self.config.agent_id,
+                    "action": "vault_create",
+                    "parameters": {"title": title, "content": content, "folder": folder},
+                },
+            )
+            if resp.status_code in (200, 201, 202):
+                return {"status": "created", **resp.json()}
+            if resp.status_code == 403:
+                return {"status": "escalated", "message": "Vault write flagged for review", **resp.json()}
+            return {"status": "error", "code": resp.status_code, "message": resp.text[:200]}
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)}
+
+    async def _vault_update_note(self, path: str, content: str) -> dict:
+        """Update note via Gateway POST /actions with action='vault_update' (D-02)."""
+        try:
+            assert self._http is not None
+            resp = await self._http.post(
+                f"{self.config.gateway_url}/actions",
+                json={
+                    "agent_id": self.config.agent_id,
+                    "action": "vault_update",
+                    "parameters": {"path": path, "content": content},
+                },
+            )
+            if resp.status_code in (200, 201, 202):
+                return {"status": "updated", **resp.json()}
+            if resp.status_code == 403:
+                return {"status": "escalated", "message": "Vault write flagged for review", **resp.json()}
+            return {"status": "error", "code": resp.status_code, "message": resp.text[:200]}
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)}
+
+    # ------------------------------------------------------------------
+    # Meta-tools (Plan 03)
+    # ------------------------------------------------------------------
+
+    def _register_meta_tools(self) -> None:
+        """Register meta-tools for agent introspection and task management (MCP-08)."""
+
+        @self._mcp.tool(
+            name="kubex__list_agents",
+            description="List all registered worker agents with capabilities, status, and description.",
+        )
+        async def kubex__list_agents() -> list:
+            return await self._kubex_list_agents()
+
+        @self._mcp.tool(
+            name="kubex__agent_status",
+            description="Get status of a specific registered agent by agent_id.",
+        )
+        async def kubex__agent_status(agent_id: str) -> dict:
+            return await self._kubex_agent_status(agent_id=agent_id)
+
+        @self._mcp.tool(
+            name="kubex__cancel_task",
+            description="Cancel a previously dispatched task by task_id.",
+        )
+        async def kubex__cancel_task(task_id: str) -> dict:
+            return await self._kubex_cancel_task(task_id=task_id)
+
+    async def _kubex_list_agents(self) -> list:
+        """List agents from Registry, excluding self (MCP-08)."""
+        try:
+            assert self._http is not None
+            resp = await self._http.get(f"{self.registry_url}/agents")
+            if resp.status_code != 200:
+                return [{"error": f"Registry returned {resp.status_code}"}]
+            agents = resp.json()
+            return [
+                {
+                    "agent_id": a.get("agent_id", ""),
+                    "capabilities": a.get("capabilities", []),
+                    "status": a.get("status", "unknown"),
+                    "description": a.get("metadata", {}).get("description", ""),
+                }
+                for a in agents
+                if a.get("agent_id") != self.config.agent_id
+            ]
+        except Exception as exc:
+            return [{"error": str(exc)}]
+
+    async def _kubex_agent_status(self, agent_id: str) -> dict:
+        """Get individual agent status from Registry (MCP-08)."""
+        try:
+            assert self._http is not None
+            resp = await self._http.get(f"{self.registry_url}/agents/{agent_id}")
+            if resp.status_code == 404:
+                return {"error": f"Agent '{agent_id}' not found"}
+            if resp.status_code == 200:
+                data = resp.json()
+                return {
+                    "agent_id": data.get("agent_id", agent_id),
+                    "status": data.get("status", "unknown"),
+                    "capabilities": data.get("capabilities", []),
+                    "description": data.get("metadata", {}).get("description", ""),
+                }
+            return {"error": f"Registry returned {resp.status_code}"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    async def _kubex_cancel_task(self, task_id: str) -> dict:
+        """Cancel a task via Broker POST /tasks/{task_id}/cancel (MCP-08)."""
+        try:
+            assert self._http is not None
+            resp = await self._http.post(
+                f"{self.config.broker_url}/tasks/{task_id}/cancel",
+                json={"task_id": task_id},
+            )
+            if resp.status_code in (200, 204):
+                return {"status": "cancelled", "task_id": task_id}
+            return {"status": "error", "code": resp.status_code, "message": resp.text[:200]}
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)}
+
+    # ------------------------------------------------------------------
+    # Concurrent dispatch (MCP-07)
+    # ------------------------------------------------------------------
+
+    async def dispatch_concurrent(self, dispatches: list[dict[str, str]]) -> list[dict]:
+        """Dispatch multiple worker tasks concurrently via asyncio.gather (MCP-07).
+
+        Each dispatch dict has: {"capability": "...", "task": "..."}
+        Returns list of results in same order as input.
+        """
+
+        async def _dispatch_one(capability: str, task: str) -> dict:
+            try:
+                assert self._http is not None
+                resp = await self._http.post(
+                    f"{self.config.gateway_url}/actions",
+                    json={
+                        "agent_id": self.config.agent_id,
+                        "action": "dispatch_task",
+                        "parameters": {
+                            "capability": capability,
+                            "context_message": task,
+                        },
+                    },
+                )
+                if resp.status_code in (200, 201, 202):
+                    data = resp.json()
+                    return {
+                        "status": "dispatched",
+                        "task_id": data.get("task_id", "unknown"),
+                        "capability": capability,
+                    }
+                return {"status": "error", "code": resp.status_code, "capability": capability}
+            except Exception as exc:
+                return {"status": "error", "message": str(exc), "capability": capability}
+
+        tasks = [_dispatch_one(d["capability"], d["task"]) for d in dispatches]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return [
+            r if isinstance(r, dict) else {"status": "error", "message": str(r)}
+            for r in results
+        ]
 
     async def refresh_worker_tools(self) -> None:
         """Fetch registered agents from Registry, rebuild worker delegation tools."""

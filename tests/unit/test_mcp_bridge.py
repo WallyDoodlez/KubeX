@@ -10,6 +10,9 @@ Tests cover:
   - Cold boot: refresh_worker_tools called before accepting connections
   - Need_info protocol (D-05/D-06): kubex__poll_task surfaces need_info status
   - Delegation depth (D-07): max depth enforcement, tracking per task_id
+  - Vault tools: reads in-process (vault_ops), writes via Gateway (Plan 03)
+  - Meta-tools: kubex__list_agents, kubex__agent_status, kubex__cancel_task (Plan 03)
+  - Concurrent dispatch: asyncio.gather for parallel worker tasks (MCP-07)
 """
 
 from __future__ import annotations
@@ -521,6 +524,387 @@ class TestDelegationDepth:
         )
 
         assert bridge._delegation_depth["task-tracked"] == 1
+
+
+# ---------------------------------------------------------------------------
+# TestVaultOpsModule
+# ---------------------------------------------------------------------------
+
+
+class TestVaultOpsModule:
+    def test_vault_ops_module_exists(self):
+        """vault_ops.py exists and is importable from kubex_harness."""
+        import kubex_harness.vault_ops as vault_ops  # noqa: F401
+
+    def test_vault_ops_exports_search_notes(self):
+        """vault_ops exports search_notes function."""
+        import kubex_harness.vault_ops as vault_ops
+        assert callable(vault_ops.search_notes)
+
+    def test_vault_ops_exports_get_note(self):
+        """vault_ops exports get_note function."""
+        import kubex_harness.vault_ops as vault_ops
+        assert callable(vault_ops.get_note)
+
+    def test_vault_ops_exports_list_notes(self):
+        """vault_ops exports list_notes function."""
+        import kubex_harness.vault_ops as vault_ops
+        assert callable(vault_ops.list_notes)
+
+    def test_vault_ops_exports_find_backlinks(self):
+        """vault_ops exports find_backlinks function."""
+        import kubex_harness.vault_ops as vault_ops
+        assert callable(vault_ops.find_backlinks)
+
+    def test_search_notes_returns_list(self):
+        """search_notes returns a list."""
+        import kubex_harness.vault_ops as vault_ops
+        result = vault_ops.search_notes(query="test")
+        assert isinstance(result, list)
+
+    def test_get_note_returns_dict(self):
+        """get_note returns a dict."""
+        import kubex_harness.vault_ops as vault_ops
+        result = vault_ops.get_note(path="notes/test.md")
+        assert isinstance(result, dict)
+
+    def test_list_notes_returns_list(self):
+        """list_notes returns a list."""
+        import kubex_harness.vault_ops as vault_ops
+        result = vault_ops.list_notes()
+        assert isinstance(result, list)
+
+    def test_find_backlinks_returns_list(self):
+        """find_backlinks returns a list."""
+        import kubex_harness.vault_ops as vault_ops
+        result = vault_ops.find_backlinks(path="notes/target.md")
+        assert isinstance(result, list)
+
+
+# ---------------------------------------------------------------------------
+# TestVaultReadTools
+# ---------------------------------------------------------------------------
+
+
+class TestVaultReadTools:
+    """Vault read tools call in-process vault_ops functions, no Gateway HTTP."""
+
+    @pytest.mark.asyncio
+    async def test_vault_read_in_process_search(self, bridge, mock_http):
+        """vault_search_notes calls in-process search_notes, no httpx request made."""
+        with patch("kubex_harness.vault_ops.search_notes", return_value=[{"path": "a.md", "title": "A", "snippet": "..."}]) as mock_fn:
+            result = await bridge._vault_search_notes(query="test query", folder="")
+
+        # Vault read tools must NOT call Gateway
+        mock_http.post.assert_not_called()
+        mock_http.get.assert_not_called()
+        mock_fn.assert_called_once_with(query="test query", folder="")
+        assert isinstance(result, list)
+
+    @pytest.mark.asyncio
+    async def test_vault_read_in_process_get_note(self, bridge, mock_http):
+        """vault_get_note calls in-process get_note, no httpx request made."""
+        note_data = {"path": "notes/test.md", "title": "Test", "content": "Body", "metadata": {}}
+        with patch("kubex_harness.vault_ops.get_note", return_value=note_data) as mock_fn:
+            result = await bridge._vault_get_note(path="notes/test.md")
+
+        mock_http.post.assert_not_called()
+        mock_http.get.assert_not_called()
+        mock_fn.assert_called_once_with(path="notes/test.md")
+        assert result["title"] == "Test"
+
+    @pytest.mark.asyncio
+    async def test_vault_read_in_process_list_notes(self, bridge, mock_http):
+        """vault_list_notes calls in-process list_notes, no httpx request made."""
+        with patch("kubex_harness.vault_ops.list_notes", return_value=[]) as mock_fn:
+            result = await bridge._vault_list_notes(folder="projects")
+
+        mock_http.post.assert_not_called()
+        mock_http.get.assert_not_called()
+        mock_fn.assert_called_once_with(folder="projects")
+        assert isinstance(result, list)
+
+    @pytest.mark.asyncio
+    async def test_vault_read_in_process_find_backlinks(self, bridge, mock_http):
+        """vault_find_backlinks calls in-process find_backlinks, no httpx request made."""
+        with patch("kubex_harness.vault_ops.find_backlinks", return_value=[]) as mock_fn:
+            result = await bridge._vault_find_backlinks(path="notes/target.md")
+
+        mock_http.post.assert_not_called()
+        mock_http.get.assert_not_called()
+        mock_fn.assert_called_once_with(path="notes/target.md")
+        assert isinstance(result, list)
+
+
+# ---------------------------------------------------------------------------
+# TestVaultWriteTools
+# ---------------------------------------------------------------------------
+
+
+class TestVaultWriteTools:
+    """Vault write tools route through Gateway POST /actions (D-02)."""
+
+    @pytest.mark.asyncio
+    async def test_vault_write_uses_gateway_create(self, bridge, mock_http):
+        """vault_create_note calls Gateway POST /actions with action='vault_create'."""
+        mock_http.post.return_value = _mock_response(200, json_data={"note_id": "n-123"})
+
+        result = await bridge._vault_create_note(title="Test Note", content="Body text", folder="")
+
+        mock_http.post.assert_called_once()
+        call_args = mock_http.post.call_args
+        url = call_args.args[0] if call_args.args else call_args.kwargs.get("url", "")
+        assert "actions" in url
+        call_json = call_args.kwargs.get("json") or call_args[1].get("json")
+        assert call_json["action"] == "vault_create"
+        assert call_json["parameters"]["title"] == "Test Note"
+        assert call_json["parameters"]["content"] == "Body text"
+        assert call_json["parameters"]["folder"] == ""
+
+    @pytest.mark.asyncio
+    async def test_vault_write_uses_gateway_update(self, bridge, mock_http):
+        """vault_update_note calls Gateway POST /actions with action='vault_update'."""
+        mock_http.post.return_value = _mock_response(200, json_data={"updated": True})
+
+        result = await bridge._vault_update_note(path="notes/test.md", content="Updated body")
+
+        mock_http.post.assert_called_once()
+        call_json = mock_http.post.call_args.kwargs.get("json") or mock_http.post.call_args[1].get("json")
+        assert call_json["action"] == "vault_update"
+        assert call_json["parameters"]["path"] == "notes/test.md"
+        assert call_json["parameters"]["content"] == "Updated body"
+
+    @pytest.mark.asyncio
+    async def test_vault_write_escalated_403(self, bridge, mock_http):
+        """vault_create_note with Gateway returning 403 returns {'status': 'escalated'}."""
+        mock_http.post.return_value = _mock_response(403, json_data={"reason": "policy_blocked"})
+
+        result = await bridge._vault_create_note(title="Blocked", content="Dangerous content", folder="")
+
+        assert result["status"] == "escalated"
+        assert "message" in result
+
+    @pytest.mark.asyncio
+    async def test_vault_write_update_escalated_403(self, bridge, mock_http):
+        """vault_update_note with Gateway returning 403 returns {'status': 'escalated'}."""
+        mock_http.post.return_value = _mock_response(403, json_data={"reason": "policy_blocked"})
+
+        result = await bridge._vault_update_note(path="notes/sensitive.md", content="Blocked content")
+
+        assert result["status"] == "escalated"
+
+    @pytest.mark.asyncio
+    async def test_vault_write_exception_returns_error_dict(self, bridge, mock_http):
+        """vault write tool wraps exceptions in error dict, never raises."""
+        mock_http.post.side_effect = httpx.ConnectError("Gateway down")
+
+        result = await bridge._vault_create_note(title="Test", content="Body", folder="")
+
+        assert result["status"] == "error"
+        assert "message" in result
+
+    @pytest.mark.asyncio
+    async def test_vault_update_exception_returns_error_dict(self, bridge, mock_http):
+        """vault_update_note exception returns error dict, never raises."""
+        mock_http.post.side_effect = RuntimeError("Unexpected error")
+
+        result = await bridge._vault_update_note(path="notes/test.md", content="Body")
+
+        assert result["status"] == "error"
+        assert "message" in result
+
+
+# ---------------------------------------------------------------------------
+# TestMetaTools
+# ---------------------------------------------------------------------------
+
+
+class TestMetaTools:
+    """Meta-tools: kubex__list_agents, kubex__agent_status, kubex__cancel_task."""
+
+    @pytest.mark.asyncio
+    async def test_meta_tool_list_agents(self, bridge, mock_http):
+        """kubex__list_agents calls Registry GET /agents and returns structured list excluding self."""
+        agents = _make_agent_list(include_self="orchestrator")
+        mock_http.get.return_value = _mock_response(200, json_data=agents)
+
+        result = await bridge._kubex_list_agents()
+
+        # Should exclude self (orchestrator)
+        agent_ids = [a["agent_id"] for a in result]
+        assert "orchestrator" not in agent_ids
+        assert "knowledge" in agent_ids
+        assert "instagram-scraper" in agent_ids
+
+        # Check structure
+        for agent in result:
+            assert "agent_id" in agent
+            assert "capabilities" in agent
+            assert "status" in agent
+            assert "description" in agent
+
+    @pytest.mark.asyncio
+    async def test_meta_tool_list_agents_registry_error(self, bridge, mock_http):
+        """kubex__list_agents with Registry error returns [{'error': '...'}]."""
+        mock_http.get.return_value = _mock_response(503)
+
+        result = await bridge._kubex_list_agents()
+
+        assert isinstance(result, list)
+        assert len(result) >= 1
+        assert "error" in result[0]
+
+    @pytest.mark.asyncio
+    async def test_meta_tool_list_agents_exception(self, bridge, mock_http):
+        """kubex__list_agents exception returns [{'error': '...'}]."""
+        mock_http.get.side_effect = httpx.ConnectError("Registry down")
+
+        result = await bridge._kubex_list_agents()
+
+        assert isinstance(result, list)
+        assert "error" in result[0]
+
+    @pytest.mark.asyncio
+    async def test_meta_tool_agent_status(self, bridge, mock_http):
+        """kubex__agent_status calls Registry GET /agents/{agent_id} and returns status dict."""
+        agent_data = {
+            "agent_id": "knowledge",
+            "status": "running",
+            "capabilities": ["knowledge_management"],
+            "metadata": {"description": "Knowledge base specialist"},
+        }
+        mock_http.get.return_value = _mock_response(200, json_data=agent_data)
+
+        result = await bridge._kubex_agent_status(agent_id="knowledge")
+
+        assert result["agent_id"] == "knowledge"
+        assert result["status"] == "running"
+        assert "capabilities" in result
+
+    @pytest.mark.asyncio
+    async def test_meta_tool_agent_status_not_found(self, bridge, mock_http):
+        """kubex__agent_status with 404 returns error dict."""
+        mock_http.get.return_value = _mock_response(404)
+
+        result = await bridge._kubex_agent_status(agent_id="nonexistent")
+
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_meta_tool_cancel_task(self, bridge, mock_http):
+        """kubex__cancel_task calls Broker POST /tasks/{task_id}/cancel and returns result."""
+        mock_http.post.return_value = _mock_response(200, json_data={"status": "cancelled", "task_id": "t-xyz"})
+
+        result = await bridge._kubex_cancel_task(task_id="t-xyz")
+
+        mock_http.post.assert_called_once()
+        call_args = mock_http.post.call_args
+        url = call_args.args[0] if call_args.args else call_args.kwargs.get("url", "")
+        assert "t-xyz" in url
+        assert "cancel" in url
+        assert result["status"] == "cancelled"
+        assert result["task_id"] == "t-xyz"
+
+    @pytest.mark.asyncio
+    async def test_meta_tool_cancel_task_error(self, bridge, mock_http):
+        """kubex__cancel_task with non-200 response returns error dict."""
+        mock_http.post.return_value = _mock_response(404, text="Task not found")
+
+        result = await bridge._kubex_cancel_task(task_id="t-missing")
+
+        assert result["status"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_meta_tool_cancel_task_exception(self, bridge, mock_http):
+        """kubex__cancel_task exception returns error dict."""
+        mock_http.post.side_effect = httpx.ConnectError("Broker down")
+
+        result = await bridge._kubex_cancel_task(task_id="t-err")
+
+        assert result["status"] == "error"
+        assert "message" in result
+
+
+# ---------------------------------------------------------------------------
+# TestConcurrentDispatch
+# ---------------------------------------------------------------------------
+
+
+class TestConcurrentDispatch:
+    """dispatch_concurrent runs multiple tasks via asyncio.gather (MCP-07)."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_dispatch_all_succeed(self, bridge, mock_http):
+        """dispatch_concurrent with 3 calls returns list of 3 results."""
+        mock_http.post.return_value = _mock_response(
+            200, json_data={"task_id": "t-concurrent"}
+        )
+
+        dispatches = [
+            {"capability": "knowledge_management", "task": "Summarise knowledge"},
+            {"capability": "scrape_instagram", "task": "Scrape feed"},
+            {"capability": "scrape_instagram", "task": "Scrape profile"},
+        ]
+
+        results = await bridge.dispatch_concurrent(dispatches)
+
+        assert len(results) == 3
+        assert mock_http.post.call_count == 3
+        for r in results:
+            assert r["status"] == "dispatched"
+
+    @pytest.mark.asyncio
+    async def test_concurrent_dispatch_partial_failure(self, bridge, mock_http):
+        """dispatch_concurrent with 1 failure and 2 successes returns all 3 results."""
+        success_response = _mock_response(200, json_data={"task_id": "t-ok"})
+        call_count = [0]
+
+        async def side_effect(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 2:
+                raise httpx.ConnectError("Worker down")
+            return success_response
+
+        mock_http.post.side_effect = side_effect
+
+        dispatches = [
+            {"capability": "knowledge_management", "task": "Task 1"},
+            {"capability": "scrape_instagram", "task": "Task 2"},  # this one fails
+            {"capability": "scrape_instagram", "task": "Task 3"},
+        ]
+
+        results = await bridge.dispatch_concurrent(dispatches)
+
+        assert len(results) == 3
+        # 2 successes, 1 failure — all returned (no exception propagated)
+        statuses = [r["status"] for r in results]
+        assert "dispatched" in statuses
+        assert "error" in statuses
+
+    @pytest.mark.asyncio
+    async def test_concurrent_dispatch_preserves_order(self, bridge, mock_http):
+        """dispatch_concurrent returns results in same order as input dispatches."""
+        task_ids = ["t-001", "t-002", "t-003"]
+        call_count = [0]
+
+        async def side_effect(*args, **kwargs):
+            idx = call_count[0]
+            call_count[0] += 1
+            return _mock_response(200, json_data={"task_id": task_ids[idx]})
+
+        mock_http.post.side_effect = side_effect
+
+        dispatches = [
+            {"capability": "knowledge_management", "task": "First"},
+            {"capability": "scrape_instagram", "task": "Second"},
+            {"capability": "scrape_instagram", "task": "Third"},
+        ]
+
+        results = await bridge.dispatch_concurrent(dispatches)
+
+        assert len(results) == 3
+        # All should be dispatched
+        assert all(r["status"] == "dispatched" for r in results)
 
 
 # ---------------------------------------------------------------------------
