@@ -69,6 +69,8 @@ tools:
         description: "Natural language query to search the knowledge graph"
       entity_types:
         type: array
+        items:
+          type: string
         required: false
         description: "Optional entity type filters (e.g. ['Organization', 'Person'])"
   - name: "store_knowledge"
