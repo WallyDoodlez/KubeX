@@ -12,6 +12,10 @@ Modes:
     openclaw: Spawns the OpenClaw CLI agent loop via KubexHarness.
         Uses KubexHarness from harness.py.
 
+    mcp-bridge: Runs an MCP Bridge server exposing worker agents as MCP tools.
+        Uses MCPBridgeServer from mcp_bridge.py.
+        Worker delegations route through Gateway POST /actions.
+
 Boot sequence:
     1. Load config via load_agent_config() — fails fast if /app/config.yaml missing
     2. Log structured boot summary
@@ -82,8 +86,26 @@ async def _run() -> None:
         exit_reason = await harness.run()
         sys.exit(0 if exit_reason.value == "completed" else 1)
 
+    elif config.harness_mode == "mcp-bridge":
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+
+        bridge = MCPBridgeServer(config)
+
+        # Graceful shutdown on SIGTERM/SIGINT
+        import signal
+
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            with contextlib.suppress(NotImplementedError):  # Windows: no add_signal_handler
+                loop.add_signal_handler(sig, bridge.stop)
+
+        await bridge.run()
+
     else:
-        logger.error("Unknown harness_mode: %r — expected 'standalone' or 'openclaw'", config.harness_mode)
+        logger.error(
+            "Unknown harness_mode: %r — expected 'standalone', 'openclaw', or 'mcp-bridge'",
+            config.harness_mode,
+        )
         sys.exit(1)
 
 
