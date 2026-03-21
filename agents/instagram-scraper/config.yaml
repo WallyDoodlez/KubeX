@@ -1,5 +1,9 @@
 agent:
   id: "instagram-scraper"
+  description: >
+    Social media data collection specialist. Scrapes Instagram profiles,
+    posts, metrics, and trending content. Use for any task requiring
+    social media data collection or analysis.
   model: "gpt-5.2"
   boundary: "default"
   harness_mode: "standalone"

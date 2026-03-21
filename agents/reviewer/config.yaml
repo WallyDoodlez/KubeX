@@ -1,5 +1,9 @@
 agent:
   id: "reviewer"
+  description: >
+    Security review specialist. Evaluates actions and content for policy
+    compliance, prompt injection risks, and security concerns. Returns
+    ALLOW, DENY, or ESCALATE verdicts with reasoning.
   model: "o3-mini"
   boundary: "default"
   harness_mode: "standalone"

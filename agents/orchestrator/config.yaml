@@ -1,5 +1,10 @@
 agent:
   id: "orchestrator"
+  description: >
+    Task orchestrator and coordinator. Breaks down complex requests into
+    subtasks, delegates to specialist worker agents, aggregates results,
+    and manages multi-step workflows. Use for any task requiring
+    coordination across multiple agents.
   model: "gpt-5.2"
   boundary: "default"
   harness_mode: "standalone"

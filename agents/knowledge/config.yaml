@@ -1,5 +1,9 @@
 agent:
   id: "knowledge"
+  description: >
+    Knowledge management specialist. Searches, retrieves, creates, and
+    updates notes in the Obsidian vault. Use for any task requiring
+    information storage, retrieval, or knowledge base operations.
   model: "gpt-5.2"
   boundary: "default"
   harness_mode: "standalone"

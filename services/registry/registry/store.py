@@ -90,6 +90,12 @@ class CapabilityStore:
             except Exception as exc:
                 logger.warning("registry_redis_write_failed", error=str(exc))
 
+            # Notify subscribers of agent change (MCP-05)
+            try:
+                await redis_client.publish("registry:agent_changed", registration.agent_id)
+            except Exception as exc:
+                logger.warning("registry_publish_failed", error=str(exc))
+
         return registration
 
     def get(self, agent_id: str) -> AgentRegistration:
@@ -117,6 +123,12 @@ class CapabilityStore:
                     await redis_client.srem(f"{CAPABILITY_SET_PREFIX}{cap}", agent_id)
             except Exception as exc:
                 logger.warning("registry_redis_delete_failed", error=str(exc))
+
+            # Notify subscribers of agent change (MCP-05)
+            try:
+                await redis_client.publish("registry:agent_changed", agent_id)
+            except Exception as exc:
+                logger.warning("registry_publish_failed", error=str(exc))
 
     async def update_status(
         self, agent_id: str, status: AgentStatus, redis_client: Any | None = None
