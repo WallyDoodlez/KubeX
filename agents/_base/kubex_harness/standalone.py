@@ -197,6 +197,10 @@ class StandaloneAgent:
                         "capabilities": self.config.capabilities,
                         "status": "running",
                         "boundary": self.config.boundary,
+                        "metadata": {
+                            "description": self.config.description,
+                            "tools": [t["function"]["name"] for t in self.tool_definitions] if self.tool_definitions else [],
+                        },
                     },
                 )
                 if resp.status_code in (200, 201):

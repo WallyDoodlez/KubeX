@@ -39,6 +39,8 @@ class AgentConfig(BaseModel):
         harness_mode: "standalone" (default) or "openclaw"
         gateway_url:  Gateway base URL (default: http://gateway:8080)
         broker_url:   Broker base URL (default: http://kubex-broker:8060)
+        description:  Human-readable agent description for MCP tool metadata (MCP-05)
+        boundary:     Policy boundary this agent belongs to (default: "default")
     """
 
     agent_id: str = ""
@@ -48,6 +50,8 @@ class AgentConfig(BaseModel):
     harness_mode: str = "standalone"
     gateway_url: str = "http://gateway:8080"
     broker_url: str = "http://kubex-broker:8060"
+    description: str = ""
+    boundary: str = "default"
 
 
 # ---------------------------------------------------------------------------
@@ -101,4 +105,6 @@ def load_agent_config(config_path: str = "/app/config.yaml") -> AgentConfig:
         harness_mode=file_data.get("harness_mode", "standalone"),
         gateway_url=file_data.get("gateway_url", "http://gateway:8080"),
         broker_url=file_data.get("broker_url", "http://kubex-broker:8060"),
+        description=file_data.get("description", ""),
+        boundary=file_data.get("boundary", "default"),
     )
