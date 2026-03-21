@@ -244,3 +244,75 @@ class TestRegistryEndpoints:
         resp = self.client.get("/capabilities/my_capability")
         assert resp.status_code == 200
         assert len(resp.json()) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Tests — Registry pub/sub notifications (MCP-05)
+# ---------------------------------------------------------------------------
+
+
+from unittest.mock import AsyncMock  # noqa: E402
+
+
+class TestRegistryPubSub:
+    """Registry publishes registry:agent_changed on register and deregister."""
+
+    def setup_method(self) -> None:
+        self.store = CapabilityStore()
+
+    @pytest.mark.asyncio
+    async def test_register_publishes_agent_changed(self) -> None:
+        """After register() with redis_client, publish called with registry:agent_changed and agent_id."""
+        mock_redis = AsyncMock()
+        reg = AgentRegistration(agent_id="pub-agent", capabilities=["cap-x"])
+        await self.store.register(reg, redis_client=mock_redis)
+        mock_redis.publish.assert_called_once_with("registry:agent_changed", "pub-agent")
+
+    @pytest.mark.asyncio
+    async def test_deregister_publishes_agent_changed(self) -> None:
+        """After deregister() with redis_client, publish called with registry:agent_changed and agent_id."""
+        mock_redis = AsyncMock()
+        # Register first (without checking publish call count)
+        reg = AgentRegistration(agent_id="dereg-agent", capabilities=["cap-y"])
+        await self.store.register(reg, redis_client=mock_redis)
+        mock_redis.reset_mock()
+
+        # Now deregister — publish should be called once
+        await self.store.deregister("dereg-agent", redis_client=mock_redis)
+        mock_redis.publish.assert_called_once_with("registry:agent_changed", "dereg-agent")
+
+    @pytest.mark.asyncio
+    async def test_register_publish_failure_does_not_prevent_registration(self) -> None:
+        """publish exception does not prevent register from completing successfully."""
+        mock_redis = AsyncMock()
+        mock_redis.publish.side_effect = Exception("Redis unavailable")
+        reg = AgentRegistration(agent_id="resilient-agent", capabilities=["cap-z"])
+
+        # Should not raise — publish failure is non-blocking
+        result = await self.store.register(reg, redis_client=mock_redis)
+        assert result.agent_id == "resilient-agent"
+        # Agent should still be in the store
+        assert self.store.get("resilient-agent").agent_id == "resilient-agent"
+
+    @pytest.mark.asyncio
+    async def test_deregister_publish_failure_does_not_prevent_deregistration(self) -> None:
+        """publish exception does not prevent deregister from completing successfully."""
+        mock_redis = AsyncMock()
+        # Register successfully first
+        reg = AgentRegistration(agent_id="gone-agent", capabilities=[])
+        await self.store.register(reg)
+
+        # Make publish fail on deregister
+        mock_redis.publish.side_effect = Exception("Redis unavailable")
+
+        # Should not raise — publish failure is non-blocking
+        await self.store.deregister("gone-agent", redis_client=mock_redis)
+        assert len(self.store.list_all()) == 0
+
+    @pytest.mark.asyncio
+    async def test_register_without_redis_no_publish(self) -> None:
+        """register() without redis_client does not attempt any publish."""
+        reg = AgentRegistration(agent_id="no-redis-agent", capabilities=[])
+        # Should succeed without error (no redis available)
+        result = await self.store.register(reg)
+        assert result.agent_id == "no-redis-agent"
