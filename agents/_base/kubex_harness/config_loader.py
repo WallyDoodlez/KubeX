@@ -36,7 +36,11 @@ class AgentConfig(BaseModel):
         model:        LLM model name to use (default: gpt-5.2)
         skills:       Ordered list of skill directory names to load
         capabilities: List of broker consumer group / capability names
-        harness_mode: "standalone" (default) or "openclaw"
+        harness_mode: "standalone" (default) or "openclaw" or "mcp-bridge"
+        runtime:      Runtime type for transport selection (D-13).
+                      "openai-api" = in-memory transport (bridge and LLM share same process).
+                      Any other value (e.g. "claude-code", "codex", "gemini-cli") = stdio
+                      transport (CLI connects as MCP client). Default: "openai-api".
         gateway_url:  Gateway base URL (default: http://gateway:8080)
         broker_url:   Broker base URL (default: http://kubex-broker:8060)
         description:  Human-readable agent description for MCP tool metadata (MCP-05)
@@ -48,6 +52,7 @@ class AgentConfig(BaseModel):
     skills: list[str] = Field(default_factory=list)
     capabilities: list[str] = Field(default_factory=list)
     harness_mode: str = "standalone"
+    runtime: str = "openai-api"  # Transport selection: "openai-api" = in-memory, anything else = stdio
     gateway_url: str = "http://gateway:8080"
     broker_url: str = "http://kubex-broker:8060"
     description: str = ""
@@ -103,6 +108,7 @@ def load_agent_config(config_path: str = "/app/config.yaml") -> AgentConfig:
         skills=file_data.get("skills", []) or [],
         capabilities=file_data.get("capabilities", []) or [],
         harness_mode=file_data.get("harness_mode", "standalone"),
+        runtime=file_data.get("runtime", "openai-api"),
         gateway_url=file_data.get("gateway_url", "http://gateway:8080"),
         broker_url=file_data.get("broker_url", "http://kubex-broker:8060"),
         description=file_data.get("description", ""),

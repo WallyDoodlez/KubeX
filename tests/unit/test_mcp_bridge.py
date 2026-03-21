@@ -908,6 +908,61 @@ class TestConcurrentDispatch:
 
 
 # ---------------------------------------------------------------------------
+# TestTransportSelection (D-13)
+# ---------------------------------------------------------------------------
+
+
+class TestTransportSelection:
+    """MCPBridgeServer selects transport based on config.runtime (D-13)."""
+
+    def test_transport_inmemory_for_openai_api(self, mock_fastmcp):
+        """config.runtime='openai-api' -> _transport == 'inmemory' (D-13)."""
+        from kubex_harness.config_loader import AgentConfig
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+
+        config = AgentConfig(agent_id="orchestrator", runtime="openai-api")
+        bridge = MCPBridgeServer(config)
+        assert bridge._transport == "inmemory"
+
+    def test_transport_stdio_for_claude_code(self, mock_fastmcp):
+        """config.runtime='claude-code' -> _transport == 'stdio' (D-13)."""
+        from kubex_harness.config_loader import AgentConfig
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+
+        config = AgentConfig(agent_id="orchestrator", runtime="claude-code")
+        bridge = MCPBridgeServer(config)
+        assert bridge._transport == "stdio"
+
+    def test_transport_stdio_for_codex(self, mock_fastmcp):
+        """config.runtime='codex' -> _transport == 'stdio' (D-13)."""
+        from kubex_harness.config_loader import AgentConfig
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+
+        config = AgentConfig(agent_id="orchestrator", runtime="codex")
+        bridge = MCPBridgeServer(config)
+        assert bridge._transport == "stdio"
+
+    def test_transport_stdio_default_non_api(self, mock_fastmcp):
+        """config.runtime='gemini-cli' (any non-openai-api) -> _transport == 'stdio' (D-13)."""
+        from kubex_harness.config_loader import AgentConfig
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+
+        config = AgentConfig(agent_id="orchestrator", runtime="gemini-cli")
+        bridge = MCPBridgeServer(config)
+        assert bridge._transport == "stdio"
+
+    def test_transport_default_is_inmemory_when_runtime_is_default(self, mock_fastmcp):
+        """AgentConfig default runtime='openai-api' -> _transport == 'inmemory'."""
+        from kubex_harness.config_loader import AgentConfig
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+
+        config = AgentConfig(agent_id="orchestrator")  # default runtime
+        assert config.runtime == "openai-api"
+        bridge = MCPBridgeServer(config)
+        assert bridge._transport == "inmemory"
+
+
+# ---------------------------------------------------------------------------
 # Async iterator helper
 # ---------------------------------------------------------------------------
 

@@ -51,6 +51,15 @@ class MCPBridgeServer:
 
     def __init__(self, config: AgentConfig) -> None:
         self.config = config
+
+        # D-13: Transport selection based on runtime type.
+        # openai-api = in-memory (bridge and LLM client share same process/asyncio loop)
+        # anything else (claude-code, codex, gemini-cli) = stdio (CLI connects as MCP client)
+        if config.runtime == "openai-api":
+            self._transport = "inmemory"
+        else:
+            self._transport = "stdio"
+
         self._mcp = FastMCP(name="kubex-bridge")
         self._http: httpx.AsyncClient | None = None
         self._running = True
@@ -528,7 +537,7 @@ class MCPBridgeServer:
         1. Create HTTP client
         2. Subscribe to registry pub/sub (background task)
         3. Fetch initial agent list (cold boot)
-        4. Run MCP server
+        4. Run MCP server with transport derived from config.runtime (D-13)
         """
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
             self._http = client
@@ -540,15 +549,17 @@ class MCPBridgeServer:
             await self.refresh_worker_tools()
 
             logger.info(
-                "MCPBridgeServer starting: agent_id=%s tools=%d max_delegation_depth=%d",
+                "MCPBridgeServer starting: agent_id=%s transport=%s runtime=%s tools=%d max_delegation_depth=%d",
                 self.config.agent_id,
+                self._transport,
+                self.config.runtime,
                 len(self._tool_cache) + 1,  # +1 for poll_task
                 self.max_delegation_depth,
             )
 
-            # Run MCP server (blocks until stopped)
+            # Run MCP server with transport determined by config.runtime (D-13)
             try:
-                await self._mcp.run_async()
+                await self._mcp.run_async(transport=self._transport)
             finally:
                 await self._shutdown()
 

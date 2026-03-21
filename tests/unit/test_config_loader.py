@@ -288,3 +288,48 @@ class TestDescriptionAndBoundaryFields:
         config_path = write_config(tmp_path / "config.yaml", data)
         config = load_agent_config(config_path)
         assert config.boundary == "default"
+
+
+# ---------------------------------------------------------------------------
+# Tests — runtime field (D-13)
+# ---------------------------------------------------------------------------
+
+
+class TestRuntimeField:
+    """AgentConfig has a runtime field for transport selection (D-13)."""
+
+    def test_runtime_field_default_is_openai_api(self) -> None:
+        """AgentConfig with no runtime argument defaults to 'openai-api'."""
+        config = AgentConfig(agent_id="test-agent")
+        assert config.runtime == "openai-api"
+
+    def test_runtime_field_set_to_openai_api(self) -> None:
+        """AgentConfig with runtime='openai-api' has config.runtime == 'openai-api'."""
+        config = AgentConfig(agent_id="test-agent", runtime="openai-api")
+        assert config.runtime == "openai-api"
+
+    def test_runtime_field_set_to_claude_code(self) -> None:
+        """AgentConfig with runtime='claude-code' has config.runtime == 'claude-code'."""
+        config = AgentConfig(agent_id="test-agent", runtime="claude-code")
+        assert config.runtime == "claude-code"
+
+    def test_load_agent_config_parses_runtime(self, tmp_path: Path) -> None:
+        """load_agent_config() with YAML containing runtime returns config with that runtime."""
+        data = {
+            "agent": {
+                "id": "my-agent",
+                "runtime": "claude-code",
+                "model": "gpt-5.2",
+                "skills": [],
+                "capabilities": [],
+            }
+        }
+        config_path = write_config(tmp_path / "config.yaml", data)
+        config = load_agent_config(config_path)
+        assert config.runtime == "claude-code"
+
+    def test_load_agent_config_runtime_defaults_to_openai_api(self, tmp_path: Path) -> None:
+        """load_agent_config() with no runtime in YAML returns config with runtime == 'openai-api'."""
+        config_path = write_config(tmp_path / "config.yaml", MINIMAL_CONFIG)
+        config = load_agent_config(config_path)
+        assert config.runtime == "openai-api"
