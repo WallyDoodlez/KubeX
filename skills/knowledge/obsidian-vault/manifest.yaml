@@ -93,17 +93,6 @@ tools:
         type: string
         required: true
         description: "Note name to search for (without .md)"
-  - name: "commit_and_push"
-    description: "Git commit pending vault changes and optionally push"
-    parameters:
-      message:
-        type: string
-        required: true
-        description: "Git commit message"
-      push:
-        type: boolean
-        required: false
-        description: "Whether to push to remote (default false)"
 dependencies:
   pip: []
   system:

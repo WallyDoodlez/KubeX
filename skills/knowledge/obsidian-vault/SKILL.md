@@ -216,19 +216,14 @@ Parameters:
 
 Returns list of `{path, title, snippet}` for each note that links here.
 
-### commit_and_push
+## Automatic Persistence
 
-Commit all pending vault changes to git and optionally push to remote.
+**You do not need to commit or push.** Every `create_note` and `update_note` call automatically commits changes to git if the vault is a git repository. This happens silently — you never need to think about it.
 
-Parameters:
-- `message` (required) — Git commit message
-- `push` (optional) — Whether to push to remote (default: false)
-
-Returns `{committed: bool, pushed: bool, message}`.
+The vault owner (human admin) controls when to push to a remote. Your job is to write good notes with proper links. Persistence is handled for you.
 
 ## Error Handling
 
 - If `search_notes` returns no results, proceed to create a new note.
 - If `get_note` returns a not-found error, the note does not exist — create it.
 - If `update_note` fails, log the error and report it. Do not silently swallow failures.
-- If `commit_and_push` fails (e.g., no git repo), log a warning — the vault is still usable without git.

@@ -104,6 +104,27 @@ def _build_related_section(links: list[str]) -> str:
     return "".join(lines)
 
 
+def _auto_commit(vault_path: str, message: str) -> None:
+    """Silently commit vault changes to git after a write operation.
+
+    Degrades gracefully — does nothing when the vault is not a git repo or
+    git is unavailable.  Never raises.
+    """
+    try:
+        _run = lambda cmd: subprocess.run(
+            cmd, cwd=vault_path, capture_output=True, text=True, timeout=30,
+        )
+        check = _run(["git", "rev-parse", "--is-inside-work-tree"])
+        if check.returncode != 0:
+            return
+        _run(["git", "add", "-A"])
+        status = _run(["git", "status", "--porcelain"])
+        if status.stdout.strip():
+            _run(["git", "commit", "-m", message])
+    except Exception:
+        pass  # Git is optional — vault works without it
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -164,6 +185,7 @@ def create_note(
     full_text = frontmatter + "\n" + content.rstrip("\n") + "\n" + related
 
     note_path.write_text(full_text, encoding="utf-8")
+    _auto_commit(vault_path, f"knowledge: create {rel_path}")
     return {"path": rel_path, "created": True}
 
 
@@ -215,6 +237,7 @@ def update_note(
         new_text = fm_yaml + "\n" + body.rstrip("\n") + "\n" + update_heading + content.rstrip("\n") + "\n"
 
     note_path.write_text(new_text, encoding="utf-8")
+    _auto_commit(vault_path, f"knowledge: update {path}")
     return {"path": path, "updated": True}
 
 
