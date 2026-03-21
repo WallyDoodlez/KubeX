@@ -28,7 +28,7 @@ Test coverage:
   22. find_backlinks finds notes with [[wiki-link]] to target
   23. find_backlinks finds [[note|display text]] links
   24. find_backlinks returns empty list when no links found
-  25. commit_and_push degrades gracefully when no git repo present
+  25. auto-commit degrades gracefully when no git repo present
 """
 
 from __future__ import annotations
@@ -49,13 +49,13 @@ if str(_SKILL_TOOLS) not in sys.path:
 
 from init_vault import init_vault  # noqa: E402
 from vault_ops import (  # noqa: E402
+    _auto_commit_and_push,
     create_note,
     find_backlinks,
     get_note,
     list_notes,
     search_notes,
     update_note,
-    commit_and_push,
 )
 
 
@@ -647,18 +647,23 @@ class TestFindBacklinks:
 
 
 # ===========================================================================
-# 26. commit_and_push (no-git degradation)
+# 26. auto-commit (no-git degradation)
 # ===========================================================================
 
 
-class TestCommitAndPush:
+class TestAutoCommitAndPush:
     def test_degrades_gracefully_without_git_repo(self, tmp_path):
-        """commit_and_push returns a non-error dict when no git repo present."""
-        # tmp_path is not a git repo
-        result = commit_and_push(str(tmp_path), "test commit")
-        assert isinstance(result, dict)
-        assert "committed" in result
-        assert "pushed" in result
-        assert "message" in result
-        assert result["committed"] is False
-        assert result["pushed"] is False
+        """_auto_commit_and_push is a no-op when vault is not a git repo."""
+        # tmp_path is not a git repo — should not raise
+        _auto_commit_and_push(str(tmp_path), "test commit")
+        # No exception = success (function degrades silently)
+
+    def test_create_note_does_not_raise_without_git(self, tmp_path):
+        """create_note works fine even when vault has no git repo."""
+        init_vault(str(tmp_path))
+        result = create_note(
+            str(tmp_path), "Test Note", "Some content.",
+            "facts", ["test"], today="2026-03-20",
+        )
+        assert result["created"] is True
+        assert (tmp_path / result["path"]).exists()

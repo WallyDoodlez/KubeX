@@ -104,11 +104,13 @@ def _build_related_section(links: list[str]) -> str:
     return "".join(lines)
 
 
-def _auto_commit(vault_path: str, message: str) -> None:
-    """Silently commit vault changes to git after a write operation.
+def _auto_commit_and_push(vault_path: str, message: str) -> None:
+    """Silently commit and push vault changes after a write operation.
 
-    Degrades gracefully — does nothing when the vault is not a git repo or
-    git is unavailable.  Never raises.
+    Every write to the vault is automatically committed and pushed to the
+    remote (if one is configured).  Degrades gracefully — does nothing when
+    the vault is not a git repo, git is unavailable, or no remote exists.
+    Never raises.
     """
     try:
         _run = lambda cmd: subprocess.run(
@@ -119,8 +121,10 @@ def _auto_commit(vault_path: str, message: str) -> None:
             return
         _run(["git", "add", "-A"])
         status = _run(["git", "status", "--porcelain"])
-        if status.stdout.strip():
-            _run(["git", "commit", "-m", message])
+        if not status.stdout.strip():
+            return
+        _run(["git", "commit", "-m", message])
+        _run(["git", "push"])
     except Exception:
         pass  # Git is optional — vault works without it
 
@@ -185,7 +189,7 @@ def create_note(
     full_text = frontmatter + "\n" + content.rstrip("\n") + "\n" + related
 
     note_path.write_text(full_text, encoding="utf-8")
-    _auto_commit(vault_path, f"knowledge: create {rel_path}")
+    _auto_commit_and_push(vault_path, f"knowledge: create {rel_path}")
     return {"path": rel_path, "created": True}
 
 
@@ -237,7 +241,7 @@ def update_note(
         new_text = fm_yaml + "\n" + body.rstrip("\n") + "\n" + update_heading + content.rstrip("\n") + "\n"
 
     note_path.write_text(new_text, encoding="utf-8")
-    _auto_commit(vault_path, f"knowledge: update {path}")
+    _auto_commit_and_push(vault_path, f"knowledge: update {path}")
     return {"path": path, "updated": True}
 
 
@@ -414,78 +418,3 @@ def find_backlinks(vault_path: str, note_name: str) -> list[dict[str, Any]]:
     return results
 
 
-def commit_and_push(
-    vault_path: str,
-    message: str,
-    push: bool = False,
-) -> dict[str, Any]:
-    """Git commit all pending vault changes and optionally push.
-
-    Degrades gracefully when the vault directory is not a git repo or git is
-    not available — returns ``{"committed": False, "pushed": False, ...}``
-    with a descriptive ``message`` rather than raising.
-
-    Args:
-        vault_path: Absolute path to the vault root (must be inside a git repo).
-        message: Commit message.
-        push: If ``True``, push to the remote after committing.
-
-    Returns:
-        ``{"committed": bool, "pushed": bool, "message": str}``
-    """
-    def _run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            cmd,
-            cwd=vault_path,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-
-    # Check that git is available and the directory is a repo
-    check = _run(["git", "rev-parse", "--is-inside-work-tree"])
-    if check.returncode != 0:
-        return {
-            "committed": False,
-            "pushed": False,
-            "message": "vault is not a git repository — skipping commit",
-        }
-
-    # Stage all changes
-    add_result = _run(["git", "add", "-A"])
-    if add_result.returncode != 0:
-        return {
-            "committed": False,
-            "pushed": False,
-            "message": f"git add failed: {add_result.stderr.strip()}",
-        }
-
-    # Check if there is anything to commit
-    status = _run(["git", "status", "--porcelain"])
-    if not status.stdout.strip():
-        return {
-            "committed": False,
-            "pushed": False,
-            "message": "nothing to commit — vault is clean",
-        }
-
-    commit_result = _run(["git", "commit", "-m", message])
-    if commit_result.returncode != 0:
-        return {
-            "committed": False,
-            "pushed": False,
-            "message": f"git commit failed: {commit_result.stderr.strip()}",
-        }
-
-    pushed = False
-    push_message = "push skipped"
-    if push:
-        push_result = _run(["git", "push"])
-        pushed = push_result.returncode == 0
-        push_message = "pushed" if pushed else f"push failed: {push_result.stderr.strip()}"
-
-    return {
-        "committed": True,
-        "pushed": pushed,
-        "message": f"committed: {commit_result.stdout.strip()}" + (f"; {push_message}" if push else ""),
-    }

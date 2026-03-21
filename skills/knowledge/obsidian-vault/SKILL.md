@@ -218,9 +218,9 @@ Returns list of `{path, title, snippet}` for each note that links here.
 
 ## Automatic Persistence
 
-**You do not need to commit or push.** Every `create_note` and `update_note` call automatically commits changes to git if the vault is a git repository. This happens silently — you never need to think about it.
+**You do not need to think about git.** Every `create_note` and `update_note` call automatically commits and pushes changes to the remote git repository. This happens silently after every write — you never call any git commands yourself.
 
-The vault owner (human admin) controls when to push to a remote. Your job is to write good notes with proper links. Persistence is handled for you.
+Your job is to write good notes with proper links. Persistence is fully automatic.
 
 ## Error Handling
 
