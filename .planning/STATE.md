@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Stem Cell Kubex
-status: milestone_complete
-stopped_at: Milestone v1.1 archived
+milestone: v1.2
+milestone_name: MCP Bridge + CLI Runtime
+status: defining_requirements
+stopped_at: Milestone v1.2 started — defining requirements
 last_updated: "2026-03-21"
-last_activity: "2026-03-21 — Milestone v1.1 Stem Cell Kubex archived and tagged"
+last_activity: "2026-03-21 — Milestone v1.2 started"
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,18 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Any Kubex can become any agent — new capabilities are skill files, not Docker builds.
-**Current focus:** Planning next milestone (v1.2 — MCP Bridge + OAuth Runtime)
+**Current focus:** Defining requirements for v1.2 (MCP Bridge + CLI Runtime)
 
 ## Current Position
 
-Milestone: v1.1 Stem Cell Kubex — COMPLETE (shipped 2026-03-21)
-Next: `/gsd:new-milestone` to plan v1.2
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-21 — Milestone v1.2 started
 
 ## Accumulated Context
 
 ### Decisions
 
-All v1.1 decisions archived in `.planning/milestones/v1.1-phases/`. Key decisions carried forward to PROJECT.md Key Decisions table.
+- MCP Bridge: workers as MCP servers, orchestrator as MCP client, full replacement of custom tool loop
+- CLI Runtime: PTY-based, any CLI runs as-is, harness is process supervisor
+- Monitoring: hooks preferred (Claude Code, Gemini CLI), MCP reporting fallback (Codex), process monitoring always
+- Bidirectional MCP: harness is MCP client (calls workers) AND MCP server (receives CLI reports)
+- OAuth: web-based flow via Command Center, not docker exec
+- aider: out of scope (no hooks, no MCP)
 
 ### Pending Todos
 
@@ -40,10 +47,10 @@ None.
 
 ### Blockers/Concerns
 
-None — milestone complete.
+None.
 
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Milestone v1.1 archived
+Stopped at: Defining requirements for v1.2
 Resume file: None

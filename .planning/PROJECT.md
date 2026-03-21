@@ -38,11 +38,18 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 
 ### Active
 
-- [ ] MCP Bridge — replace custom orchestrator tool loop with standard MCP server
+- [ ] MCP Bridge — workers as MCP servers, orchestrator as MCP client, custom tool loop replaced
+- [ ] CLI Runtime — any CLI agent (Claude Code, Codex, Gemini CLI) runs in PTY inside Kubex containers
+- [ ] Bidirectional MCP — harness is MCP server for CLI reporting (fallback for CLIs without hooks)
+- [ ] Hooks-based monitoring — passive instrumentation via CLI hooks where supported
+- [ ] OAuth provisioning — web-based flow via Command Center, token injected at spawn
+- [ ] Lifecycle events — container/CLI/task state tracking and reporting
+
+### Future
+
 - [ ] Agent descriptions in config.yaml for dynamic discovery
 - [ ] Obsidian knowledge vault with auto git commit+push
 - [ ] Command Center web dashboard (service health, orchestrator chat, containers)
-- [ ] OAuth CLI runtime mode (Claude Code, Codex CLI, Gemini CLI inside containers)
 - [ ] Multi-user session isolation
 - [ ] Git attribution on vault writes (agent author + user committer)
 
@@ -53,6 +60,7 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 - Clarification flow (`needs_clarification` status) — not yet needed
 - Hot-swap skills on running containers — prompt injection vector; restart instead
 - Structural vault isolation (per-agent folders) — kills institutional knowledge sharing
+- aider support — no hooks, no MCP; would need wrapper; low priority
 
 ## Context
 
@@ -60,7 +68,7 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 - **Tech stack:** Python, Docker, Redis, FastAPI, GPT-5.2 (non-pro), o3-mini (reviewer)
 - **Codebase:** ~30,700 LOC Python
 - **Live system:** Obsidian knowledge vault replacing Neo4j/Graphiti/OpenSearch. Command Center at :3001.
-- **v1.2 direction:** MCP Bridge for orchestration (design doc at `docs/design-mcp-bridge.md`), OAuth CLI runtime (design doc at `docs/design-oauth-runtime.md`)
+- **v1.2 direction:** MCP Bridge (workers as MCP servers, full tool loop replacement) + CLI Runtime (PTY-based, any CLI, hooks/MCP monitoring, OAuth via Command Center web flow). Design docs at `docs/design-mcp-bridge.md` and `docs/design-oauth-runtime.md`.
 
 ## Key Decisions
 
@@ -77,6 +85,10 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 | Gateway ingress scanning, not vault-layer scanning | Defense at boundary; LLM scanning LLM attacks is circular | ✓ Good — v1.2 |
 | MCP Bridge for orchestration | Standard protocol, any harness works, worker tools as MCP tools | — Pending v1.2 |
 | Workers are domain specialists with own LLM | Orchestrator decides WHO/WHAT, worker decides HOW | — Pending v1.2 |
+| CLI runs as-is in PTY, not wrapped | Stem cell philosophy — container doesn't care what CLI you put in it | — Pending v1.2 |
+| Hooks preferred, MCP fallback for monitoring | Hooks are passive (zero prompt tokens), MCP for CLIs without hooks | — Pending v1.2 |
+| Bidirectional MCP — harness is client AND server | CLI reports via MCP tools, harness calls workers via MCP | — Pending v1.2 |
+| OAuth via Command Center web flow, not docker exec | More polished UX, token forwarded to container at spawn | — Pending v1.2 |
 
 ## Constraints
 
@@ -85,5 +97,34 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 - **Docker Compose**: Must work with existing compose topology
 - **No new dependencies in base image**: Agents request extras through policy
 
+## Current Milestone: v1.2 MCP Bridge + CLI Runtime
+
+**Goal:** Replace custom tool loop with MCP protocol and enable any CLI agent to run inside Kubex containers via PTY with hooks-based monitoring and OAuth provisioning.
+
+**Target features:**
+- MCP Bridge — workers as MCP servers, orchestrator as MCP client, custom loop removed
+- CLI Runtime — PTY-based, any CLI runs as-is, harness is process supervisor
+- Bidirectional MCP — harness is MCP server for CLI reporting (fallback)
+- Hooks-based monitoring — passive instrumentation (Claude Code, Gemini CLI native; MCP fallback for Codex)
+- OAuth provisioning — web-based flow via Command Center
+- Lifecycle events — container/CLI/task state tracking
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-03-21 after v1.1 milestone*
+*Last updated: 2026-03-21 after v1.2 milestone started*
