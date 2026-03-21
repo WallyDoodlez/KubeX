@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-21T23:37:14.619Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-21T23:44:13.167Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 08 (mcp-bridge) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Performance Metrics
 
@@ -43,6 +43,7 @@ Plan: 2 of 4
 
 *Updated after each plan completion*
 | Phase 08-mcp-bridge P01 | 2 | 2 tasks | 9 files |
+| Phase 08-mcp-bridge P02 | 260 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -57,6 +58,8 @@ Recent decisions affecting current work:
 - [v1.2]: CLI Runtime uses claude-agent-sdk for Claude Code (not raw PTY), ptyprocess for Codex/Gemini
 - [v1.2]: Old custom tool loop kept alive in parallel until MCP bridge passes full E2E parity against 789 tests; deletion is final step
 - [Phase 08-mcp-bridge]: Pub/sub publish placed in own try/except outside hset try/except — publish failure must never block registration success
+- [Phase 08-mcp-bridge]: Extracted _handle_poll_task and _handle_worker_dispatch as testable methods (closures delegate to them) to enable unit testing without MCP protocol
+- [Phase 08-mcp-bridge]: MagicMock (not AsyncMock) for redis pubsub fixture -- redis client.pubsub() is synchronous in redis-py
 
 ### Pending Todos
 
@@ -70,6 +73,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T23:37:14.616Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-03-21T23:44:13.164Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
