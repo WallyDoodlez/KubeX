@@ -182,8 +182,41 @@ class StandaloneAgent:
         # Load tool definitions from skill manifests
         self.tool_definitions = _load_tool_definitions(skills_dir)
 
+    async def _register_in_registry(self, client: httpx.AsyncClient) -> None:
+        """Register this agent in the Registry so it appears in the dashboard.
+
+        Retries up to 5 times with 3s delay — the registry may not be ready
+        immediately when the agent container starts.
+        """
+        for attempt in range(5):
+            try:
+                resp = await client.post(
+                    f"{self.registry_url}/agents",
+                    json={
+                        "agent_id": self.config.agent_id,
+                        "capabilities": self.config.capabilities,
+                        "status": "running",
+                        "boundary": self.config.boundary,
+                    },
+                )
+                if resp.status_code in (200, 201):
+                    logger.info("Registered in registry: agent_id=%s", self.config.agent_id)
+                    return
+                elif resp.status_code == 422:
+                    logger.info("Already registered in registry: agent_id=%s", self.config.agent_id)
+                    return
+                else:
+                    logger.warning("Registry returned %d: %s", resp.status_code, resp.text)
+            except Exception:
+                logger.info(
+                    "Registry not ready (attempt %d/5), retrying in 3s...",
+                    attempt + 1,
+                )
+            await asyncio.sleep(3)
+        logger.warning("Could not register in registry after 5 attempts")
+
     async def run(self) -> None:
-        """Main loop — poll broker, process messages, repeat."""
+        """Main loop — register, then poll broker, process messages, repeat."""
         logger.info(
             "Starting standalone agent loop: agent_id=%s capabilities=%s model=%s tools=%d",
             self.config.agent_id,
@@ -194,6 +227,7 @@ class StandaloneAgent:
 
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
             self._http = client
+            await self._register_in_registry(client)
             while self._running:
                 try:
                     await self._poll_and_process(client)

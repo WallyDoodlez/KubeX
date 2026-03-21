@@ -305,7 +305,7 @@ services:
         - VITE_MANAGER_TOKEN=${MANAGER_TOKEN:-changeme-manager-token}
     container_name: kubexclaw-command-center
     ports:
-      - "3000:3000"
+      - "3001:3000"
     networks:
       - kubex-external
     depends_on:

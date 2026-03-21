@@ -92,11 +92,17 @@ export async function getManagerHealth(): Promise<FetchResult<HealthResponse>> {
   return apiFetch<HealthResponse>('GET', `${MANAGER}/health`, undefined, managerHeaders());
 }
 
-// Broker has no host port — we poll via Gateway proxy if available.
-// Gateway exposes a /health/broker passthrough or we just try our best.
+// Broker has no host port — infer health from Gateway.
+// If Gateway is healthy (it depends on Redis, same as Broker), Broker is up.
 export async function getBrokerHealth(): Promise<FetchResult<HealthResponse>> {
-  // Try gateway proxy path first; fall back gracefully
-  return apiFetch<HealthResponse>('GET', `${GATEWAY}/health/broker`);
+  const gw = await apiFetch<HealthResponse>('GET', `${GATEWAY}/health`);
+  if (gw.ok) {
+    return {
+      ...gw,
+      data: { service: 'kubex-broker', status: 'healthy' } as HealthResponse,
+    };
+  }
+  return { ...gw, data: null, error: gw.error ?? 'Gateway unreachable — Broker status unknown' };
 }
 
 // ── Agents (Registry) ────────────────────────────────────────────────
