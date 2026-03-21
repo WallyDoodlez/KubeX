@@ -8,6 +8,7 @@ from typing import Any
 
 import yaml
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from kubex_common.clients.redis import RedisClient, create_redis_client
 from kubex_common.logging import configure_logging, get_logger
@@ -45,6 +46,13 @@ class KubexService:
     def _create_app(self) -> FastAPI:
         app = FastAPI(title=self.service_name, version=self.version)
 
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
         app.add_middleware(LoggingMiddleware)
         app.add_middleware(RequestIDMiddleware)
 
