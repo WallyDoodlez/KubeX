@@ -24,10 +24,14 @@ tools:
         description: "Vault folder: facts, entities, events, decisions, logs"
       tags:
         type: array
+        items:
+          type: string
         required: true
         description: "List of lowercase kebab-case tags"
       links:
         type: array
+        items:
+          type: string
         required: false
         description: "List of note names to link to in the Related section"
       source:
