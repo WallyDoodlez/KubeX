@@ -761,7 +761,8 @@ async def get_task_result(task_id: str, request: Request) -> JSONResponse:
     """
     gateway: GatewayService = request.app.state.gateway_service
 
-    if gateway.redis_db1 is None:
+    redis_client = gateway.redis_db0 or gateway.redis_db1
+    if redis_client is None:
         return JSONResponse(
             status_code=503,
             content=ErrorResponse(
@@ -771,7 +772,7 @@ async def get_task_result(task_id: str, request: Request) -> JSONResponse:
         )
 
     try:
-        raw = await gateway.redis_db1.get(f"task:{task_id}:result")
+        raw = await redis_client.get(f"task:result:{task_id}")
     except Exception as exc:
         logger.error("result_proxy_failed", task_id=task_id, error=str(exc))
         return JSONResponse(
@@ -1002,6 +1003,7 @@ class GatewayService(KubexService):
         # Second Redis connection for db4 (budget)
         self.redis_db4_url = os.environ.get("REDIS_URL")
         self.redis_db1: Any | None = None  # Rate limits + pub/sub
+        self.redis_db0: Any | None = None  # Broker results (DB 0)
 
         # Policy root defaults to project root
         policy_root = os.environ.get("KUBEX_POLICY_ROOT", ".")
@@ -1040,10 +1042,12 @@ class GatewayService(KubexService):
         if self.redis:
             self.redis_db1 = self.redis.client
             self.rate_limiter = RateLimiter(self.redis_db1)
-
-            # Budget tracker on db4 — create a separate connection
-            # For MVP, reuse db1 client (in production, use separate db4 connection)
             self.budget_tracker = BudgetTracker(self.redis_db1)
+
+            # DB 0 client for reading Broker task results
+            import redis.asyncio as aioredis
+            redis_url = os.environ.get("REDIS_URL", "redis://redis:6379")
+            self.redis_db0 = aioredis.from_url(redis_url, db=0, decode_responses=True)
 
         # Initialize LLM proxy HTTP client
         await self.llm_proxy.connect()
