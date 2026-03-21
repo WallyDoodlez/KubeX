@@ -75,37 +75,37 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MCP-01 | — | Pending |
-| MCP-02 | — | Pending |
-| MCP-03 | — | Pending |
-| MCP-04 | — | Pending |
-| MCP-05 | — | Pending |
-| MCP-06 | — | Pending |
-| MCP-07 | — | Pending |
-| MCP-08 | — | Pending |
-| CLI-01 | — | Pending |
-| CLI-02 | — | Pending |
-| CLI-03 | — | Pending |
-| CLI-04 | — | Pending |
-| CLI-05 | — | Pending |
-| CLI-06 | — | Pending |
-| CLI-07 | — | Pending |
-| CLI-08 | — | Pending |
-| CLI-09 | — | Pending |
-| CLI-10 | — | Pending |
-| HOOK-01 | — | Pending |
-| HOOK-02 | — | Pending |
-| HOOK-03 | — | Pending |
-| HOOK-04 | — | Pending |
-| AUTH-01 | — | Pending |
-| AUTH-02 | — | Pending |
-| AUTH-03 | — | Pending |
+| MCP-01 | Phase 8 | Pending |
+| MCP-02 | Phase 8 | Pending |
+| MCP-03 | Phase 8 | Pending |
+| MCP-04 | Phase 8 | Pending |
+| MCP-05 | Phase 8 | Pending |
+| MCP-06 | Phase 8 | Pending |
+| MCP-07 | Phase 8 | Pending |
+| MCP-08 | Phase 8 | Pending |
+| CLI-01 | Phase 9 | Pending |
+| CLI-02 | Phase 9 | Pending |
+| CLI-03 | Phase 9 | Pending |
+| CLI-04 | Phase 9 | Pending |
+| CLI-05 | Phase 9 | Pending |
+| CLI-06 | Phase 9 | Pending |
+| CLI-07 | Phase 9 | Pending |
+| CLI-08 | Phase 9 | Pending |
+| CLI-09 | Phase 11 | Pending |
+| CLI-10 | Phase 11 | Pending |
+| HOOK-01 | Phase 10 | Pending |
+| HOOK-02 | Phase 10 | Pending |
+| HOOK-03 | Phase 10 | Pending |
+| HOOK-04 | Phase 10 | Pending |
+| AUTH-01 | Phase 12 | Pending |
+| AUTH-02 | Phase 12 | Pending |
+| AUTH-03 | Phase 12 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25 ⚠️
+- Mapped to phases: 25
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 — traceability completed after roadmap creation*
