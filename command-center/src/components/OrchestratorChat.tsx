@@ -4,21 +4,14 @@ import type { ChatMessage, TrafficEntry, Agent } from '../types';
 
 interface OrchestratorChatProps {
   onTrafficEntry: (entry: TrafficEntry) => void;
+  messages: ChatMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
 
 const POLL_INTERVAL = 2000;
 const POLL_MAX = 60; // 60 * 2s = 2 minutes
 
-export default function OrchestratorChat({ onTrafficEntry }: OrchestratorChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'system',
-      content:
-        'KubexClaw Command Center — dispatch tasks to the orchestrator via the Gateway. Enter a capability and message below.',
-      timestamp: new Date(),
-    },
-  ]);
+export default function OrchestratorChat({ onTrafficEntry, messages, setMessages }: OrchestratorChatProps) {
   const [capability, setCapability] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);

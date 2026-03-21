@@ -6,4 +6,4 @@ agent:
   capabilities:
     - "hello"
   gateway_url: "http://gateway:8080"
-  broker_url: "http://broker:8060"
+  broker_url: "http://kubex-broker:8060"

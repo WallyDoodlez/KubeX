@@ -38,7 +38,7 @@ class AgentConfig(BaseModel):
         capabilities: List of broker consumer group / capability names
         harness_mode: "standalone" (default) or "openclaw"
         gateway_url:  Gateway base URL (default: http://gateway:8080)
-        broker_url:   Broker base URL (default: http://broker:8060)
+        broker_url:   Broker base URL (default: http://kubex-broker:8060)
     """
 
     agent_id: str = ""
@@ -47,7 +47,7 @@ class AgentConfig(BaseModel):
     capabilities: list[str] = Field(default_factory=list)
     harness_mode: str = "standalone"
     gateway_url: str = "http://gateway:8080"
-    broker_url: str = "http://broker:8060"
+    broker_url: str = "http://kubex-broker:8060"
 
 
 # ---------------------------------------------------------------------------
@@ -100,5 +100,5 @@ def load_agent_config(config_path: str = "/app/config.yaml") -> AgentConfig:
         capabilities=file_data.get("capabilities", []) or [],
         harness_mode=file_data.get("harness_mode", "standalone"),
         gateway_url=file_data.get("gateway_url", "http://gateway:8080"),
-        broker_url=file_data.get("broker_url", "http://broker:8060"),
+        broker_url=file_data.get("broker_url", "http://kubex-broker:8060"),
     )
