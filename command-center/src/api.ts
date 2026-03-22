@@ -201,3 +201,18 @@ export async function getTaskResult(taskId: string): Promise<FetchResult<TaskRes
 export async function getGatewayAgents(): Promise<FetchResult<Agent[]>> {
   return apiFetch<Agent[]>('GET', `${GATEWAY}/agents`);
 }
+
+// ── SSE streaming ───────────────────────────────────────────────────
+
+export function getTaskStreamUrl(taskId: string): string {
+  return `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/stream`;
+}
+
+// ── HITL (Human-in-the-loop) ────────────────────────────────────────
+
+export async function provideInput(
+  taskId: string,
+  input: string,
+): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>('POST', `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/input`, { input });
+}

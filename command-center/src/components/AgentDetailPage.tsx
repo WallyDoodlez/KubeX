@@ -4,9 +4,11 @@ import { getAgents } from '../api';
 import type { Agent } from '../types';
 import Tabs from './Tabs';
 import StatusBadge from './StatusBadge';
+import TerminalOutput from './TerminalOutput';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
+  { id: 'live-output', label: 'Live Output' },
   { id: 'actions', label: 'Actions' },
   { id: 'config', label: 'Config' },
 ];
@@ -77,6 +79,7 @@ export default function AgentDetailPage() {
       {/* Tabs */}
       <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab}>
         {activeTab === 'overview' && <OverviewTab agent={agent} />}
+        {activeTab === 'live-output' && <LiveOutputTab />}
         {activeTab === 'actions' && <ActionsTab agent={agent} />}
         {activeTab === 'config' && <ConfigTab agent={agent} />}
       </Tabs>
@@ -122,6 +125,21 @@ function OverviewTab({ agent }: { agent: Agent }) {
           </pre>
         </div>
       )}
+    </div>
+  );
+}
+
+function LiveOutputTab() {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-8 text-center">
+        <p className="text-sm text-[#64748b]">
+          Live task output will appear here when an agent is actively executing a task.
+        </p>
+        <p className="text-xs text-[#3a3f5a] mt-2">
+          Dispatch a task to this agent via the Orchestrator to see real-time streaming output.
+        </p>
+      </div>
     </div>
   );
 }

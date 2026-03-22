@@ -81,19 +81,19 @@
   - [x] Verify: npm run build clean + npx playwright test passes
   - [x] Commit
 
-- [ ] **Iteration 8: SSE Live Streaming + Terminal Renderer + HITL**
-  - [ ] PRE-CHECK: git pull and verify GET /tasks/{id}/stream endpoint exists in Gateway code. If not available, mark this iteration BLOCKED and skip to iteration 9
-  - [ ] Create src/hooks/useSSE.ts (EventSource lifecycle, reconnect, final handling)
-  - [ ] Create src/components/TerminalOutput.tsx (monospace stdout/stderr renderer, auto-scroll)
-  - [ ] Create src/components/HITLPrompt.tsx (awaiting_input prompt card, submit via POST /actions)
-  - [ ] Upgrade OrchestratorChat.tsx — switch from polling to SSE, embed TerminalOutput + HITLPrompt
-  - [ ] Add "Live Output" tab to AgentDetailPage.tsx
-  - [ ] Add SSEChunk, HITLRequest types to types.ts + new agent states (booting, credential_wait, ready)
-  - [ ] Update StatusBadge.tsx — colors for new lifecycle states
-  - [ ] Add getTaskStream(), provideInput() to api.ts
-  - [ ] Create tests/e2e/streaming.spec.ts (8 tests)
-  - [ ] Verify: npm run build clean + npx playwright test passes
-  - [ ] Commit
+- [x] **Iteration 8: SSE Live Streaming + Terminal Renderer + HITL**
+  - [x] PRE-CHECK: git pull and verify GET /tasks/{id}/stream endpoint exists in Gateway code. If not available, mark this iteration BLOCKED and skip to iteration 9
+  - [x] Create src/hooks/useSSE.ts (EventSource lifecycle, reconnect, final handling)
+  - [x] Create src/components/TerminalOutput.tsx (monospace stdout/stderr renderer, auto-scroll)
+  - [x] Create src/components/HITLPrompt.tsx (awaiting_input prompt card, submit via POST /actions)
+  - [x] Upgrade OrchestratorChat.tsx — switch from polling to SSE, embed TerminalOutput + HITLPrompt
+  - [x] Add "Live Output" tab to AgentDetailPage.tsx
+  - [x] Add SSEChunk, HITLRequest types to types.ts + new agent states (booting, credential_wait, ready)
+  - [x] Update StatusBadge.tsx — colors for new lifecycle states
+  - [x] Add getTaskStream(), provideInput() to api.ts
+  - [x] Create tests/e2e/streaming.spec.ts (8 tests)
+  - [x] Verify: npm run build clean + npx playwright test passes
+  - [x] Commit
 
 - [ ] **Iteration 9: Approval Queue (New Page)**
   - [ ] Create src/components/ApprovalQueue.tsx (card list, approve/reject, time ticker)
