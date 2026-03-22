@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import CopyButton from './CopyButton';
 import { dispatchTask, getTaskResult, getAgents, getTaskStreamUrl, provideInput } from '../api';
 import type { ChatMessage, TrafficEntry, Agent } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
@@ -554,8 +555,23 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
                 Result
               </span>
               {message.task_id && (
-                <span className="text-[10px] font-mono-data text-[var(--color-text-muted)]">{message.task_id}</span>
+                <span className="flex items-center gap-1">
+                  <span className="text-[10px] font-mono-data text-[var(--color-text-muted)]" data-testid="result-task-id">
+                    {message.task_id}
+                  </span>
+                  <CopyButton
+                    text={message.task_id}
+                    ariaLabel="Copy task ID"
+                    testId="copy-result-task-id"
+                  />
+                </span>
               )}
+              <CopyButton
+                text={message.content}
+                ariaLabel="Copy result content"
+                testId="copy-result-content"
+                className="ml-auto"
+              />
             </div>
             <pre className="text-sm text-[var(--color-text)] whitespace-pre-wrap break-words font-mono-data">
               {message.content}

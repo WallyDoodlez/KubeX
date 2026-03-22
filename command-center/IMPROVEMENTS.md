@@ -303,6 +303,17 @@
   - [x] Test: npx playwright test — 397/397 passed
   - [x] Update `docs/CHANGELOG.md`
 
+- [x] **Iteration 30: Click-to-copy for IDs and results**
+  - [x] Create `src/components/CopyButton.tsx` — small icon button that copies text to clipboard using `navigator.clipboard.writeText`; shows "Copied!" feedback for 1.5 s then reverts; accessible with `aria-label`, `title`, keyboard-operable
+  - [x] Add `<CopyButton>` next to Agent IDs in `AgentsPanel.tsx` rows (expanded detail) and `AgentDetailPage.tsx` Overview tab
+  - [x] Add `<CopyButton>` next to Kubex IDs in `ContainersPanel.tsx` rows
+  - [x] Add `<CopyButton>` next to task IDs in `OrchestratorChat.tsx` result bubbles and copy-result button for full result content
+  - [x] Add `<CopyButton>` next to task IDs in `TrafficLog.tsx` rows
+  - [x] Create `tests/e2e/copy-button.spec.ts` — tests: button renders, clipboard write called, "Copied!" feedback shown, button in agent panel, button in containers panel, button in orchestrator result, button in traffic log
+  - [x] Build: npm run build — clean, 97 modules
+  - [x] Test: npx playwright test — 425/425 passed
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 29: Agent capability matrix**
   - [x] Create `src/components/CapabilityMatrix.tsx` — grid/table showing agents as rows and all unique capabilities as columns; filled cells (✓) indicate the agent has that capability; empty cells (–) indicate it does not; coverage count per column shows how many agents share each capability; agent status dot in each row; columns sorted alphabetically; horizontal scroll for wide fleets; full `aria-label` accessibility on every cell; `role="grid"` with `aria-label` on the table
   - [x] Add `<CapabilityMatrix agents={agents}>` to `AgentsPanel.tsx` — rendered below the table + pagination when `agents.length > 0`; updates whenever the polling refresh returns new agent data

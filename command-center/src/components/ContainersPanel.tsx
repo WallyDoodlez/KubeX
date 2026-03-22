@@ -13,6 +13,7 @@ import { SkeletonTable } from './SkeletonLoader';
 import EmptyState from './EmptyState';
 import ExportMenu from './ExportMenu';
 import { exportAsJSON } from '../utils/export';
+import CopyButton from './CopyButton';
 
 // Status filter options
 type StatusFilter = 'all' | 'running' | 'created' | 'stopped' | 'error';
@@ -283,8 +284,11 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, onKill, onSta
       role="row"
     >
       {/* Kubex ID */}
-      <span className="font-mono-data text-sm text-[var(--color-text)] truncate" title={kubex.kubex_id} role="cell">
-        {kubex.kubex_id}
+      <span className="flex items-center gap-1.5 min-w-0" role="cell">
+        <span className="font-mono-data text-sm text-[var(--color-text)] truncate" title={kubex.kubex_id}>
+          {kubex.kubex_id}
+        </span>
+        <CopyButton text={kubex.kubex_id} ariaLabel="Copy kubex ID" testId="copy-kubex-id" />
       </span>
 
       {/* Agent ID */}

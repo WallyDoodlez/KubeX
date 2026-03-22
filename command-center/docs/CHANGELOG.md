@@ -4,6 +4,21 @@
 
 ---
 
+## Iteration 30: Click-to-copy for IDs and results
+**Files created:** `src/components/CopyButton.tsx`, `tests/e2e/copy-button.spec.ts`
+**Files modified:** `src/components/AgentsPanel.tsx`, `src/components/AgentDetailPage.tsx`, `src/components/ContainersPanel.tsx`, `src/components/OrchestratorChat.tsx`, `src/components/TrafficLog.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `CopyButton.tsx` — a small inline icon button (16×16 px) that copies any `text` prop to the clipboard via `navigator.clipboard.writeText`. Displays a clipboard SVG in the idle state; switches to a checkmark SVG for 1.5 s after a successful copy, with `aria-label` and `title` both updating to "Copied!" for screen reader and tooltip feedback. Reverts automatically after the timeout. Keyboard-operable via `Enter`/`Space`. Falls back silently when the Clipboard API is unavailable (incognito / older browsers). Accepts optional `className`, `ariaLabel`, and `testId` props.
+- Updated `AgentsPanel.tsx` — added `CopyButton` import; extended `DetailField` component with optional `copyable` prop; set `copyable` on the `agent_id` field in the expanded row detail panel.
+- Updated `AgentDetailPage.tsx` — added `CopyButton` import; placed a copy button immediately after the agent ID heading text; extended `InfoCard` with optional `copyable` prop and set it on the Agent ID card in the Overview tab; added a copy button next to task IDs in the Dispatch History rows.
+- Updated `ContainersPanel.tsx` — added `CopyButton` import; wrapped the kubex ID cell in a flex container with a `CopyButton` next to the truncated ID span.
+- Updated `OrchestratorChat.tsx` — added `CopyButton` import; in result `ChatBubble`, added a copy button next to the task ID label and a second copy button (right-aligned, "Copy result content") that copies the entire `message.content` text.
+- Updated `TrafficLog.tsx` — added `CopyButton` import; in `TrafficRow`, when a `task_id` is present, wrapped it in a flex span with a `CopyButton`; policy_rule-only rows remain plain text.
+- Created `tests/e2e/copy-button.spec.ts` — 11 tests: component presence in agents expanded row, containers panel kubex rows; clipboard `writeText` invocation verified via `page.exposeFunction`; "Copied!" aria-label appears after click; aria-label reverts after 1.5 s; orchestrator chat area renders cleanly; traffic log copy button count is non-negative; agent detail heading copy button; agent detail InfoCard copy button; keyboard operability (Enter key); title and aria-label attributes present.
+**Tests:** 414 → 425
+
+---
+
 ## Iteration 29: Agent capability matrix
 **Files created:** `src/components/CapabilityMatrix.tsx`, `tests/e2e/capability-matrix.spec.ts`
 **Files modified:** `src/components/AgentsPanel.tsx`, `tests/e2e/export.spec.ts`, `tests/e2e/skeletons.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

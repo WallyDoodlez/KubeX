@@ -1,4 +1,5 @@
 import { useState, useMemo, memo } from 'react';
+import CopyButton from './CopyButton';
 import type { TrafficEntry, ActionStatus, TrafficFilter } from '../types';
 import { usePagination } from '../hooks/usePagination';
 import TrafficFilterBar from './TrafficFilterBar';
@@ -197,12 +198,24 @@ const TrafficRow = memo(function TrafficRow({ entry }: { entry: TrafficEntry }) 
       </span>
 
       {/* Task ID / policy */}
-      <span
-        className="font-mono-data text-[var(--color-text-muted)] truncate"
-        title={entry.task_id ?? entry.policy_rule ?? '—'}
-      >
-        {entry.task_id ?? entry.policy_rule ?? '—'}
-      </span>
+      {entry.task_id ? (
+        <span className="flex items-center gap-1 min-w-0">
+          <span
+            className="font-mono-data text-[var(--color-text-muted)] truncate"
+            title={entry.task_id}
+          >
+            {entry.task_id}
+          </span>
+          <CopyButton text={entry.task_id} ariaLabel="Copy task ID" testId="copy-traffic-task-id" />
+        </span>
+      ) : (
+        <span
+          className="font-mono-data text-[var(--color-text-muted)] truncate"
+          title={entry.policy_rule ?? '—'}
+        >
+          {entry.policy_rule ?? '—'}
+        </span>
+      )}
     </div>
   );
 });

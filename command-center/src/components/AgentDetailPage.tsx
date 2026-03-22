@@ -9,6 +9,7 @@ import StatusBadge from './StatusBadge';
 import { SkeletonCard, SkeletonText } from './SkeletonLoader';
 import EmptyState from './EmptyState';
 import Breadcrumb from './Breadcrumb';
+import CopyButton from './CopyButton';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -87,6 +88,7 @@ export default function AgentDetailPage() {
 
       <div className="flex items-center gap-3 mb-6">
         <h2 className="text-lg font-semibold text-[var(--color-text)] font-mono-data">{agent.agent_id}</h2>
+        <CopyButton text={agent.agent_id} ariaLabel="Copy agent ID" testId="copy-agent-id-heading" />
         <StatusBadge status={agent.status} />
       </div>
 
@@ -112,7 +114,7 @@ function OverviewTab({ agent, onDispatchClick }: { agent: Agent; onDispatchClick
     <div className="space-y-4">
       {/* Info grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <InfoCard label="Agent ID" value={agent.agent_id} mono />
+        <InfoCard label="Agent ID" value={agent.agent_id} mono copyable />
         <InfoCard label="Status" value={agent.status} />
         <InfoCard label="Boundary" value={agent.boundary} />
         {agent.registered_at && <InfoCard label="Registered" value={agent.registered_at} mono />}
@@ -476,7 +478,10 @@ function DispatchHistoryRow({
             <span className="text-xs font-mono-data text-[var(--color-text-secondary)]">{entry.capability}</span>
           )}
           {entry.task_id && (
-            <span className="text-[10px] font-mono-data text-[var(--color-text-muted)]">{entry.task_id}</span>
+            <span className="flex items-center gap-1">
+              <span className="text-[10px] font-mono-data text-[var(--color-text-muted)]">{entry.task_id}</span>
+              <CopyButton text={entry.task_id} ariaLabel="Copy task ID" testId="copy-task-id-history" />
+            </span>
           )}
         </div>
         {entry.policy_rule && (
@@ -508,11 +513,20 @@ function ConfigTab({ agent }: { agent: Agent }) {
   );
 }
 
-function InfoCard({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function InfoCard({ label, value, mono, copyable }: { label: string; value: string; mono?: boolean; copyable?: boolean }) {
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
       <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">{label}</p>
-      <p className={`text-sm text-[var(--color-text)] ${mono ? 'font-mono-data' : ''} break-all`}>{value}</p>
+      <div className="flex items-center gap-1.5">
+        <p className={`text-sm text-[var(--color-text)] ${mono ? 'font-mono-data' : ''} break-all flex-1`}>{value}</p>
+        {copyable && (
+          <CopyButton
+            text={value}
+            ariaLabel={`Copy ${label}`}
+            testId={`copy-info-${label.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`}
+          />
+        )}
+      </div>
     </div>
   );
 }

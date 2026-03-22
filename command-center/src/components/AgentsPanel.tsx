@@ -15,6 +15,7 @@ import EmptyState from './EmptyState';
 import ExportMenu from './ExportMenu';
 import { exportAsJSON } from '../utils/export';
 import CapabilityMatrix from './CapabilityMatrix';
+import CopyButton from './CopyButton';
 
 // Stable comparators defined at module level so their references don't change between renders
 const sortComparators = {
@@ -277,7 +278,7 @@ const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onD
       {expanded && (
         <div className="bg-[var(--color-surface-dark)] border-t border-[var(--color-border)] px-6 py-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-            <DetailField label="agent_id" value={agent.agent_id} mono />
+            <DetailField label="agent_id" value={agent.agent_id} mono copyable />
             <DetailField label="status" value={agent.status} />
             <DetailField label="boundary" value={agent.boundary} />
             <DetailField
@@ -304,11 +305,20 @@ const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onD
   );
 });
 
-function DetailField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function DetailField({ label, value, mono, copyable }: { label: string; value: string; mono?: boolean; copyable?: boolean }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-0.5">{label}</p>
-      <p className={`text-[var(--color-text-secondary)] ${mono ? 'font-mono-data' : ''} break-all`}>{value}</p>
+      <div className="flex items-center gap-1.5">
+        <p className={`text-[var(--color-text-secondary)] ${mono ? 'font-mono-data' : ''} break-all`}>{value}</p>
+        {copyable && (
+          <CopyButton
+            text={value}
+            ariaLabel={`Copy ${label}`}
+            testId={`copy-${label.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`}
+          />
+        )}
+      </div>
     </div>
   );
 }
