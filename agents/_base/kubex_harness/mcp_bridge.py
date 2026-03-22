@@ -8,6 +8,13 @@ Runs in-process inside the orchestrator container. Exposes three tool categories
 The bridge subscribes to Redis pub/sub channel 'registry:agent_changed' for
 live tool cache invalidation (MCP-05).
 
+In API mode (openai-api runtime), the bridge runs its own task consumption +
+LLM tool-use loop — polling the Broker for tasks, calling the LLM with
+dynamically-registered tools, and routing tool calls to the appropriate handlers.
+
+In CLI mode (Phase 9), the bridge runs as an MCP server on stdio and external
+CLI agents connect as MCP clients.
+
 Need_info protocol (D-05/D-06/D-07):
 - Workers return {status: "need_info", request: "...", data: {...}} via result pipeline
 - kubex__poll_task surfaces need_info status to the LLM for re-delegation
@@ -17,8 +24,10 @@ Need_info protocol (D-05/D-06/D-07):
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -345,6 +354,325 @@ class MCPBridgeServer:
             return {"status": "error", "message": str(exc)}
 
     # ------------------------------------------------------------------
+    # Task consumption + LLM tool-use loop (API mode)
+    # ------------------------------------------------------------------
+
+    def _build_openai_tool_definitions(self) -> list[dict[str, Any]]:
+        """Build OpenAI function-calling tool definitions from registered MCP tools.
+
+        Converts the FastMCP tool registry into the OpenAI tools format so the
+        LLM can call them via function calling.
+        """
+        tools: list[dict[str, Any]] = []
+        for tool in self._mcp._tool_manager.list_tools():
+            # Extract parameter schema from the MCP tool
+            params = tool.parameters if hasattr(tool, "parameters") else {}
+            if hasattr(params, "model_json_schema"):
+                schema = params.model_json_schema()
+            elif isinstance(params, dict):
+                schema = params
+            else:
+                schema = {"type": "object", "properties": {}}
+
+            tools.append({
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description or f"MCP tool: {tool.name}",
+                    "parameters": schema,
+                },
+            })
+        return tools
+
+    async def _execute_mcp_tool(self, tool_name: str, args: dict[str, Any]) -> Any:
+        """Execute a registered MCP tool by name and return its result."""
+        try:
+            result = await self._mcp._tool_manager.call_tool(tool_name, args)
+            # FastMCP call_tool returns a list of content blocks
+            if hasattr(result, "__iter__") and not isinstance(result, (str, dict)):
+                parts = []
+                for block in result:
+                    if hasattr(block, "text"):
+                        parts.append(block.text)
+                    elif isinstance(block, dict):
+                        parts.append(json.dumps(block))
+                    else:
+                        parts.append(str(block))
+                return "\n".join(parts) if parts else ""
+            return result
+        except Exception as exc:
+            logger.error("MCP tool %s execution failed: %s", tool_name, exc)
+            return json.dumps({"error": f"Tool {tool_name} failed: {exc}"})
+
+    async def _poll_and_process(self) -> None:
+        """Poll broker for tasks and process them (API mode task loop)."""
+        assert self._http is not None
+        for capability in self.config.capabilities:
+            messages = await self._consume(capability)
+            for msg in messages:
+                await self._handle_message(msg, capability)
+
+    async def _consume(self, capability: str) -> list[dict[str, Any]]:
+        """GET /messages/consume/{capability} from the Broker."""
+        assert self._http is not None
+        try:
+            resp = await self._http.get(
+                f"{self.config.broker_url}/messages/consume/{capability}",
+                params={"count": 5, "block_ms": 0},
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            logger.warning("Broker consume returned %d", resp.status_code)
+        except httpx.ConnectError:
+            logger.debug("Broker not reachable at %s", self.config.broker_url)
+        except Exception:
+            logger.exception("Broker consume error")
+        return []
+
+    async def _handle_message(
+        self, msg: dict[str, Any], consumer_group: str
+    ) -> None:
+        """Process a single task: call LLM with MCP tools, post result, ack."""
+        task_id = msg.get("task_id", "unknown")
+        context_message = msg.get("context_message", "")
+        message_id = msg.get("message_id", "")
+
+        logger.info("Processing task %s: %s", task_id, context_message[:100])
+        assert self._http is not None
+
+        # Post initial progress
+        await self._post_progress(task_id, f"Agent {self.config.agent_id} starting task...\n")
+
+        # Build tool definitions from currently registered MCP tools
+        tool_defs = self._build_openai_tool_definitions()
+
+        # Build system prompt from skills
+        system_prompt = self._load_system_prompt()
+
+        # Multi-turn tool-use loop
+        try:
+            llm_response = await self._call_llm_with_mcp_tools(
+                context_message, task_id, system_prompt, tool_defs,
+            )
+        except Exception as exc:
+            logger.error("LLM call failed for task %s: %s", task_id, exc)
+            llm_response = f"Error: LLM call failed — {exc}"
+
+        # Post progress and final
+        await self._post_progress(task_id, llm_response)
+        await self._post_progress(task_id, "", final=True, exit_reason="completed")
+
+        # Store result via broker
+        await self._store_result(task_id, llm_response)
+
+        # Acknowledge message
+        if message_id:
+            await self._ack(message_id, consumer_group)
+
+        logger.info("Task %s completed", task_id)
+
+    def _load_system_prompt(self) -> str:
+        """Load system prompt from skill files (same as standalone)."""
+        skills_dir = os.environ.get("KUBEX_SKILLS_DIR", "/app/skills")
+        skills_path = Path(skills_dir)
+        if not skills_path.is_dir():
+            return (
+                "You are a KubexClaw orchestrator agent. Coordinate worker agents to "
+                "complete the task. Use the available tools to delegate work, check "
+                "results, manage the knowledge vault, and monitor agent status."
+            )
+
+        parts: list[str] = []
+        for md_file in sorted(skills_path.rglob("*.md")):
+            try:
+                content = md_file.read_text(encoding="utf-8")
+                rel = md_file.relative_to(skills_path)
+                parts.append(f"\n--- Skill: {rel} ---\n{content}")
+            except OSError:
+                pass
+
+        if parts:
+            return "\n\n## Loaded Skills\n" + "\n".join(parts)
+
+        return (
+            "You are a KubexClaw orchestrator agent. Coordinate worker agents to "
+            "complete the task. Use the available tools to delegate work, check "
+            "results, manage the knowledge vault, and monitor agent status."
+        )
+
+    async def _call_llm_with_mcp_tools(
+        self,
+        user_message: str,
+        task_id: str,
+        system_prompt: str,
+        tool_defs: list[dict[str, Any]],
+    ) -> str:
+        """Multi-turn tool-use loop using MCP-registered tools.
+
+        Same pattern as standalone._call_llm_with_tools but routes tool calls
+        to MCP tool handlers instead of skill-manifest handlers.
+        """
+        assert self._http is not None
+        max_iterations = int(os.environ.get("KUBEX_MAX_ITERATIONS", "20"))
+        openai_base_url = os.environ.get(
+            "OPENAI_BASE_URL",
+            f"{self.config.gateway_url}/v1/proxy/openai",
+        )
+
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+
+        for iteration in range(max_iterations):
+            logger.info("Task %s: tool-use iteration %d/%d", task_id, iteration + 1, max_iterations)
+
+            # Call LLM
+            payload: dict[str, Any] = {
+                "model": self.config.model,
+                "messages": messages,
+                "max_completion_tokens": 4096,
+            }
+            if tool_defs:
+                payload["tools"] = tool_defs
+                payload["tool_choice"] = "auto"
+
+            headers = {
+                "Content-Type": "application/json",
+                "X-Kubex-Agent-Id": self.config.agent_id,
+                "X-Kubex-Task-Id": task_id,
+            }
+
+            resp = await self._http.post(
+                f"{openai_base_url}/chat/completions",
+                json=payload,
+                headers=headers,
+            )
+            if resp.status_code != 200:
+                raise RuntimeError(f"LLM returned {resp.status_code}: {resp.text[:200]}")
+
+            data = resp.json()
+            choices = data.get("choices", [])
+            if not choices:
+                raise RuntimeError("LLM returned no choices")
+
+            response_message = choices[0].get("message", {})
+            messages.append(response_message)
+
+            # Check if LLM wants to call tools
+            tool_calls = response_message.get("tool_calls")
+            if not tool_calls:
+                return response_message.get("content", "") or ""
+
+            # Execute each tool call via MCP handlers
+            for tool_call in tool_calls:
+                tool_name = tool_call["function"]["name"]
+                tool_call_id = tool_call["id"]
+
+                try:
+                    tool_args = json.loads(tool_call["function"]["arguments"])
+                except (json.JSONDecodeError, KeyError):
+                    tool_args = {}
+
+                logger.info("Task %s: executing MCP tool %s(%s)", task_id, tool_name, json.dumps(tool_args)[:200])
+
+                tool_result = await self._execute_mcp_tool(tool_name, tool_args)
+
+                await self._post_progress(
+                    task_id, f"[tool:{tool_name}] {str(tool_result)[:500]}\n"
+                )
+
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "content": json.dumps(tool_result) if not isinstance(tool_result, str) else tool_result,
+                })
+
+        # Hit iteration limit
+        logger.warning("Task %s: hit max iterations (%d)", task_id, max_iterations)
+        messages.append({
+            "role": "user",
+            "content": "Maximum tool iterations reached. Provide your final answer now.",
+        })
+        payload = {"model": self.config.model, "messages": messages, "max_completion_tokens": 4096}
+        resp = await self._http.post(
+            f"{openai_base_url}/chat/completions", json=payload, headers=headers,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+        return "Error: hit max iterations and final summary call failed"
+
+    async def _post_progress(
+        self, task_id: str, chunk: str, *, final: bool = False, exit_reason: str | None = None
+    ) -> None:
+        """POST progress chunk to Gateway."""
+        assert self._http is not None
+        payload: dict[str, Any] = {
+            "task_id": task_id,
+            "agent_id": self.config.agent_id,
+            "chunk": chunk,
+            "final": final,
+        }
+        if exit_reason is not None:
+            payload["exit_reason"] = exit_reason
+        try:
+            await self._http.post(f"{self.config.gateway_url}/tasks/{task_id}/progress", json=payload)
+        except Exception:
+            logger.debug("Failed to post progress for task %s", task_id)
+
+    async def _store_result(self, task_id: str, result_text: str) -> None:
+        """Store task result via Broker POST /tasks/{task_id}/result."""
+        assert self._http is not None
+        try:
+            resp = await self._http.post(
+                f"{self.config.broker_url}/tasks/{task_id}/result",
+                json={"result": {"status": "completed", "agent_id": self.config.agent_id, "output": result_text}},
+            )
+            if resp.status_code not in (200, 201, 204):
+                logger.warning("Result store returned %d for task %s", resp.status_code, task_id)
+        except Exception:
+            logger.debug("Failed to store result for task %s", task_id)
+
+    async def _ack(self, message_id: str, group: str) -> None:
+        """Acknowledge a message on the Broker."""
+        assert self._http is not None
+        try:
+            await self._http.post(
+                f"{self.config.broker_url}/messages/{message_id}/ack",
+                json={"message_id": message_id, "group": group},
+            )
+        except Exception:
+            logger.debug("Failed to ack message %s", message_id)
+
+    async def _register_in_registry(self) -> None:
+        """Register this agent in the Registry (same as standalone)."""
+        assert self._http is not None
+        for attempt in range(5):
+            try:
+                tool_defs = self._build_openai_tool_definitions()
+                resp = await self._http.post(
+                    f"{self.registry_url}/agents",
+                    json={
+                        "agent_id": self.config.agent_id,
+                        "capabilities": self.config.capabilities,
+                        "status": "running",
+                        "boundary": self.config.boundary,
+                        "metadata": {
+                            "description": self.config.description,
+                            "tools": [t["function"]["name"] for t in tool_defs],
+                        },
+                    },
+                )
+                if resp.status_code in (200, 201, 422):
+                    logger.info("Registered in registry: agent_id=%s", self.config.agent_id)
+                    return
+            except Exception:
+                logger.info("Registry not ready (attempt %d/5), retrying in 3s...", attempt + 1)
+            await asyncio.sleep(3)
+        logger.warning("Could not register in registry after 5 attempts")
+
+    # ------------------------------------------------------------------
     # Concurrent dispatch (MCP-07)
     # ------------------------------------------------------------------
 
@@ -534,13 +862,23 @@ class MCPBridgeServer:
     async def run(self) -> None:
         """Start the MCP Bridge Server.
 
-        1. Create HTTP client
+        API mode (openai-api runtime):
+        1. Create HTTP client, register in registry
         2. Subscribe to registry pub/sub (background task)
         3. Fetch initial agent list (cold boot)
-        4. Run MCP server with transport derived from config.runtime (D-13)
+        4. Poll broker for tasks, call LLM with MCP tools, post results
+
+        CLI mode (stdio transport, Phase 9):
+        1-3 same as above
+        4. Run MCP server on stdio — external CLI agents connect as clients
         """
+        poll_interval = float(os.environ.get("KUBEX_POLL_INTERVAL", "2"))
+
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
             self._http = client
+
+            # Register in registry
+            await self._register_in_registry()
 
             # Start pub/sub listener as background task
             self._pubsub_task = asyncio.create_task(self._listen_registry_changes())
@@ -548,18 +886,32 @@ class MCPBridgeServer:
             # Cold boot: fetch current agents before accepting connections
             await self.refresh_worker_tools()
 
+            tool_count = len(self._tool_cache) + len(self._build_openai_tool_definitions())
             logger.info(
                 "MCPBridgeServer starting: agent_id=%s transport=%s runtime=%s tools=%d max_delegation_depth=%d",
                 self.config.agent_id,
                 self._transport,
                 self.config.runtime,
-                len(self._tool_cache) + 1,  # +1 for poll_task
+                tool_count,
                 self.max_delegation_depth,
             )
 
-            # Run MCP server with transport determined by config.runtime (D-13)
             try:
-                await self._mcp.run_async(transport=self._transport)
+                if self._transport == "stdio":
+                    # Phase 9 CLI mode: external CLI agents connect via stdio
+                    await self._mcp.run_stdio_async()
+                else:
+                    # API mode: run task consumption + LLM tool-use loop
+                    logger.info(
+                        "Entering API mode task loop: polling broker for capabilities=%s",
+                        self.config.capabilities,
+                    )
+                    while self._running:
+                        try:
+                            await self._poll_and_process()
+                        except Exception:
+                            logger.exception("Error in MCP bridge task loop iteration")
+                        await asyncio.sleep(poll_interval)
             finally:
                 await self._shutdown()
 
