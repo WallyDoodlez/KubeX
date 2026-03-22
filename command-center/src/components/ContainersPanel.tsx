@@ -3,12 +3,14 @@ import type { Kubex } from '../types';
 import { getKubexes, killKubex, startKubex } from '../api';
 import StatusBadge from './StatusBadge';
 import { usePolling } from '../hooks/usePolling';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function ContainersPanel() {
   const [kubexes, setKubexes] = useState<Kubex[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionIn, setActionIn] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{ kubexId: string; action: 'kill' } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -24,8 +26,14 @@ export default function ContainersPanel() {
 
   const { refresh } = usePolling(load, { interval: 10_000, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
 
-  async function handleKill(kubexId: string) {
-    if (!confirm(`Kill kubex "${kubexId}"?`)) return;
+  function requestKill(kubexId: string) {
+    setConfirmTarget({ kubexId, action: 'kill' });
+  }
+
+  async function handleConfirmedKill() {
+    if (!confirmTarget) return;
+    const { kubexId } = confirmTarget;
+    setConfirmTarget(null);
     setActionIn(kubexId);
     await killKubex(kubexId);
     setActionIn(null);
@@ -94,12 +102,22 @@ export default function ContainersPanel() {
               kubex={kubex}
               isLast={idx === kubexes.length - 1}
               actionIn={actionIn === kubex.kubex_id}
-              onKill={() => handleKill(kubex.kubex_id)}
+              onKill={() => requestKill(kubex.kubex_id)}
               onStart={() => handleStart(kubex.kubex_id)}
             />
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        title="Kill Kubex"
+        message={`Are you sure you want to kill kubex "${confirmTarget?.kubexId}"?`}
+        confirmLabel="Kill"
+        variant="danger"
+        onConfirm={handleConfirmedKill}
+        onCancel={() => setConfirmTarget(null)}
+      />
 
       {/* Summary footer */}
       {kubexes.length > 0 && (

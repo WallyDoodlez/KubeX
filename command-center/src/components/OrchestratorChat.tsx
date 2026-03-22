@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { dispatchTask, getTaskResult, getAgents } from '../api';
 import type { ChatMessage, TrafficEntry, Agent } from '../types';
+import { validateCapability, validateMessage } from '../utils/validation';
 
 interface OrchestratorChatProps {
   onTrafficEntry: (entry: TrafficEntry) => void;
@@ -15,6 +16,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [capability, setCapability] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [capError, setCapError] = useState<string | null>(null);
+  const [msgError, setMsgError] = useState<string | null>(null);
   const [knownCaps, setKnownCaps] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -55,6 +58,16 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     const cap = capability.trim();
     const msg = message.trim();
     if (!cap || !msg || sending) return;
+
+    const capValidation = validateCapability(cap);
+    const msgValidation = validateMessage(msg);
+    if (!capValidation.valid || !msgValidation.valid) {
+      setCapError(capValidation.error ?? null);
+      setMsgError(msgValidation.error ?? null);
+      return;
+    }
+    setCapError(null);
+    setMsgError(null);
 
     setSending(true);
 
@@ -196,7 +209,11 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               <input
                 type="text"
                 value={capability}
-                onChange={(e) => setCapability(e.target.value)}
+                onChange={(e) => {
+                  setCapability(e.target.value);
+                  const result = validateCapability(e.target.value);
+                  setCapError(e.target.value.trim() ? (result.valid ? null : result.error ?? null) : null);
+                }}
                 onKeyDown={handleKeyDown}
                 list="capabilities-list"
                 placeholder="e.g. orchestrate"
@@ -215,6 +232,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 ))}
               </datalist>
             </div>
+            {capError && <p className="text-[10px] text-red-400 mt-0.5">{capError}</p>}
           </div>
 
           {/* Message input */}
@@ -224,7 +242,11 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
             </label>
             <textarea
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => {
+                setMessage(e.target.value);
+                const result = validateMessage(e.target.value);
+                setMsgError(e.target.value.trim() ? (result.valid ? null : result.error ?? null) : null);
+              }}
               onKeyDown={handleKeyDown}
               placeholder="Task instructions… (Ctrl+Enter to send)"
               disabled={sending}
@@ -237,12 +259,13 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 disabled:opacity-50 transition-colors
               "
             />
+            {msgError && <p className="text-[10px] text-red-400 mt-0.5">{msgError}</p>}
           </div>
 
           {/* Send button */}
           <button
             onClick={handleSend}
-            disabled={sending || !capability.trim() || !message.trim()}
+            disabled={sending || !capability.trim() || !message.trim() || !!capError || !!msgError}
             className="
               flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold
               bg-emerald-500 text-white

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AppProvider, useAppContext } from './context/AppContext';
+import { AuthProvider } from './context/AuthContext';
 import type { NavPage } from './types';
 
 const LazyDashboard = lazy(() => import('./components/Dashboard'));
@@ -51,6 +52,7 @@ const LoadingFallback = (
 export default function App() {
   return (
     <BrowserRouter>
+      <AuthProvider>
       <AppProvider>
         <Layout>
           <ErrorBoundary>
@@ -66,6 +68,7 @@ export default function App() {
           </ErrorBoundary>
         </Layout>
       </AppProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

@@ -3,6 +3,7 @@ import { usePolling } from '../hooks/usePolling';
 import type { Agent } from '../types';
 import { getAgents, deregisterAgent } from '../api';
 import StatusBadge from './StatusBadge';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function AgentsPanel() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -10,6 +11,7 @@ export default function AgentsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deregistering, setDeregistering] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -25,10 +27,15 @@ export default function AgentsPanel() {
 
   const { refresh } = usePolling(load, { interval: 10_000, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
 
-  async function handleDeregister(agentId: string) {
-    if (!confirm(`Deregister agent "${agentId}"?`)) return;
-    setDeregistering(agentId);
-    await deregisterAgent(agentId);
+  function requestDeregister(agentId: string) {
+    setConfirmTarget(agentId);
+  }
+
+  async function handleDeregister() {
+    if (!confirmTarget) return;
+    setConfirmTarget(null);
+    setDeregistering(confirmTarget);
+    await deregisterAgent(confirmTarget);
     setDeregistering(null);
     await load();
   }
@@ -86,12 +93,21 @@ export default function AgentsPanel() {
               onToggle={() =>
                 setExpandedId((prev) => (prev === agent.agent_id ? null : agent.agent_id))
               }
-              onDeregister={() => handleDeregister(agent.agent_id)}
+              onDeregister={() => requestDeregister(agent.agent_id)}
               deregistering={deregistering === agent.agent_id}
             />
           ))}
         </div>
       )}
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        title="Deregister Agent"
+        message={`Are you sure you want to deregister agent "${confirmTarget}"?`}
+        confirmLabel="Deregister"
+        variant="danger"
+        onConfirm={handleDeregister}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

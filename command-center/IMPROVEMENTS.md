@@ -29,17 +29,17 @@
   - [x] Verify: npm run build clean + npx playwright test passes
   - [x] Commit
 
-- [ ] **Iteration 3: API Hardening + Auth + Input Validation**
-  - [ ] Harden src/api.ts — remove changeme token default, add request dedup, 401/403 detection
-  - [ ] Create src/context/AuthContext.tsx (manager token state)
-  - [ ] Create src/components/AuthGate.tsx (token input when env var missing)
-  - [ ] Create src/components/ConfirmDialog.tsx (accessible modal, replace window.confirm)
-  - [ ] Create src/utils/validation.ts (validateCapability, validateMessage)
-  - [ ] Add validation to OrchestratorChat.tsx (inline errors, disable send on invalid)
-  - [ ] Replace window.confirm in AgentsPanel.tsx and ContainersPanel.tsx with ConfirmDialog
-  - [ ] Create tests/e2e/auth.spec.ts + tests/e2e/validation.spec.ts (6 tests)
-  - [ ] Verify: npm run build clean + npx playwright test passes
-  - [ ] Commit
+- [x] **Iteration 3: API Hardening + Auth + Input Validation**
+  - [x] Harden src/api.ts — remove changeme token default, add request dedup, 401/403 detection
+  - [x] Create src/context/AuthContext.tsx (manager token state)
+  - [x] Create src/components/AuthGate.tsx (token input when env var missing)
+  - [x] Create src/components/ConfirmDialog.tsx (accessible modal, replace window.confirm)
+  - [x] Create src/utils/validation.ts (validateCapability, validateMessage)
+  - [x] Add validation to OrchestratorChat.tsx (inline errors, disable send on invalid)
+  - [x] Replace window.confirm in AgentsPanel.tsx and ContainersPanel.tsx with ConfirmDialog
+  - [x] Create tests/e2e/auth.spec.ts + tests/e2e/validation.spec.ts (6 tests)
+  - [x] Verify: npm run build clean + npx playwright test passes
+  - [x] Commit
 
 - [ ] **Iteration 4: Dashboard Enhancement**
   - [ ] Create src/hooks/useTimeSeries.ts (accumulate data points for sparklines)
