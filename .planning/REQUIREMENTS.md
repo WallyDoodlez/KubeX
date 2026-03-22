@@ -20,14 +20,14 @@ Requirements for MCP Bridge + CLI Runtime milestone. Each maps to roadmap phases
 
 ### CLI Runtime
 
-- [ ] **CLI-01**: PTY-based subprocess launch for any configured CLI agent (runtime field in config.yaml)
-- [ ] **CLI-02**: Credential check at startup with HITL re-auth via existing request_user_input action
-- [ ] **CLI-03**: Failure pattern detection per CLI type with typed reason in task_failed payload (subscription_limit, auth_expired, cli_crash, runtime_not_available)
-- [ ] **CLI-04**: SIGTERM handler: forward to PTY child → wait 5s → SIGKILL → exit harness; tini as PID 1; exec-form CMD
-- [ ] **CLI-05**: Skills injected as CLAUDE.md / AGENTS.md / GEMINI.md at spawn time (extends stem cell skill injection)
-- [ ] **CLI-06**: Named Docker volumes for OAuth token persistence across container restarts (one volume per agent_id)
-- [ ] **CLI-07**: Container lifecycle state machine: BOOTING → CREDENTIAL_WAIT → READY ↔ BUSY with events via Redis pub/sub
-- [ ] **CLI-08**: Claude Code runtime via PTY subprocess
+- [x] **CLI-01**: PTY-based subprocess launch for any configured CLI agent (runtime field in config.yaml)
+- [x] **CLI-02**: Credential check at startup with HITL re-auth via existing request_user_input action
+- [x] **CLI-03**: Failure pattern detection per CLI type with typed reason in task_failed payload (subscription_limit, auth_expired, cli_crash, runtime_not_available)
+- [x] **CLI-04**: SIGTERM handler: forward to PTY child → wait 5s → SIGKILL → exit harness; tini as PID 1; exec-form CMD
+- [x] **CLI-05**: Skills injected as CLAUDE.md / AGENTS.md / GEMINI.md at spawn time (extends stem cell skill injection)
+- [x] **CLI-06**: Named Docker volumes for OAuth token persistence across container restarts (one volume per agent_id)
+- [x] **CLI-07**: Container lifecycle state machine: BOOTING → CREDENTIAL_WAIT → READY ↔ BUSY with events via Redis pub/sub
+- [x] **CLI-08**: Claude Code runtime via PTY subprocess
 - [ ] **CLI-09**: Codex CLI runtime via PTY subprocess
 - [ ] **CLI-10**: Gemini CLI runtime via PTY subprocess
 
@@ -83,14 +83,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MCP-06 | Phase 8 | Complete |
 | MCP-07 | Phase 8 | Complete |
 | MCP-08 | Phase 8 | Complete |
-| CLI-01 | Phase 9 | Pending |
-| CLI-02 | Phase 9 | Pending |
-| CLI-03 | Phase 9 | Pending |
-| CLI-04 | Phase 9 | Pending |
-| CLI-05 | Phase 9 | Pending |
-| CLI-06 | Phase 9 | Pending |
-| CLI-07 | Phase 9 | Pending |
-| CLI-08 | Phase 9 | Pending |
+| CLI-01 | Phase 9 | Complete |
+| CLI-02 | Phase 9 | Complete |
+| CLI-03 | Phase 9 | Complete |
+| CLI-04 | Phase 9 | Complete |
+| CLI-05 | Phase 9 | Complete |
+| CLI-06 | Phase 9 | Complete |
+| CLI-07 | Phase 9 | Complete |
+| CLI-08 | Phase 9 | Complete |
 | CLI-09 | Phase 11 | Pending |
 | CLI-10 | Phase 11 | Pending |
 | HOOK-01 | Phase 10 | Pending |

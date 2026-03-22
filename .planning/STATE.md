@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 09-00-PLAN.md
-last_updated: "2026-03-22T18:28:00.801Z"
+stopped_at: Completed 09-cli-runtime-claude-code 09-01-PLAN.md
+last_updated: "2026-03-22T18:30:35.487Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 09 (cli-runtime-claude-code) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Plan: 2 of 4
 | Phase 08.1-agent-system-prompts P01 | 2 | 2 tasks | 3 files |
 | Phase 08.1-agent-system-prompts P02 | 8 | 2 tasks | 4 files |
 | Phase 09 P00 | 3 | 1 tasks | 1 files |
+| Phase 09-cli-runtime-claude-code P01 | 135s | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 08.1-agent-system-prompts]: Sync httpx.get used in _fetch_worker_descriptions — _load_system_prompt runs at startup before asyncio loop, sync call is safe in this one-time path
 - [Phase 08.1-agent-system-prompts]: Orchestrator filters self from worker list by comparing agent_id — prevents self-delegation via worker list section
 - [Phase 09]: Test stubs use pytest.skip() (not xfail) so they are collected but never count as failures until Plan 03 fills them in
+- [Phase 09-cli-runtime-claude-code]: tini installed via apt-get as PID 1 for correct SIGTERM forwarding to Python harness in all kubexclaw-base containers
+- [Phase 09-cli-runtime-claude-code]: CLI_CREDENTIAL_MOUNTS dict maps runtime type to container credential path; named volume kubex-creds-{agent_id} auto-created by Docker SDK on spawn
+- [Phase 09-cli-runtime-claude-code]: CLAUDE.md generated at /app/CLAUDE.md from all SKILL.md files when runtime != openai-api; skipped for LLM-harness agents
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T18:28:00.797Z
-Stopped at: Completed 09-00-PLAN.md
+Last session: 2026-03-22T18:30:35.484Z
+Stopped at: Completed 09-cli-runtime-claude-code 09-01-PLAN.md
 Resume file: None

@@ -83,7 +83,7 @@ Plans:
 
 Plans:
 - [x] 09-00-PLAN.md — Wave 0: test stub scaffolding for Nyquist compliance
-- [ ] 09-01-PLAN.md — Infrastructure: tini PID 1, named Docker volumes, docker-compose.yml, CLAUDE.md skill injection in entrypoint
+- [x] 09-01-PLAN.md — Infrastructure: tini PID 1, named Docker volumes, docker-compose.yml, CLAUDE.md skill injection in entrypoint
 - [ ] 09-02-PLAN.md — CLIRuntime core module: state machine, PTY spawn, credential gate, failure detection
 - [ ] 09-03-PLAN.md — Wiring into main.py, full unit tests, integration verification
 
