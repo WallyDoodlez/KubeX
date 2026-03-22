@@ -16,6 +16,10 @@ Modes:
         Uses MCPBridgeServer from mcp_bridge.py.
         Worker delegations route through Gateway POST /actions.
 
+    cli-runtime: Runs a CLI agent (Claude Code, Codex, Gemini CLI) via PTY subprocess.
+        Uses CLIRuntime from cli_runtime.py.
+        Activated when config.runtime != "openai-api" (overrides harness_mode).
+
 Boot sequence:
     1. Load config via load_agent_config() — fails fast if /app/config.yaml missing
     2. Log structured boot summary
@@ -63,6 +67,29 @@ async def _run() -> None:
             logger.error("OpenClaw harness not available — falling back to standalone")
             config.harness_mode = "standalone"
 
+    # CLI runtime routing — runtime != "openai-api" means a CLI subprocess agent
+    # CLI agents use harness_mode "standalone" but route to CLIRuntime instead of StandaloneAgent
+    if config.runtime != "openai-api":
+        from kubex_harness.cli_runtime import CLIRuntime
+
+        logger.info(
+            "kubex-harness routing to CLI runtime: runtime=%s",
+            config.runtime,
+        )
+
+        runtime = CLIRuntime(config)
+
+        # Graceful shutdown on SIGTERM/SIGINT — forwards to PTY child (CLI-04)
+        import signal
+
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            with contextlib.suppress(NotImplementedError):  # Windows: no add_signal_handler
+                loop.add_signal_handler(sig, runtime.stop)
+
+        await runtime.run()
+        return  # Exit _run() after CLI runtime completes
+
     if config.harness_mode == "standalone":
         from kubex_harness.standalone import StandaloneAgent
 
@@ -103,7 +130,8 @@ async def _run() -> None:
 
     else:
         logger.error(
-            "Unknown harness_mode: %r — expected 'standalone', 'openclaw', or 'mcp-bridge'",
+            "Unknown harness_mode: %r — expected 'standalone', 'openclaw', or 'mcp-bridge' "
+            "(or set runtime != 'openai-api' for CLI mode)",
             config.harness_mode,
         )
         sys.exit(1)
