@@ -6,6 +6,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    tini \
     && rm -rf /var/lib/apt/lists/*
 
 # Install kubex-common
@@ -43,5 +44,7 @@ HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
     CMD pgrep -f "kubex_harness" || exit 1
 
 # Run the unified harness entry point — routes to standalone or openclaw based on config
-ENTRYPOINT ["/app/entrypoint.sh"]
+LABEL kubex.stop_grace_period="30s"
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/entrypoint.sh"]
 CMD ["python", "-m", "kubex_harness.main"]

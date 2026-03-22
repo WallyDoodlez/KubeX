@@ -90,6 +90,40 @@ if [ -d "${SKILLS_SRC_DIR}" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Step 4b: Generate CLAUDE.md from skills for CLI runtimes (CLI-05)
+# ---------------------------------------------------------------------------
+# Read runtime from config.yaml if it exists. Only generate CLAUDE.md for
+# non-openai-api runtimes (CLI agents like claude-code, codex-cli, gemini-cli).
+RUNTIME="openai-api"
+if [ -f /app/config.yaml ]; then
+    # Extract runtime value using grep+sed (no jq/yq dependency)
+    RUNTIME_LINE=$(grep -E '^\s*runtime:' /app/config.yaml 2>/dev/null || true)
+    if [ -n "${RUNTIME_LINE}" ]; then
+        RUNTIME=$(echo "${RUNTIME_LINE}" | sed 's/.*runtime:\s*//' | sed 's/["'"'"' ]//g')
+    fi
+fi
+
+if [ "${RUNTIME}" != "openai-api" ] && [ -d "${SKILLS_SRC_DIR}" ]; then
+    CLAUDE_MD="/app/CLAUDE.md"
+    echo "# Agent Skills" > "${CLAUDE_MD}"
+    echo "" >> "${CLAUDE_MD}"
+    FIRST=true
+    for SKILL_DIR in "${SKILLS_SRC_DIR}"/*/; do
+        if [ -f "${SKILL_DIR}SKILL.md" ]; then
+            if [ "${FIRST}" = true ]; then
+                FIRST=false
+            else
+                echo "" >> "${CLAUDE_MD}"
+                echo "---" >> "${CLAUDE_MD}"
+                echo "" >> "${CLAUDE_MD}"
+            fi
+            cat "${SKILL_DIR}SKILL.md" >> "${CLAUDE_MD}"
+        fi
+    done
+    echo "[entrypoint] Generated CLAUDE.md from skills for runtime=${RUNTIME}"
+fi
+
+# ---------------------------------------------------------------------------
 # Step 5: Invoke the CMD passed to the container (defaults to kubex-harness)
 # ---------------------------------------------------------------------------
 echo "[entrypoint] Starting kubex-harness for agent=${KUBEX_AGENT_ID:-unknown}"
