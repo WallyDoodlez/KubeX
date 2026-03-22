@@ -26,7 +26,9 @@ test.describe('Dashboard', () => {
   });
 
   test('View all link navigates to agents page', async ({ page }) => {
-    const viewAll = page.locator('text=View all →');
+    // Scope to the Registered Agents section to avoid ambiguity with the Activity Feed "View all →"
+    const agentsSection = page.locator('section').filter({ has: page.locator('h2', { hasText: 'Registered Agents' }) });
+    const viewAll = agentsSection.locator('button', { hasText: 'View all →' });
     await expect(viewAll).toBeVisible();
     await viewAll.click();
     await expect(page.locator('header h1')).toHaveText('Agents');

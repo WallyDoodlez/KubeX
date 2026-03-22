@@ -10,6 +10,7 @@ import Sparkline from './Sparkline';
 import { SkeletonCard } from './SkeletonLoader';
 import EmptyState from './EmptyState';
 import SystemStatusBanner from './SystemStatusBanner';
+import ActivityFeed from './ActivityFeed';
 
 const REFRESH_INTERVAL = 15_000; // Match global health check interval
 const AGENT_DISPLAY_LIMIT = 6;
@@ -19,8 +20,8 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
-  // Read service health from context — it is managed globally by useHealthCheck in Layout
-  const { services } = useAppContext();
+  // Read service health and traffic log from context — health managed globally by useHealthCheck in Layout
+  const { services, trafficLog } = useAppContext();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [kubexCount, setKubexCount] = useState<number | null>(null);
   const [loadingAgents, setLoadingAgents] = useState(true);
@@ -152,6 +153,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           </div>
         )}
       </section>
+
+      {/* Recent Activity Feed */}
+      <ActivityFeed
+        entries={trafficLog}
+        onViewAll={() => onNavigate('traffic')}
+      />
     </div>
   );
 }

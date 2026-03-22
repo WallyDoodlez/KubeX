@@ -273,6 +273,14 @@
   - [x] Build: npm run build — clean, 92 modules
   - [x] Test: npx playwright test — 351/351 passed
 
+- [x] **Iteration 26: Dashboard activity feed**
+  - [x] Create `src/components/ActivityFeed.tsx` — compact list of last 10 traffic entries; timestamp, agent, action, status badge, color-coded left border accent; `data-testid` attributes for testing; empty state when no events
+  - [x] Add `<ActivityFeed>` to `Dashboard.tsx` after the agent overview section; reads `trafficLog` from `AppContext`; "View all →" button calls `onNavigate('traffic')`
+  - [x] Create `tests/e2e/activity-feed.spec.ts` (12 tests: section renders, heading, empty state, rows from localStorage, row content, 10-row cap, subtitle count, denied/escalated border accents, view-all button, view-all navigates to Traffic, aria-label on list)
+  - [x] Fix `tests/e2e/dashboard.spec.ts` "View all →" test — scoped to Registered Agents section to avoid strict-mode violation with new Activity Feed "View all →"
+  - [x] Build: npm run build — clean, 93 modules
+  - [x] Test: npx playwright test — 363/363 passed
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays
