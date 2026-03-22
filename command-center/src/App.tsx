@@ -12,6 +12,7 @@ const LazyTrafficLog = lazy(() => import('./components/TrafficLog'));
 const LazyOrchestratorChat = lazy(() => import('./components/OrchestratorChat'));
 const LazyContainersPanel = lazy(() => import('./components/ContainersPanel'));
 const LazyAgentDetailPage = lazy(() => import('./components/AgentDetailPage'));
+const LazyApprovalQueue = lazy(() => import('./components/ApprovalQueue'));
 
 const PAGE_TO_PATH: Record<NavPage, string> = {
   dashboard: '/',
@@ -65,6 +66,7 @@ export default function App() {
                 <Route path="/traffic" element={<TrafficPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/containers" element={<LazyContainersPanel />} />
+                <Route path="/approvals" element={<LazyApprovalQueue />} />
               </Routes>
             </Suspense>
           </ErrorBoundary>

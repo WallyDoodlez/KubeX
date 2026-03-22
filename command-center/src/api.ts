@@ -216,3 +216,20 @@ export async function provideInput(
 ): Promise<FetchResult<unknown>> {
   return apiFetch<unknown>('POST', `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/input`, { input });
 }
+
+// ── Escalations / Approvals ─────────────────────────────────────────
+
+export async function getEscalations(): Promise<FetchResult<unknown[]>> {
+  return apiFetch<unknown[]>('GET', `${GATEWAY}/escalations`);
+}
+
+export async function resolveEscalation(
+  escalationId: string,
+  decision: 'approve' | 'reject',
+  reason?: string,
+): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>('POST', `${GATEWAY}/escalations/${encodeURIComponent(escalationId)}/resolve`, {
+    decision,
+    reason,
+  });
+}

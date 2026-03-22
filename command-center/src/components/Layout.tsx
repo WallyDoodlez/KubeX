@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAppContext } from '../context/AppContext';
 
 interface NavItem {
   label: string;
@@ -14,6 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Traffic',     icon: '⇌', description: 'Actions log',       path: '/traffic'   },
   { label: 'Orchestrator',icon: '⌘', description: 'Dispatch tasks',    path: '/chat'      },
   { label: 'Containers',  icon: '⬡', description: 'Docker kubexes',    path: '/containers'},
+  { label: 'Approvals',   icon: '⚑', description: 'Escalated actions', path: '/approvals' },
 ];
 
 interface LayoutProps {
@@ -23,6 +25,7 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { pendingApprovalCount } = useAppContext();
 
   const currentItem = NAV_ITEMS.find((n) => n.path === location.pathname) ?? NAV_ITEMS[0];
 
@@ -73,6 +76,11 @@ export default function Layout({ children }: LayoutProps) {
                     {item.description}
                   </p>
                 </div>
+                {item.label === 'Approvals' && pendingApprovalCount > 0 && !active && (
+                  <span className="ml-auto text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-1.5 py-0.5 flex-shrink-0">
+                    {pendingApprovalCount}
+                  </span>
+                )}
                 {active && (
                   <span className="ml-auto w-1 h-4 rounded-full bg-emerald-400 flex-shrink-0" />
                 )}

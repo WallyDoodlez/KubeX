@@ -95,16 +95,16 @@
   - [x] Verify: npm run build clean + npx playwright test passes
   - [x] Commit
 
-- [ ] **Iteration 9: Approval Queue (New Page)**
-  - [ ] Create src/components/ApprovalQueue.tsx (card list, approve/reject, time ticker)
-  - [ ] Add getEscalations(), resolveEscalation() to api.ts
-  - [ ] Add "Approvals" nav item with count badge to Layout.tsx
-  - [ ] Add route /approvals in App.tsx
-  - [ ] Add pendingApprovalCount to AppContext.tsx
-  - [ ] Add ApprovalRequest, ApprovalDecision types to types.ts
-  - [ ] Create tests/e2e/approvals.spec.ts (7 tests)
-  - [ ] Verify: npm run build clean + npx playwright test passes
-  - [ ] Commit
+- [x] **Iteration 9: Approval Queue (New Page)**
+  - [x] Create src/components/ApprovalQueue.tsx (card list, approve/reject, time ticker)
+  - [x] Add getEscalations(), resolveEscalation() to api.ts
+  - [x] Add "Approvals" nav item with count badge to Layout.tsx
+  - [x] Add route /approvals in App.tsx
+  - [x] Add pendingApprovalCount to AppContext.tsx
+  - [x] Add ApprovalRequest, ApprovalDecision types to types.ts
+  - [x] Create tests/e2e/approvals.spec.ts (7 tests)
+  - [x] Verify: npm run build clean + npx playwright test passes
+  - [x] Commit
 
 - [ ] **Iteration 10: Emergency Controls (Top Bar)**
   - [ ] Create src/components/KillAllDialog.tsx (typed "KILL ALL" confirmation)

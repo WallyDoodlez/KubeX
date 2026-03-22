@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { ChatMessage, TrafficEntry } from '../types';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
@@ -15,6 +15,8 @@ interface AppContextValue {
   clearTrafficLog: () => void;
   chatMessages: ChatMessage[];
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+  pendingApprovalCount: number;
+  setPendingApprovalCount: (count: number) => void;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -22,6 +24,7 @@ const AppContext = createContext<AppContextValue | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [trafficLog, setTrafficLog] = useLocalStorage<TrafficEntry[]>('kubex-traffic-log', []);
   const [chatMessages, setChatMessages] = useLocalStorage<ChatMessage[]>('kubex-chat-messages', [WELCOME_MESSAGE]);
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
 
   function addTrafficEntry(entry: TrafficEntry) {
     setTrafficLog((prev) => [entry, ...prev].slice(0, 500));
@@ -32,7 +35,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ trafficLog, addTrafficEntry, clearTrafficLog, chatMessages, setChatMessages }}>
+    <AppContext.Provider value={{ trafficLog, addTrafficEntry, clearTrafficLog, chatMessages, setChatMessages, pendingApprovalCount, setPendingApprovalCount }}>
       {children}
     </AppContext.Provider>
   );

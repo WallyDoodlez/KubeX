@@ -138,6 +138,22 @@ export interface AgentDetail extends Agent {
   last_active?: string;
 }
 
+// ── Approvals (escalated actions) ───────────────────────────────────
+
+export interface ApprovalRequest {
+  id: string;
+  task_id: string;
+  agent_id: string;
+  action: string;
+  capability?: string;
+  reason: string;
+  policy_rule?: string;
+  timestamp: Date;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+export type ApprovalDecision = 'approve' | 'reject';
+
 // ── Navigation ───────────────────────────────────────────────────────
 
 export type NavPage = 'dashboard' | 'agents' | 'traffic' | 'chat' | 'containers';
