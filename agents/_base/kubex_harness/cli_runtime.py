@@ -125,6 +125,7 @@ class CLIRuntime:
         self.config = config
         self._state: CliState = CliState.BOOTING
         self._running: bool = True
+        self._stop_event: asyncio.Event = asyncio.Event()
         self._child: Any | None = None  # pexpect.spawn instance or None
         self._redis: aioredis.Redis | None = None
         self._http: httpx.AsyncClient | None = None
@@ -175,10 +176,12 @@ class CLIRuntime:
     def stop(self) -> None:
         """Signal the runtime to stop. Called by SIGTERM signal handler.
 
-        Sets ``_running = False``.  If a child CLI process is running,
-        schedules ``_graceful_shutdown`` as an asyncio task.
+        Sets ``_running = False`` and fires the stop event to unblock any
+        waiting loops (credential wait, task poll).  If a child CLI process
+        is running, schedules ``_graceful_shutdown`` as an asyncio task.
         """
         self._running = False
+        self._stop_event.set()
         if self._child is not None:
             try:
                 asyncio.ensure_future(self._graceful_shutdown())
@@ -250,6 +253,9 @@ class CLIRuntime:
             self.config.runtime, timeout_s=_CREDENTIAL_TIMEOUT_S
         )
         if not appeared:
+            if not self._running:
+                logger.info("Shutdown requested during credential wait — exiting cleanly")
+                raise SystemExit(0)
             logger.error(
                 "Credential timeout after %.0fs for runtime=%s — shutting down",
                 _CREDENTIAL_TIMEOUT_S,
@@ -301,7 +307,9 @@ class CLIRuntime:
             # Use watchfiles async watcher (inotify-backed)
             try:
                 async with asyncio.timeout(timeout_s):
-                    async for _ in awatch(str(watch_dir)):
+                    async for _ in awatch(str(watch_dir), stop_event=self._stop_event):
+                        if not self._running:
+                            return False
                         if self._credentials_present(runtime):
                             return True
             except (TimeoutError, asyncio.TimeoutError):
@@ -309,10 +317,18 @@ class CLIRuntime:
             return False
         else:
             # Polling fallback
-            while time.monotonic() < deadline:
+            while time.monotonic() < deadline and self._running:
                 if self._credentials_present(runtime):
                     return True
-                await asyncio.sleep(_POLL_INTERVAL_S)
+                # Use stop_event.wait with short timeout instead of asyncio.sleep
+                # so we can be interrupted by stop()
+                try:
+                    await asyncio.wait_for(
+                        self._stop_event.wait(), timeout=_POLL_INTERVAL_S
+                    )
+                    return False  # stop_event was set
+                except (TimeoutError, asyncio.TimeoutError):
+                    pass  # Normal timeout — continue polling
             return False
 
     # ------------------------------------------------------------------

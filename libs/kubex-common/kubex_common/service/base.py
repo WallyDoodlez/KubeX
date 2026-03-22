@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +46,13 @@ class KubexService:
         self.app = self._create_app()
 
     def _create_app(self) -> FastAPI:
-        app = FastAPI(title=self.service_name, version=self.version)
+        @asynccontextmanager
+        async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+            await self._startup()
+            yield
+            await self._shutdown()
+
+        app = FastAPI(title=self.service_name, version=self.version, lifespan=lifespan)
 
         app.add_middleware(
             CORSMiddleware,
@@ -58,9 +66,6 @@ class KubexService:
 
         health_router = create_health_router(self)
         app.include_router(health_router)
-
-        app.add_event_handler("startup", self._startup)
-        app.add_event_handler("shutdown", self._shutdown)
 
         return app
 
