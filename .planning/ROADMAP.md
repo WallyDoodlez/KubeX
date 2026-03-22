@@ -32,7 +32,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details.
 
 **Milestone Goal:** Replace the orchestrator's custom tool loop with MCP protocol and enable any CLI agent (Claude Code, Codex, Gemini CLI) to run inside Kubex containers via PTY subprocess with hooks-based monitoring and OAuth provisioning.
 
-- [x] **Phase 8: MCP Bridge** — Orchestrator coordination via MCP protocol, replacing custom 8-tool OpenAI loop (completed 2026-03-22)
+- [x] **Phase 8: MCP Bridge** — Orchestrator coordination via MCP protocol, replacing custom 8-tool OpenAI loop (completed 2026-03-22)
 - [ ] **Phase 9: CLI Runtime — Claude Code** — PTY supervisor and credential management, Claude Code as first runtime
 - [ ] **Phase 10: Hooks Monitoring** — Zero-token passive observability via Claude Code hooks HTTP endpoint
 - [ ] **Phase 11: Codex + Gemini Runtimes** — Extend CLI runtime to Codex CLI and Gemini CLI via PTY
@@ -90,13 +90,14 @@ Plans:
 
 ### Phase 08.1: Agent System Prompts (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** Structured system prompts for all agents with shared preamble, capability-bounded behavior, security directives, and standard output contract
+**Requirements**: PROMPT-01, PROMPT-02, PROMPT-03, PROMPT-04, PROMPT-05, PROMPT-06, PROMPT-07
 **Depends on:** Phase 8
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 08.1 to break down)
+- [ ] 08.1-01-PLAN.md — PREAMBLE.md template, prompt_builder.py module, AgentConfig policy/budget extension
+- [ ] 08.1-02-PLAN.md — Wire into standalone + mcp-bridge harness paths, unit tests, regression verification
 
 ### Phase 9: CLI Runtime — Claude Code
 **Goal**: Any Kubex container can run Claude Code as its LLM via PTY subprocess, with credential management, graceful shutdown, and skills injected as CLAUDE.md
@@ -149,6 +150,7 @@ Plans:
 | 6. Manager Spawn Logic and Policy Gates | v1.1 | 3/3 | Complete | 2026-03-16 |
 | 7. Agent Migration and Dockerfile Removal | v1.1 | 3/3 | Complete | 2026-03-17 |
 | 8. MCP Bridge | v1.2 | 4/4 | Complete   | 2026-03-22 |
+| 8.1 Agent System Prompts | v1.2 | 0/2 | In progress | - |
 | 9. CLI Runtime — Claude Code | v1.2 | 0/? | Not started | - |
 | 10. Hooks Monitoring | v1.2 | 0/? | Not started | - |
 | 11. Codex + Gemini Runtimes | v1.2 | 0/? | Not started | - |
