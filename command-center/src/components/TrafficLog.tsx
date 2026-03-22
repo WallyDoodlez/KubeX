@@ -3,6 +3,8 @@ import type { TrafficEntry, ActionStatus, TrafficFilter } from '../types';
 import { usePagination } from '../hooks/usePagination';
 import TrafficFilterBar from './TrafficFilterBar';
 import Pagination from './Pagination';
+import ExportMenu from './ExportMenu';
+import { exportAsJSON, exportAsCSV } from '../utils/export';
 
 interface TrafficLogProps {
   entries: TrafficEntry[];
@@ -69,11 +71,39 @@ export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
             Actions dispatched through the Gateway — {entries.length} entries
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-[var(--color-text-dim)]">
+        <div className="flex items-center gap-3 text-xs text-[var(--color-text-dim)]">
           <LegendDot color="emerald" label="allowed" />
           <LegendDot color="red" label="denied" />
           <LegendDot color="amber" label="escalated" />
           <LegendDot color="blue" label="pending" />
+          <ExportMenu
+            testId="traffic-export-menu"
+            disabled={filteredEntries.length === 0}
+            onExportJSON={() => {
+              const rows = filteredEntries.map((e) => ({
+                ...e,
+                timestamp: e.timestamp.toISOString(),
+              }));
+              exportAsJSON(rows, `traffic-log-${new Date().toISOString().slice(0, 10)}`);
+            }}
+            onExportCSV={() => {
+              exportAsCSV(
+                filteredEntries,
+                ['timestamp', 'agent_id', 'action', 'capability', 'target', 'status', 'policy_rule', 'task_id'],
+                (e) => [
+                  e.timestamp.toISOString(),
+                  e.agent_id,
+                  e.action,
+                  e.capability ?? '',
+                  e.target ?? '',
+                  e.status,
+                  e.policy_rule ?? '',
+                  e.task_id ?? '',
+                ],
+                `traffic-log-${new Date().toISOString().slice(0, 10)}`,
+              );
+            }}
+          />
         </div>
       </div>
 

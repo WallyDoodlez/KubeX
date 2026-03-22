@@ -11,6 +11,8 @@ import SearchInput from './SearchInput';
 import Pagination from './Pagination';
 import { SkeletonTable } from './SkeletonLoader';
 import EmptyState from './EmptyState';
+import ExportMenu from './ExportMenu';
+import { exportAsJSON } from '../utils/export';
 
 // Status filter options
 type StatusFilter = 'all' | 'running' | 'created' | 'stopped' | 'error';
@@ -107,12 +109,21 @@ export default function ContainersPanel() {
             Managed by Kubex Manager — {subtitle}
           </p>
         </div>
-        <button
-          onClick={refresh}
-          className="px-3 py-1.5 text-xs rounded-lg border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] transition-colors"
-        >
-          ↻ Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportMenu
+            testId="containers-export-menu"
+            disabled={kubexes.length === 0}
+            onExportJSON={() => {
+              exportAsJSON(kubexes, `kubexes-${new Date().toISOString().slice(0, 10)}`);
+            }}
+          />
+          <button
+            onClick={refresh}
+            className="px-3 py-1.5 text-xs rounded-lg border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] transition-colors"
+          >
+            ↻ Refresh
+          </button>
+        </div>
       </div>
 
       {/* Search + filter bar */}

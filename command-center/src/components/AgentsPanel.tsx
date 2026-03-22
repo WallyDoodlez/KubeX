@@ -12,6 +12,8 @@ import SearchInput from './SearchInput';
 import Pagination from './Pagination';
 import { SkeletonTable } from './SkeletonLoader';
 import EmptyState from './EmptyState';
+import ExportMenu from './ExportMenu';
+import { exportAsJSON } from '../utils/export';
 
 // Stable comparators defined at module level so their references don't change between renders
 const sortComparators = {
@@ -84,12 +86,21 @@ export default function AgentsPanel() {
             {loading ? 'Loading…' : query ? `${searchedAgents.length} of ${agents.length} agents` : `${agents.length} agents in registry`}
           </p>
         </div>
-        <button
-          onClick={refresh}
-          className="px-3 py-1.5 text-xs rounded-lg border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] transition-colors"
-        >
-          ↻ Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportMenu
+            testId="agents-export-menu"
+            disabled={agents.length === 0}
+            onExportJSON={() => {
+              exportAsJSON(agents, `agents-${new Date().toISOString().slice(0, 10)}`);
+            }}
+          />
+          <button
+            onClick={refresh}
+            className="px-3 py-1.5 text-xs rounded-lg border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] transition-colors"
+          >
+            ↻ Refresh
+          </button>
+        </div>
       </div>
 
       {/* Search bar */}

@@ -7,6 +7,8 @@ import type { SSEStatus } from '../hooks/useSSE';
 import TerminalOutput from './TerminalOutput';
 import type { OutputLine } from './TerminalOutput';
 import HITLPrompt from './HITLPrompt';
+import ExportMenu from './ExportMenu';
+import { exportAsJSON } from '../utils/export';
 
 interface OrchestratorChatProps {
   onTrafficEntry: (entry: TrafficEntry) => void;
@@ -450,6 +452,20 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           >
             Clear
           </button>
+
+          {/* Export chat history */}
+          <ExportMenu
+            testId="chat-export-menu"
+            disabled={messages.length === 0}
+            label="Export"
+            onExportJSON={() => {
+              const rows = messages.map((m) => ({
+                ...m,
+                timestamp: m.timestamp.toISOString(),
+              }));
+              exportAsJSON(rows, `chat-history-${new Date().toISOString().slice(0, 10)}`);
+            }}
+          />
         </div>
 
         {knownCaps.length > 0 && (

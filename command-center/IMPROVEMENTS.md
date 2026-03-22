@@ -262,6 +262,17 @@
   - [x] Build: npm run build — clean, 90 modules, SettingsPage 3.03 KB gzipped
   - [x] Test: npx playwright test — 321/321 passed
 
+- [x] **Iteration 25: Data export (JSON/CSV)**
+  - [x] Create `src/utils/export.ts` — `exportAsJSON(data, filename)` and `exportAsCSV(rows, headers, rowMapper, filename)`; pure browser download via temporary anchor + `URL.createObjectURL`
+  - [x] Create `src/components/ExportMenu.tsx` — dropdown button with JSON / CSV options; closes on Escape and outside-click; `aria-haspopup`, `aria-expanded`, `role="menu"`, `role="menuitem"` ARIA attributes
+  - [x] Add `<ExportMenu>` to `TrafficLog.tsx` — exports filtered traffic as JSON or CSV; disabled when filtered list is empty
+  - [x] Add `<ExportMenu>` to `AgentsPanel.tsx` — exports full agent list as JSON; disabled when list is empty
+  - [x] Add `<ExportMenu>` to `ContainersPanel.tsx` — exports full kubex list as JSON; disabled when list is empty
+  - [x] Add `<ExportMenu>` to `OrchestratorChat.tsx` — exports chat history as JSON; disabled when messages list is empty
+  - [x] Create `tests/e2e/export.spec.ts` (30 tests: menus present on all 4 pages; aria-haspopup/aria-expanded; disabled when empty; opens dropdown; JSON+CSV options on traffic; JSON-only on agents/containers/chat; role=menu/menuitem; Escape closes; outside-click closes; JSON download; CSV download)
+  - [x] Build: npm run build — clean, 92 modules
+  - [x] Test: npx playwright test — 351/351 passed
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays
