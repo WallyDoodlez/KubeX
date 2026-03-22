@@ -11,6 +11,8 @@ import Toast from './Toast';
 import CommandPalette from './CommandPalette';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import Breadcrumb from './Breadcrumb';
+import type { BreadcrumbItem } from './Breadcrumb';
 
 interface NavItem {
   label: string;
@@ -136,6 +138,19 @@ export default function Layout({ children }: LayoutProps) {
   ]);
 
   const currentItem = NAV_ITEMS.find((n) => n.path === location.pathname) ?? NAV_ITEMS[0];
+
+  // Build breadcrumbs for nested routes (e.g. /agents/:agentId)
+  const topBarBreadcrumbs: BreadcrumbItem[] | null = (() => {
+    // /agents/:agentId
+    const agentDetailMatch = location.pathname.match(/^\/agents\/(.+)$/);
+    if (agentDetailMatch) {
+      return [
+        { label: 'Agents', path: '/agents' },
+        { label: agentDetailMatch[1] },
+      ];
+    }
+    return null;
+  })();
 
   async function openKillAllDialog() {
     const res = await getKubexes();
@@ -296,8 +311,18 @@ export default function Layout({ children }: LayoutProps) {
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="text-[var(--color-text-dim)] text-sm">{currentItem.icon}</span>
             <h1 className="text-sm font-semibold text-[var(--color-text)]">{currentItem.label}</h1>
-            <span aria-hidden="true" className="text-[var(--color-text-muted)] text-sm">/</span>
-            <span className="text-xs text-[var(--color-text-dim)]">{currentItem.description}</span>
+            {topBarBreadcrumbs ? (
+              /* Nested route — show breadcrumbs inline in top bar */
+              <Breadcrumb
+                items={topBarBreadcrumbs}
+                className="ml-0"
+              />
+            ) : (
+              <>
+                <span aria-hidden="true" className="text-[var(--color-text-muted)] text-sm">/</span>
+                <span className="text-xs text-[var(--color-text-dim)]">{currentItem.description}</span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-3" role="toolbar" aria-label="Global controls">
             {/* Command palette trigger */}

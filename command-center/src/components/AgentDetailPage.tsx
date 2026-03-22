@@ -7,6 +7,7 @@ import StatusBadge from './StatusBadge';
 import TerminalOutput from './TerminalOutput';
 import { SkeletonCard, SkeletonText } from './SkeletonLoader';
 import EmptyState from './EmptyState';
+import Breadcrumb from './Breadcrumb';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -68,10 +69,14 @@ export default function AgentDetailPage() {
 
   return (
     <div className="p-6 animate-fade-in">
-      {/* Back link + header */}
-      <button onClick={() => navigate('/agents')} className="text-xs text-emerald-400 hover:text-emerald-300 mb-4 inline-block">
-        ← Back to Agents
-      </button>
+      {/* Breadcrumb navigation */}
+      <Breadcrumb
+        className="mb-4"
+        items={[
+          { label: 'Agents', path: '/agents' },
+          { label: agent.agent_id, ariaLabel: `Agent ${agent.agent_id}` },
+        ]}
+      />
 
       <div className="flex items-center gap-3 mb-6">
         <h2 className="text-lg font-semibold text-[var(--color-text)] font-mono-data">{agent.agent_id}</h2>

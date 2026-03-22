@@ -181,6 +181,16 @@
   - [x] Build: npm run build
   - [x] Test: npx playwright test — 184/184 passed
 
+- [x] **Iteration 18: System Status Banner + Breadcrumb Navigation**
+  - [x] Create `src/components/SystemStatusBanner.tsx` — aggregate all service health into a top-level "All Systems Operational" / "N services degraded" / "System Critical" banner with color coding; compact summary row showing total agent count, kubex count, service ratio
+  - [x] Create `src/components/Breadcrumb.tsx` — reusable breadcrumb nav component with semantic `<nav aria-label="Breadcrumb">`, `aria-current="page"` on last item, keyboard-accessible with focus-visible rings
+  - [x] Update `Dashboard.tsx` — render `<SystemStatusBanner>` above quick stats
+  - [x] Update `AgentDetailPage.tsx` — replace "← Back to Agents" button with `<Breadcrumb>` showing "Agents > agent-id"
+  - [x] Update `Layout.tsx` — import `Breadcrumb`; show breadcrumb trail inline in the top bar for nested routes (`/agents/:agentId`); non-nested routes keep existing icon + description format
+  - [x] Create `tests/e2e/system-status.spec.ts` (17 tests: banner renders, operational state, summary pills for agents/kubexes/services, role=status, aria-live=polite, loading state, not shown on other pages, breadcrumb renders, first item clickable, last item aria-current, breadcrumb navigates, top bar breadcrumb on nested routes, not visible on flat routes)
+  - [x] Build: npm run build — clean (82 modules, no errors)
+  - [x] Test: npx playwright test — 201/201 passed
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays

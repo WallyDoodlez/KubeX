@@ -15,6 +15,7 @@ import StatusBadge from './StatusBadge';
 import Sparkline from './Sparkline';
 import { SkeletonCard } from './SkeletonLoader';
 import EmptyState from './EmptyState';
+import SystemStatusBanner from './SystemStatusBanner';
 
 const REFRESH_INTERVAL = 10_000;
 const AGENT_DISPLAY_LIMIT = 6;
@@ -115,6 +116,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
+      {/* System Status Banner */}
+      <SystemStatusBanner
+        services={services}
+        agentCount={agents.length}
+        kubexCount={kubexCount}
+        loadingAgents={loadingAgents}
+      />
+
       {/* Quick stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
