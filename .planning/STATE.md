@@ -49,6 +49,13 @@ Plan: Not started
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 08.1 inserted after Phase 8: Agent System Prompts (INSERTED) — detailed prompts for all agents, regression tested
+- Phase 08.2 inserted after Phase 8: Vault Persistence (INSERTED) — knowledge worker E2E vault ops, standalone agent vault wiring
+- Phase 08.3 inserted after Phase 8: Orchestrator Context Reset (INSERTED) — meta-tool or auto-truncate for context window management
+- Phase 08.4 inserted after Phase 8: Vault Git Sync (INSERTED) — configurable remote repo, auto commit+push, pull on boot
+
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
