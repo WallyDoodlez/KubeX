@@ -303,6 +303,18 @@
   - [x] Test: npx playwright test — 397/397 passed
   - [x] Update `docs/CHANGELOG.md`
 
+- [x] **Iteration 33: Batch Operations for Agents and Kubexes**
+  - [x] Add Iteration 33 entry in IMPROVEMENTS.md
+  - [x] Create `src/hooks/useSelection.ts` — manages selected IDs set with toggleOne, toggleAll, clearSelection, isSelected, selectedCount, allSelected
+  - [x] Create `src/components/SelectionBar.tsx` — floating action bar showing "N selected" with bulk action buttons; appears when items are selected; dismiss/clear button
+  - [x] Update `AgentsPanel.tsx` — add checkbox column to table header and rows; wire useSelection; add SelectionBar with "Deregister Selected" bulk action using Promise.allSettled
+  - [x] Update `ContainersPanel.tsx` — add checkbox column; wire useSelection; add SelectionBar with "Kill Selected" and "Start Selected" bulk actions using Promise.allSettled
+  - [x] Create `tests/e2e/batch-operations.spec.ts` (25 tests)
+  - [x] Update `docs/CHANGELOG.md`
+  - [x] Build: npm run build — clean, 104 modules
+  - [x] Test: npx playwright test — 493/493 passed
+  - [x] Mark [x], commit
+
 - [x] **Iteration 32: OAuth Authentication Scaffolding**
   - [x] Create `src/services/auth.ts` — OAuth service layer: `login()` (PKCE redirect), `handleCallback()` (code exchange), `refreshToken()`, `logout()`, `getAccessToken()`, `isAuthenticated()`, `getUser()`, `isOAuthConfigured()`; all URLs configurable via `VITE_OAUTH_AUTHORITY`, `VITE_OAUTH_CLIENT_ID`, `VITE_OAUTH_REDIRECT_URI`; falls back to legacy bearer token when OAuth env vars are not set
   - [x] Update `src/context/AuthContext.tsx` — integrate OAuth service; add `oauthEnabled`, `isAuthenticated`, `user`, `login()`, `logout()` to context; backward-compatible: all existing consumers (`token`, `setToken`, `isConfigured`, `clearToken`) continue to work unchanged

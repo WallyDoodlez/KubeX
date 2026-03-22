@@ -4,6 +4,19 @@
 
 ---
 
+## Iteration 33: Batch Operations for Agents and Kubexes
+**Files created:** `src/hooks/useSelection.ts`, `src/components/SelectionBar.tsx`, `tests/e2e/batch-operations.spec.ts`
+**Files modified:** `src/components/AgentsPanel.tsx`, `src/components/ContainersPanel.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `src/hooks/useSelection.ts` — lightweight selection manager for table rows. Maintains a `Set<string>` of selected IDs. Provides `toggleOne(id)` (add/remove single ID), `toggleAll(allIds)` (select all, or deselect all if all already selected), `clearSelection()`, `isSelected(id)`, `selectedCount`, and `someSelected`. All mutators are stable `useCallback` references to avoid unnecessary re-renders in `React.memo` row components.
+- Created `src/components/SelectionBar.tsx` — floating action bar rendered below the table when `selectedCount > 0`. Displays a green badge with the selected item count, a labeled count string ("N agents selected"), configurable bulk-action buttons (danger/warning/success/default variants), and a "Clear" dismiss button. Renders `null` when nothing is selected so it doesn't affect layout. Uses `role="toolbar"` and `aria-label` for accessibility. Accepts `data-testid` props on the bar and each action button for E2E targeting.
+- Updated `src/components/AgentsPanel.tsx` — added a leading checkbox column to both the table header (select-all with indeterminate state) and every `AgentRow`. Row checkbox stops click propagation so it doesn't toggle the expand accordion. Selected rows receive a subtle emerald highlight. Wired `useSelection`; the `toggleAll` call passes all `sortedItems` IDs so select-all/deselect-all operates on the full filtered result set, not just the current page. Added `SelectionBar` with a "Deregister Selected" danger action that opens a `ConfirmDialog` showing the count before proceeding. Bulk deregister uses `Promise.allSettled` to run all API calls in parallel with per-item failure tolerance; clears selection and reloads after completion.
+- Updated `src/components/ContainersPanel.tsx` — same pattern as AgentsPanel. Added checkbox column and `useSelection`. Wires `SelectionBar` with context-aware bulk actions: "Kill Selected" appears only when at least one running kubex is in the selection; "Start Selected" appears only when at least one stopped/created kubex is in the selection; both appear for mixed selections. "Kill Selected" requires a confirm dialog. "Start Selected" executes immediately via `Promise.allSettled`. Both clear selection and reload after completion.
+- Created `tests/e2e/batch-operations.spec.ts` — 25 tests: AgentsPanel (14 tests): row checkboxes present, select-all present, bar hidden when empty, bar shows count after selecting 1, bar shows correct count for 2, select-all selects all 3 agents, select-all deselects when all selected, clear button deselects all, bulk deregister button visible when selected, bulk deregister opens confirm dialog, confirm dialog shows correct count, cancelling dialog keeps selection, selecting a row highlights it; ContainersPanel (11 tests): row checkboxes present, select-all present, bar hidden when empty, selecting 1 shows bar, select-all selects all, clear deselects, kill button appears for running selection, start button appears for stopped selection, kill button opens confirm dialog, cancelling dialog keeps selection, stopped-only selection hides kill button, mixed selection shows both buttons.
+**Tests:** 468 → 493
+
+---
+
 ## Iteration 32: OAuth Authentication Scaffolding
 **Files created:** `src/services/auth.ts`, `src/components/LoginPage.tsx`, `src/components/UserMenu.tsx`, `src/components/AuthCallbackPage.tsx`, `tests/e2e/oauth.spec.ts`
 **Files modified:** `src/context/AuthContext.tsx`, `src/api.ts`, `src/App.tsx`, `src/components/Layout.tsx`, `docs/FE-BE-REQUESTS.md`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

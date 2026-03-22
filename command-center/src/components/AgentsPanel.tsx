@@ -5,6 +5,7 @@ import { useSearch } from '../hooks/useSearch';
 import { useSort } from '../hooks/useSort';
 import { usePagination } from '../hooks/usePagination';
 import { useQueryParams } from '../hooks/useQueryParams';
+import { useSelection } from '../hooks/useSelection';
 import type { Agent } from '../types';
 import { getAgents, deregisterAgent } from '../api';
 import StatusBadge from './StatusBadge';
@@ -14,6 +15,7 @@ import Pagination from './Pagination';
 import { SkeletonTable } from './SkeletonLoader';
 import EmptyState from './EmptyState';
 import ExportMenu from './ExportMenu';
+import SelectionBar from './SelectionBar';
 import { exportAsJSON } from '../utils/export';
 import CapabilityMatrix from './CapabilityMatrix';
 import CopyButton from './CopyButton';
@@ -43,6 +45,10 @@ export default function AgentsPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deregistering, setDeregistering] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
+  // Bulk selection
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkActionInProgress, setBulkActionInProgress] = useState(false);
+  const { selectedIds, selectedCount, toggleOne, toggleAll, clearSelection, isSelected } = useSelection();
 
   // URL query params — search, sort key/direction, page
   const [qp, setQp] = useQueryParams(AGENTS_PARAM_DEFAULTS);
@@ -65,6 +71,11 @@ export default function AgentsPanel() {
     }
     setLoading(false);
   }, []);
+
+  // Derived: which visible (paginated page) agent IDs are available for toggleAll
+  // We compute allSelected from the full sortedItems list (not just current page)
+  // so the header checkbox reflects the total filtered result set.
+  // (will be referenced after pagination is defined — hoisted into JSX below)
 
   const { refresh } = usePolling(load, { interval: 10_000, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
 
@@ -145,6 +156,16 @@ export default function AgentsPanel() {
     await load();
   }
 
+  async function handleBulkDeregister() {
+    setBulkConfirmOpen(false);
+    setBulkActionInProgress(true);
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => deregisterAgent(id)));
+    clearSelection();
+    setBulkActionInProgress(false);
+    await load();
+  }
+
   return (
     <div className="p-6 animate-fade-in">
       {/* Header */}
@@ -197,43 +218,66 @@ export default function AgentsPanel() {
         />
       ) : (
         <>
-          <div className="rounded-xl border border-[var(--color-border)] overflow-hidden" role="table">
-            {/* Table header */}
-            <div className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]" role="row">
-              {[
-                { label: 'Agent ID', sortKey: 'agent_id' as AgentSortKey },
-                { label: 'Capabilities', sortKey: null },
-                { label: 'Status', sortKey: 'status' as AgentSortKey },
-                { label: 'Boundary', sortKey: 'boundary' as AgentSortKey },
-                { label: '', sortKey: null },
-              ].map(({ label, sortKey }) => (
-                <span
-                  key={label || 'actions'}
-                  className={`text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] ${sortKey ? 'cursor-pointer hover:text-[var(--color-text-dim)] select-none' : ''}`}
-                  onClick={sortKey ? () => handleRequestSort(sortKey) : undefined}
-                  role="columnheader"
-                >
-                  {label}{sortKey ? getSortIndicator(sortKey) : ''}
-                </span>
-              ))}
-            </div>
+          {/* Compute allSelected and someSelected from the full filtered list */}
+          {(() => {
+            const allIds = sortedItems.map((a) => a.agent_id);
+            const allSelected = allIds.length > 0 && allIds.every((id) => isSelected(id));
+            const someSelected = selectedCount > 0 && !allSelected;
 
-            {/* Rows */}
-            {pagination.paginatedItems.map((agent, idx) => (
-              <AgentRow
-                key={agent.agent_id}
-                agent={agent}
-                isLast={idx === pagination.paginatedItems.length - 1}
-                expanded={expandedId === agent.agent_id}
-                onToggle={() =>
-                  setExpandedId((prev) => (prev === agent.agent_id ? null : agent.agent_id))
-                }
-                onDeregister={() => requestDeregister(agent.agent_id)}
-                onNavigateToDetail={() => navigate(`/agents/${agent.agent_id}`)}
-                deregistering={deregistering === agent.agent_id}
-              />
-            ))}
-          </div>
+            return (
+              <div className="rounded-xl border border-[var(--color-border)] overflow-hidden" role="table">
+                {/* Table header */}
+                <div className="grid grid-cols-[auto_2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]" role="row">
+                  {/* Select-all checkbox */}
+                  <span role="columnheader" className="flex items-center">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all agents"
+                      data-testid="agents-select-all"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                      onChange={() => toggleAll(allIds)}
+                      className="h-3.5 w-3.5 rounded border-[var(--color-border)] accent-emerald-500 cursor-pointer"
+                    />
+                  </span>
+                  {[
+                    { label: 'Agent ID', sortKey: 'agent_id' as AgentSortKey },
+                    { label: 'Capabilities', sortKey: null },
+                    { label: 'Status', sortKey: 'status' as AgentSortKey },
+                    { label: 'Boundary', sortKey: 'boundary' as AgentSortKey },
+                    { label: '', sortKey: null },
+                  ].map(({ label, sortKey }) => (
+                    <span
+                      key={label || 'actions'}
+                      className={`text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] ${sortKey ? 'cursor-pointer hover:text-[var(--color-text-dim)] select-none' : ''}`}
+                      onClick={sortKey ? () => handleRequestSort(sortKey) : undefined}
+                      role="columnheader"
+                    >
+                      {label}{sortKey ? getSortIndicator(sortKey) : ''}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Rows */}
+                {pagination.paginatedItems.map((agent, idx) => (
+                  <AgentRow
+                    key={agent.agent_id}
+                    agent={agent}
+                    isLast={idx === pagination.paginatedItems.length - 1}
+                    expanded={expandedId === agent.agent_id}
+                    selected={isSelected(agent.agent_id)}
+                    onSelect={() => toggleOne(agent.agent_id)}
+                    onToggle={() =>
+                      setExpandedId((prev) => (prev === agent.agent_id ? null : agent.agent_id))
+                    }
+                    onDeregister={() => requestDeregister(agent.agent_id)}
+                    onNavigateToDetail={() => navigate(`/agents/${agent.agent_id}`)}
+                    deregistering={deregistering === agent.agent_id}
+                  />
+                ))}
+              </div>
+            );
+          })()}
 
           <Pagination
             page={pagination.page}
@@ -247,6 +291,23 @@ export default function AgentsPanel() {
             onNextPage={handleNextPage}
             onPrevPage={handlePrevPage}
             onPageSizeChange={handlePageSizeChange}
+          />
+
+          {/* Bulk selection bar */}
+          <SelectionBar
+            testId="agents-selection-bar"
+            selectedCount={selectedCount}
+            itemNoun="agent"
+            onClear={clearSelection}
+            actions={[
+              {
+                label: 'Deregister Selected',
+                variant: 'danger',
+                disabled: bulkActionInProgress,
+                testId: 'agents-bulk-deregister',
+                onClick: () => setBulkConfirmOpen(true),
+              },
+            ]}
           />
         </>
       )}
@@ -267,6 +328,16 @@ export default function AgentsPanel() {
         onConfirm={handleDeregister}
         onCancel={() => setConfirmTarget(null)}
       />
+
+      <ConfirmDialog
+        open={bulkConfirmOpen}
+        title="Deregister Selected Agents"
+        message={`Deregister ${selectedCount} agent${selectedCount === 1 ? '' : 's'}? This cannot be undone.`}
+        confirmLabel={`Deregister ${selectedCount}`}
+        variant="danger"
+        onConfirm={handleBulkDeregister}
+        onCancel={() => setBulkConfirmOpen(false)}
+      />
     </div>
   );
 }
@@ -277,6 +348,8 @@ interface AgentRowProps {
   agent: Agent;
   isLast: boolean;
   expanded: boolean;
+  selected: boolean;
+  onSelect: () => void;
   onToggle: () => void;
   onDeregister: () => void;
   onNavigateToDetail: () => void;
@@ -288,15 +361,27 @@ interface AgentRowProps {
 // Note: onToggle/onDeregister/onNavigateToDetail are new arrow functions on every parent render;
 // for full stability these would need useCallback in the parent. The memo still helps for
 // rows that are not in the "active" slot (e.g., expanded row changes, others stay stable).
-const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, onNavigateToDetail, deregistering }: AgentRowProps) {
+const AgentRow = memo(function AgentRow({ agent, isLast, expanded, selected, onSelect, onToggle, onDeregister, onNavigateToDetail, deregistering }: AgentRowProps) {
   return (
-    <div className={`${!isLast ? 'border-b border-[var(--color-border)]' : ''}`}>
+    <div className={`${!isLast ? 'border-b border-[var(--color-border)]' : ''} ${selected ? 'bg-emerald-500/5' : ''}`}>
       {/* Main row */}
       <div
-        className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors"
+        className="grid grid-cols-[auto_2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center bg-transparent hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors"
         onClick={onToggle}
         role="row"
       >
+        {/* Row checkbox */}
+        <div onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            aria-label={`Select agent ${agent.agent_id}`}
+            data-testid={`agent-checkbox-${agent.agent_id}`}
+            checked={selected}
+            onChange={onSelect}
+            className="h-3.5 w-3.5 rounded border-[var(--color-border)] accent-emerald-500 cursor-pointer"
+          />
+        </div>
+
         {/* Agent ID */}
         <div className="flex items-center gap-2 min-w-0">
           <span className={`text-xs transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>

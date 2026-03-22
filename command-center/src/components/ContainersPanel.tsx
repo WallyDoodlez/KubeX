@@ -7,12 +7,14 @@ import { useSearch } from '../hooks/useSearch';
 import { useSort } from '../hooks/useSort';
 import { usePagination } from '../hooks/usePagination';
 import { useQueryParams } from '../hooks/useQueryParams';
+import { useSelection } from '../hooks/useSelection';
 import ConfirmDialog from './ConfirmDialog';
 import SearchInput from './SearchInput';
 import Pagination from './Pagination';
 import { SkeletonTable } from './SkeletonLoader';
 import EmptyState from './EmptyState';
 import ExportMenu from './ExportMenu';
+import SelectionBar from './SelectionBar';
 import { exportAsJSON } from '../utils/export';
 import CopyButton from './CopyButton';
 
@@ -45,6 +47,10 @@ export default function ContainersPanel() {
   const [error, setError] = useState<string | null>(null);
   const [actionIn, setActionIn] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{ kubexId: string; action: 'kill' } | null>(null);
+  // Bulk selection
+  const [bulkKillConfirmOpen, setBulkKillConfirmOpen] = useState(false);
+  const [bulkActionInProgress, setBulkActionInProgress] = useState(false);
+  const { selectedIds, selectedCount, toggleOne, toggleAll, clearSelection, isSelected } = useSelection();
 
   // URL query params — search, status filter, sort key/direction, page
   const [qp, setQp] = useQueryParams(CONTAINERS_PARAM_DEFAULTS);
@@ -163,6 +169,25 @@ export default function ContainersPanel() {
     await load();
   }
 
+  async function handleBulkKill() {
+    setBulkKillConfirmOpen(false);
+    setBulkActionInProgress(true);
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => killKubex(id)));
+    clearSelection();
+    setBulkActionInProgress(false);
+    await load();
+  }
+
+  async function handleBulkStart() {
+    setBulkActionInProgress(true);
+    const ids = Array.from(selectedIds);
+    await Promise.allSettled(ids.map((id) => startKubex(id)));
+    clearSelection();
+    setBulkActionInProgress(false);
+    await load();
+  }
+
   const running = kubexes.filter((k) => k.status === 'running').length;
   const stopped = kubexes.filter((k) => k.status === 'stopped' || k.status === 'error').length;
 
@@ -248,55 +273,120 @@ export default function ContainersPanel() {
         />
       ) : (
         <>
-          <div className="rounded-xl border border-[var(--color-border)] overflow-hidden" role="table">
-            {/* Table header */}
-            <div
-              className="grid grid-cols-[2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]"
-              role="row"
-            >
-              {[
-                { label: 'Kubex ID', sortKey: 'kubex_id' as KubexSortKey },
-                { label: 'Agent', sortKey: 'agent_id' as KubexSortKey },
-                { label: 'Status', sortKey: 'status' as KubexSortKey },
-                { label: 'Image', sortKey: null },
-                { label: 'Actions', sortKey: null },
-              ].map(({ label, sortKey }) => (
-                <span
-                  key={label}
-                  className={`text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] ${sortKey ? 'cursor-pointer hover:text-[var(--color-text-dim)] select-none' : ''}`}
-                  onClick={sortKey ? () => handleRequestSort(sortKey) : undefined}
-                  role="columnheader"
-                >
-                  {label}{sortKey ? getSortIndicator(sortKey) : ''}
-                </span>
-              ))}
-            </div>
+          {/* Compute allSelected / someSelected from full filtered list */}
+          {(() => {
+            const allIds = sortedItems.map((k) => k.kubex_id);
+            const allSelected = allIds.length > 0 && allIds.every((id) => isSelected(id));
+            const someSelected = selectedCount > 0 && !allSelected;
 
-            {pagination.paginatedItems.map((kubex, idx) => (
-              <KubexRow
-                key={kubex.kubex_id}
-                kubex={kubex}
-                isLast={idx === pagination.paginatedItems.length - 1}
-                actionIn={actionIn === kubex.kubex_id}
-                onKill={() => requestKill(kubex.kubex_id)}
-                onStart={() => handleStart(kubex.kubex_id)}
-              />
-            ))}
-          </div>
+            // Determine which bulk actions are relevant based on current selection
+            const selectedKubexes = sortedItems.filter((k) => isSelected(k.kubex_id));
+            const hasRunningSelected = selectedKubexes.some((k) => k.status === 'running');
+            const hasStoppedSelected = selectedKubexes.some(
+              (k) => k.status !== 'running' && k.status !== 'created',
+            );
+            const hasCreatedSelected = selectedKubexes.some((k) => k.status === 'created');
 
-          <Pagination
-            page={pagination.page}
-            totalPages={pagination.totalPages}
-            pageSize={pagination.pageSize}
-            totalItems={sortedItems.length}
-            startIndex={pagination.startIndex}
-            endIndex={pagination.endIndex}
-            hasNext={pagination.hasNext}
-            hasPrev={pagination.hasPrev}
-            onNextPage={handleNextPage}
-            onPrevPage={handlePrevPage}
-            onPageSizeChange={handlePageSizeChange}
-          />
+            return (
+              <>
+                <div className="rounded-xl border border-[var(--color-border)] overflow-hidden" role="table">
+                  {/* Table header */}
+                  <div
+                    className="grid grid-cols-[auto_2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]"
+                    role="row"
+                  >
+                    {/* Select-all checkbox */}
+                    <span role="columnheader" className="flex items-center">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all kubexes"
+                        data-testid="containers-select-all"
+                        checked={allSelected}
+                        ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                        onChange={() => toggleAll(allIds)}
+                        className="h-3.5 w-3.5 rounded border-[var(--color-border)] accent-emerald-500 cursor-pointer"
+                      />
+                    </span>
+                    {[
+                      { label: 'Kubex ID', sortKey: 'kubex_id' as KubexSortKey },
+                      { label: 'Agent', sortKey: 'agent_id' as KubexSortKey },
+                      { label: 'Status', sortKey: 'status' as KubexSortKey },
+                      { label: 'Image', sortKey: null },
+                      { label: 'Actions', sortKey: null },
+                    ].map(({ label, sortKey }) => (
+                      <span
+                        key={label}
+                        className={`text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] ${sortKey ? 'cursor-pointer hover:text-[var(--color-text-dim)] select-none' : ''}`}
+                        onClick={sortKey ? () => handleRequestSort(sortKey) : undefined}
+                        role="columnheader"
+                      >
+                        {label}{sortKey ? getSortIndicator(sortKey) : ''}
+                      </span>
+                    ))}
+                  </div>
+
+                  {pagination.paginatedItems.map((kubex, idx) => (
+                    <KubexRow
+                      key={kubex.kubex_id}
+                      kubex={kubex}
+                      isLast={idx === pagination.paginatedItems.length - 1}
+                      actionIn={actionIn === kubex.kubex_id}
+                      selected={isSelected(kubex.kubex_id)}
+                      onSelect={() => toggleOne(kubex.kubex_id)}
+                      onKill={() => requestKill(kubex.kubex_id)}
+                      onStart={() => handleStart(kubex.kubex_id)}
+                    />
+                  ))}
+                </div>
+
+                <Pagination
+                  page={pagination.page}
+                  totalPages={pagination.totalPages}
+                  pageSize={pagination.pageSize}
+                  totalItems={sortedItems.length}
+                  startIndex={pagination.startIndex}
+                  endIndex={pagination.endIndex}
+                  hasNext={pagination.hasNext}
+                  hasPrev={pagination.hasPrev}
+                  onNextPage={handleNextPage}
+                  onPrevPage={handlePrevPage}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+
+                {/* Bulk selection bar */}
+                <SelectionBar
+                  testId="containers-selection-bar"
+                  selectedCount={selectedCount}
+                  itemNoun="kubex"
+                  onClear={clearSelection}
+                  actions={[
+                    ...(hasRunningSelected
+                      ? [
+                          {
+                            label: 'Kill Selected',
+                            variant: 'danger' as const,
+                            disabled: bulkActionInProgress,
+                            testId: 'containers-bulk-kill',
+                            onClick: () => setBulkKillConfirmOpen(true),
+                          },
+                        ]
+                      : []),
+                    ...((hasStoppedSelected || hasCreatedSelected)
+                      ? [
+                          {
+                            label: 'Start Selected',
+                            variant: 'success' as const,
+                            disabled: bulkActionInProgress,
+                            testId: 'containers-bulk-start',
+                            onClick: handleBulkStart,
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              </>
+            );
+          })()}
         </>
       )}
 
@@ -308,6 +398,16 @@ export default function ContainersPanel() {
         variant="danger"
         onConfirm={handleConfirmedKill}
         onCancel={() => setConfirmTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={bulkKillConfirmOpen}
+        title="Kill Selected Kubexes"
+        message={`Kill ${selectedCount} kubex${selectedCount === 1 ? '' : 'es'}? Running containers will be stopped.`}
+        confirmLabel={`Kill ${selectedCount}`}
+        variant="danger"
+        onConfirm={handleBulkKill}
+        onCancel={() => setBulkKillConfirmOpen(false)}
       />
 
       {/* Summary footer */}
@@ -338,24 +438,39 @@ interface KubexRowProps {
   kubex: Kubex;
   isLast: boolean;
   actionIn: boolean;
+  selected: boolean;
+  onSelect: () => void;
   onKill: () => void;
   onStart: () => void;
 }
 
 // Wrapped in React.memo — ContainersPanel re-renders on every 10s poll tick.
 // KubexRow skips re-render when its own props haven't changed.
-const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, onKill, onStart }: KubexRowProps) {
+const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, onSelect, onKill, onStart }: KubexRowProps) {
   const isRunning = kubex.status === 'running';
 
   return (
     <div
       className={`
-        grid grid-cols-[2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-3 items-center
-        bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)] transition-colors
+        grid grid-cols-[auto_2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-3 items-center
+        transition-colors
+        ${selected ? 'bg-emerald-500/5' : 'bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)]'}
         ${!isLast ? 'border-b border-[var(--color-border)]' : ''}
       `}
       role="row"
     >
+      {/* Row checkbox */}
+      <span role="cell">
+        <input
+          type="checkbox"
+          aria-label={`Select kubex ${kubex.kubex_id}`}
+          data-testid={`kubex-checkbox-${kubex.kubex_id}`}
+          checked={selected}
+          onChange={onSelect}
+          className="h-3.5 w-3.5 rounded border-[var(--color-border)] accent-emerald-500 cursor-pointer"
+        />
+      </span>
+
       {/* Kubex ID */}
       <span className="flex items-center gap-1.5 min-w-0" role="cell">
         <span className="font-mono-data text-sm text-[var(--color-text)] truncate" title={kubex.kubex_id}>
