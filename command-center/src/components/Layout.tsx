@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { killAllKubexes, getKubexes } from '../api';
 import KillAllDialog from './KillAllDialog';
 import QuickActionsMenu from './QuickActionsMenu';
@@ -33,10 +34,12 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const { pendingApprovalCount } = useAppContext();
   const { addToast } = useToast();
+  const { isConfigured, setToken } = useAuth();
 
   const [killAllOpen, setKillAllOpen] = useState(false);
   const [killAllLoading, setKillAllLoading] = useState(false);
   const [kubexCount, setKubexCount] = useState<number | undefined>(undefined);
+  const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
 
   const currentItem = NAV_ITEMS.find((n) => n.path === location.pathname) ?? NAV_ITEMS[0];
 
@@ -221,6 +224,38 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </div>
         </header>
+
+        {/* Auth banner — shown when no token is configured */}
+        {!isConfigured && !authBannerDismissed && (
+          <div
+            role="alert"
+            aria-live="polite"
+            data-testid="auth-banner"
+            className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-xs text-amber-300 flex-shrink-0"
+          >
+            <span>
+              <strong>No Manager token configured.</strong> Manager API calls will fail. Set{' '}
+              <code className="font-mono text-amber-200">VITE_MANAGER_TOKEN</code> or{' '}
+              <button
+                onClick={() => {
+                  const t = window.prompt('Enter Manager token:');
+                  if (t?.trim()) setToken(t.trim());
+                }}
+                className="underline underline-offset-2 hover:text-amber-200 transition-colors"
+              >
+                enter a token
+              </button>
+              .
+            </span>
+            <button
+              onClick={() => setAuthBannerDismissed(true)}
+              aria-label="Dismiss auth warning"
+              className="flex-shrink-0 text-amber-400 hover:text-amber-200 transition-colors px-1"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Page content */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">

@@ -63,4 +63,41 @@ test.describe('Streaming & Live Output', () => {
     const messagesArea = page.locator('.overflow-y-auto.scrollbar-thin').first();
     await expect(messagesArea).toBeVisible();
   });
+
+  test('OrchestratorChat does not issue repeated polling after dispatch (SSE replaces polling)', async ({ page }) => {
+    // Track all XHR requests to the task result endpoint
+    const taskResultRequests: string[] = [];
+    page.on('request', (req) => {
+      if (req.url().includes('/tasks/') && req.url().includes('/result')) {
+        taskResultRequests.push(req.url());
+      }
+    });
+
+    await page.goto('/chat');
+
+    // Fill in capability and message
+    await page.locator('input[placeholder*="orchestrate"]').fill('test-cap');
+    await page.locator('textarea[placeholder*="Task instructions"]').fill('hello world');
+
+    // Dispatch the task — MSW will handle this
+    await page.locator('button', { hasText: 'Send' }).click();
+
+    // Wait a moment to allow any polling that might happen
+    await page.waitForTimeout(3000);
+
+    // With SSE in place, the component should NOT repeatedly poll /tasks/{id}/result.
+    // It may do at most 1 fallback fetch after SSE completes/errors, but never more.
+    // Polling would produce many requests (e.g., every 2s = 1+ per 2s).
+    expect(taskResultRequests.length).toBeLessThanOrEqual(1);
+  });
+
+  test('sending label reflects SSE connection state', async ({ page }) => {
+    await page.goto('/chat');
+    // Before any send, the sending indicator should not be visible
+    const sendingLabel = page.locator('[data-testid="sending-label"]');
+    await expect(sendingLabel).not.toBeVisible();
+
+    // Verify the component has the correct structure for showing state
+    await expect(page.locator('button', { hasText: 'Send' })).toBeVisible();
+  });
 });

@@ -1,16 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { dispatchTask, getTaskResult, getAgents } from '../api';
+import { dispatchTask, getTaskResult, getAgents, getTaskStreamUrl, provideInput } from '../api';
 import type { ChatMessage, TrafficEntry, Agent } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
+import { useSSE } from '../hooks/useSSE';
+import type { SSEStatus } from '../hooks/useSSE';
+import TerminalOutput from './TerminalOutput';
+import type { OutputLine } from './TerminalOutput';
+import HITLPrompt from './HITLPrompt';
 
 interface OrchestratorChatProps {
   onTrafficEntry: (entry: TrafficEntry) => void;
   messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
-
-const POLL_INTERVAL = 2000;
-const POLL_MAX = 60; // 60 * 2s = 2 minutes
 
 export default function OrchestratorChat({ onTrafficEntry, messages, setMessages }: OrchestratorChatProps) {
   const [capability, setCapability] = useState('');
@@ -20,7 +22,13 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [msgError, setMsgError] = useState<string | null>(null);
   const [knownCaps, setKnownCaps] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // SSE state
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [terminalLines, setTerminalLines] = useState<OutputLine[]>([]);
+  const [hitlRequest, setHitlRequest] = useState<{ taskId: string; prompt: string } | null>(null);
+  const activeTaskIdRef = useRef<string | null>(null);
+  const activeCapRef = useRef<string>('');
 
   // Load known capabilities from registry
   const loadCaps = useCallback(async () => {
@@ -35,15 +43,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     loadCaps();
   }, [loadCaps]);
 
-  useEffect(() => {
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-    };
-  }, []);
-
-  // Auto-scroll
+  // Auto-scroll on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -52,6 +52,172 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     const id = crypto.randomUUID();
     setMessages((prev) => [...prev, { ...msg, id }]);
     return id;
+  }
+
+  // SSE message handler
+  const handleSSEMessage = useCallback((data: { type: string; [key: string]: unknown }) => {
+    const taskId = activeTaskIdRef.current;
+    const cap = activeCapRef.current;
+
+    if (data.type === 'stdout' || data.type === 'stderr') {
+      setTerminalLines((prev) => [
+        ...prev,
+        {
+          text: (data.text as string) ?? (data.data as string) ?? JSON.stringify(data),
+          stream: data.type as 'stdout' | 'stderr',
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ]);
+      return;
+    }
+
+    if (data.type === 'hitl_request') {
+      const prompt = (data.prompt as string) ?? (data.message as string) ?? 'Input required';
+      if (taskId) {
+        setHitlRequest({ taskId, prompt });
+        setTerminalLines((prev) => [
+          ...prev,
+          { text: `[HITL] ${prompt}`, stream: 'system', timestamp: new Date().toLocaleTimeString() },
+        ]);
+      }
+      return;
+    }
+
+    if (data.type === 'result' || data.type === 'completed') {
+      setSending(false);
+      setStreamUrl(null);
+      setHitlRequest(null);
+
+      const resultText =
+        typeof data.result === 'string'
+          ? data.result
+          : data.result !== undefined
+          ? JSON.stringify(data.result, null, 2)
+          : JSON.stringify(data, null, 2);
+
+      addMessage({
+        role: 'result',
+        content: resultText,
+        timestamp: new Date(),
+        task_id: taskId ?? undefined,
+        raw: data,
+      });
+
+      onTrafficEntry({
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+        agent_id: 'orchestrator',
+        action: 'task_result',
+        capability: cap,
+        status: 'allowed',
+        task_id: taskId ?? undefined,
+      });
+      return;
+    }
+
+    if (data.type === 'failed' || data.type === 'cancelled') {
+      setSending(false);
+      setStreamUrl(null);
+      setHitlRequest(null);
+
+      const reason =
+        (data.error as string) ??
+        (data.reason as string) ??
+        (data.message as string) ??
+        data.type;
+
+      addMessage({
+        role: 'error',
+        content: `Task ${data.type}: ${reason}`,
+        timestamp: new Date(),
+        task_id: taskId ?? undefined,
+      });
+
+      onTrafficEntry({
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+        agent_id: 'orchestrator',
+        action: 'task_result',
+        capability: cap,
+        status: 'escalated',
+        task_id: taskId ?? undefined,
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // SSE complete / error → fallback to single getTaskResult poll
+  const handleSSEComplete = useCallback(async () => {
+    const taskId = activeTaskIdRef.current;
+    const cap = activeCapRef.current;
+    if (!taskId) return;
+
+    // Only do fallback poll if we haven't already received a terminal event
+    // (sending will be false if SSE already handled it)
+    setSending((prev) => {
+      if (!prev) return prev; // already done
+      // Kick off fallback fetch
+      (async () => {
+        const rr = await getTaskResult(taskId);
+        if (rr.ok && rr.data) {
+          const resultText =
+            typeof rr.data.result === 'string'
+              ? rr.data.result
+              : rr.data.result !== undefined
+              ? JSON.stringify(rr.data.result, null, 2)
+              : JSON.stringify(rr.data, null, 2);
+
+          setMessages((msgs) => [
+            ...msgs,
+            {
+              id: crypto.randomUUID(),
+              role: 'result',
+              content: resultText,
+              timestamp: new Date(),
+              task_id: taskId,
+              raw: rr.data,
+            } as ChatMessage,
+          ]);
+
+          onTrafficEntry({
+            id: crypto.randomUUID(),
+            timestamp: new Date(),
+            agent_id: 'orchestrator',
+            action: 'task_result',
+            capability: cap,
+            status: rr.data!.status === 'completed' ? 'allowed' : 'escalated',
+            task_id: taskId,
+          });
+        } else {
+          setMessages((msgs) => [
+            ...msgs,
+            {
+              id: crypto.randomUUID(),
+              role: 'error',
+              content: `Stream ended without result for task ${taskId}. Check status later.`,
+              timestamp: new Date(),
+              task_id: taskId,
+            } as ChatMessage,
+          ]);
+        }
+        setStreamUrl(null);
+        setHitlRequest(null);
+      })();
+      return false;
+    });
+  }, [onTrafficEntry, setMessages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { status: sseStatus } = useSSE({
+    url: streamUrl,
+    onMessage: handleSSEMessage,
+    onComplete: handleSSEComplete,
+  });
+
+  // Derive spinner label from SSE status
+  function sendingLabel(status: SSEStatus): string {
+    if (status === 'connecting') return 'Connecting…';
+    if (status === 'open') return 'Streaming…';
+    if (status === 'closed' || status === 'error') return 'Waiting for result…';
+    return 'Dispatching…';
   }
 
   async function handleSend() {
@@ -70,6 +236,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     setMsgError(null);
 
     setSending(true);
+    setTerminalLines([]);
+    setHitlRequest(null);
 
     // Add user bubble
     addMessage({
@@ -106,6 +274,9 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     }
 
     const taskId = res.data.task_id;
+    activeTaskIdRef.current = taskId;
+    activeCapRef.current = cap;
+
     addMessage({
       role: 'system',
       content: `Task dispatched — ID: ${taskId}`,
@@ -123,56 +294,17 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       task_id: taskId,
     });
 
-    // Poll for result
-    let polls = 0;
-    pollIntervalRef.current = setInterval(async () => {
-      polls++;
-      const rr = await getTaskResult(taskId);
+    // Connect SSE stream
+    setStreamUrl(getTaskStreamUrl(taskId));
+  }
 
-      if (rr.ok && rr.data) {
-        clearInterval(pollIntervalRef.current!);
-        pollIntervalRef.current = null;
-        setSending(false);
-
-        const resultText =
-          typeof rr.data.result === 'string'
-            ? rr.data.result
-            : rr.data.result !== undefined
-            ? JSON.stringify(rr.data.result, null, 2)
-            : JSON.stringify(rr.data, null, 2);
-
-        addMessage({
-          role: 'result',
-          content: resultText,
-          timestamp: new Date(),
-          task_id: taskId,
-          raw: rr.data,
-        });
-
-        onTrafficEntry({
-          id: crypto.randomUUID(),
-          timestamp: new Date(),
-          agent_id: 'orchestrator',
-          action: 'task_result',
-          capability: cap,
-          status: rr.data.status === 'completed' ? 'allowed' : 'escalated',
-          task_id: taskId,
-        });
-        return;
-      }
-
-      if (polls >= POLL_MAX) {
-        clearInterval(pollIntervalRef.current!);
-        pollIntervalRef.current = null;
-        setSending(false);
-        addMessage({
-          role: 'error',
-          content: `Timed out waiting for result on task ${taskId}. Check status later.`,
-          timestamp: new Date(),
-          task_id: taskId,
-        });
-      }
-    }, POLL_INTERVAL);
+  async function handleHITLSubmit(taskId: string, input: string) {
+    setHitlRequest(null);
+    setTerminalLines((prev) => [
+      ...prev,
+      { text: `[You] ${input}`, stream: 'system', timestamp: new Date().toLocaleTimeString() },
+    ]);
+    await provideInput(taskId, input);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -181,6 +313,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     }
   }
 
+  const isStreaming = streamUrl !== null && (sseStatus === 'connecting' || sseStatus === 'open');
+
   return (
     <div className="flex flex-col h-full animate-fade-in" style={{ maxHeight: 'calc(100vh - 48px)' }}>
       {/* Messages */}
@@ -188,10 +322,29 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         {messages.map((msg) => (
           <ChatBubble key={msg.id} message={msg} />
         ))}
+
+        {/* Live terminal output while streaming */}
+        {(isStreaming || terminalLines.length > 0) && !sending === false && (
+          <div className="mt-2">
+            <TerminalOutput lines={terminalLines} maxHeight="300px" title="Live Output" />
+          </div>
+        )}
+
+        {/* HITL prompt */}
+        {hitlRequest && (
+          <div className="mt-2">
+            <HITLPrompt
+              prompt={hitlRequest.prompt}
+              taskId={hitlRequest.taskId}
+              onSubmit={handleHITLSubmit}
+            />
+          </div>
+        )}
+
         {sending && (
           <div className="flex items-center gap-2 text-xs text-[#64748b] pl-2">
             <span className="animate-pulse">⟳</span>
-            <span>Waiting for result…</span>
+            <span data-testid="sending-label">{sendingLabel(sseStatus)}</span>
           </div>
         )}
         <div ref={bottomRef} />

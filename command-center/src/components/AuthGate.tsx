@@ -3,13 +3,61 @@ import { useAuth } from '../context/AuthContext';
 
 interface AuthGateProps {
   children: React.ReactNode;
+  /**
+   * When `mode="banner"` (default), the app renders normally and a dismissible
+   * warning banner appears at the top when no token is configured.
+   * When `mode="block"`, the full-screen token prompt is shown instead of
+   * children until a token is provided.
+   */
+  mode?: 'banner' | 'block';
 }
 
-export default function AuthGate({ children }: AuthGateProps) {
+export default function AuthGate({ children, mode = 'banner' }: AuthGateProps) {
   const { isConfigured, setToken } = useAuth();
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
+  // ── Banner mode: always render children, show a non-blocking warning ──────
+  if (mode === 'banner') {
+    return (
+      <>
+        {!isConfigured && !bannerDismissed && (
+          <div
+            role="alert"
+            aria-live="polite"
+            data-testid="auth-banner"
+            className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-xs text-amber-300"
+          >
+            <span>
+              <strong>No Manager token configured.</strong> Manager API calls will fail. Set{' '}
+              <code className="font-mono text-amber-200">VITE_MANAGER_TOKEN</code> or{' '}
+              <button
+                onClick={() => {
+                  const t = window.prompt('Enter Manager token:');
+                  if (t?.trim()) setToken(t.trim());
+                }}
+                className="underline underline-offset-2 hover:text-amber-200 transition-colors"
+              >
+                enter a token
+              </button>
+              .
+            </span>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              aria-label="Dismiss auth warning"
+              className="flex-shrink-0 text-amber-400 hover:text-amber-200 transition-colors px-1"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {children}
+      </>
+    );
+  }
+
+  // ── Block mode: full-screen token prompt until configured ─────────────────
   if (isConfigured) return <>{children}</>;
 
   function handleSubmit(e: React.FormEvent) {

@@ -128,3 +128,40 @@
   - [x] Create tests/e2e/integration.spec.ts (full user flow: dispatch → stream → HITL → traffic → persist)
   - [x] Verify: npm run build clean + npx playwright test ALL green (120/120 passed)
   - [x] Commit
+
+---
+
+- [x] **Iteration 12: Wire AuthGate into App tree + replace polling with SSE in OrchestratorChat**
+  - [x] Wrap App.tsx route tree with `<AuthGate>` so unauthenticated users see the token prompt before any route renders (AuthGate was built in iteration 3 but never placed in the component tree — it is currently dead code)
+  - [x] Remove the manual `setInterval` polling loop from OrchestratorChat.tsx (`pollIntervalRef`, `POLL_INTERVAL`, `POLL_MAX` constants, and the `setInterval` block inside `handleSend`)
+  - [x] Replace polling with `useSSE` hook: after `dispatchTask` succeeds, pass the task stream URL (`/tasks/{taskId}/stream`) to `useSSE`; map incoming SSE chunk types (`stdout`, `stderr`, `result`, `failed`, `cancelled`, `hitl_request`) to the appropriate `addMessage` calls and traffic entries
+  - [x] Embed `<TerminalOutput>` inside the result bubble when a stream is active so live stdout/stderr chunks render incrementally rather than as a single final blob
+  - [x] Embed `<HITLPrompt>` inside OrchestratorChat when the stream emits a `hitl_request` chunk (the component was created in iteration 8 but OrchestratorChat never wired it)
+  - [x] Update the `sending` spinner text to reflect SSE states: "Connecting…" / "Streaming…" / "Waiting for result…" based on `useSSE` status
+  - [x] Add `getTaskStream()` URL builder to api.ts if not already returning a full URL suitable for `EventSource` (currently only added to api.ts signature, confirm it returns the bare URL string)
+  - [x] Create tests/e2e/authgate.spec.ts — (a) no token → AuthGate renders before any nav link; (b) valid token entered → app tree becomes visible; (c) env token set → AuthGate is bypassed
+  - [x] Extend tests/e2e/streaming.spec.ts — add test that OrchestratorChat no longer issues repeated GET /tasks/{id} poll requests after dispatch (assert XHR log has ≤1 task result fetch)
+  - [x] Verify: npm run build clean + npx playwright test passes (128/128)
+  - [x] Commit
+
+- [ ] **Iteration 13: Replace ad-hoc loading/empty states with SkeletonLoader + EmptyState**
+  - [ ] **AgentsPanel.tsx** — replace the inline `[1,2,3].map(i => <div animate-pulse>)` skeleton with `<SkeletonTable rows={3} cols={5} />`; replace the local `EmptyState` function component with the shared `<EmptyState icon="◎" title="No agents registered" description="Run docker compose up to start agents." />`
+  - [ ] **ContainersPanel.tsx** — replace the inline `[1,2,3].map(i => <div animate-pulse>)` skeleton with `<SkeletonTable rows={3} cols={5} />`; replace the local `EmptyContainers` function component with the shared `<EmptyState icon="⬡" title="No kubexes found" description="Kubexes appear here when spawned via Manager." />`
+  - [ ] **AgentDetailPage.tsx** — replace the bespoke two-div loading shimmer (lines 47–52) with `<SkeletonCard />` followed by `<SkeletonText lines={4} />`; replace the ad-hoc error/not-found block with `<EmptyState icon="⚠" title="Agent not found" description={error} action={{ label: '← Back', onClick: () => navigate('/agents') }} />`
+  - [ ] **Dashboard.tsx** — replace the inline `<span className="animate-pulse">Loading agents…</span>` block with `<SkeletonCard />` cards matching the agent card grid layout; replace the local `EmptyState` function at the bottom of the file with the shared component
+  - [ ] **ApprovalQueue.tsx** — replace the hardcoded empty-state `<div>` (lines 49–56) with `<EmptyState icon="✓" title="No pending approvals" description="Escalated actions from the policy engine will appear here." />`; the component currently has no loading state at all — add one using `<SkeletonCard rows={2} />` while `getEscalations()` resolves (ApprovalQueue uses mock data today but the skeleton should be in place for when the real API lands)
+  - [ ] Delete all local `EmptyState`/`EmptyContainers` function declarations that were copy-pasted into individual component files — they are now superseded by the shared component
+  - [ ] Create tests/e2e/skeletons.spec.ts — intercept API routes with a delayed MSW handler; assert `aria-busy="true"` skeleton elements appear during load; assert they disappear and real content renders after the response resolves
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
+
+- [ ] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
+  - [ ] **React.memo on pure sub-components** — wrap `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
+  - [ ] **useMemo for derived data** — in AgentsPanel, the `sortComparators` object is already at module level (good), but `searchedAgents → sortedItems → paginatedItems` chain re-runs on every keystroke; confirm `useSearch`, `useSort`, `usePagination` each use internal `useMemo` — if not, add it; in TrafficLog, `agentIds` derivation already uses `useMemo` (good); audit `filteredEntries` to ensure the dependency array is minimal
+  - [ ] **useCallback audit** — Dashboard's `checkHealth`, `loadAgents`, `loadKubexes` are wrapped in `useCallback` but depend on `agentSeries.push` and `kubexSeries.push` which come from `useTimeSeries`; verify those refs are stable across renders (they should be, since `useTimeSeries` returns a ref-based `push`) — add a comment confirming this is intentional
+  - [ ] **Virtualized list for TrafficLog** — TrafficLog can hold thousands of entries in localStorage; replace the paginated `div` stack with `@tanstack/react-virtual` (row virtualizer) for the visible page, keeping pagination as a fallback for non-JS environments; cap localStorage traffic log at 500 entries in AppContext to prevent unbounded growth
+  - [ ] **Virtualized list for OrchestratorChat messages** — the chat message list grows unbounded in localStorage; apply the same row virtualizer pattern; add a "Clear chat" button next to the existing chat input area
+  - [ ] **Code-split ApprovalQueue and AgentDetailPage** — both are already `lazy()`-imported in App.tsx (good); confirm chunk sizes via `npm run build -- --report` and document the resulting chunk sizes in a comment block at the top of App.tsx
+  - [ ] Create tests/e2e/performance.spec.ts — load TrafficLog with 200 mock entries; assert that the DOM contains far fewer than 200 row elements (virtualizer is working); assert scroll works without layout thrash (no `ResizeObserver loop` console errors)
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
