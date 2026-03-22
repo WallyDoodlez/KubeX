@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Phase 9 context gathered
-last_updated: "2026-03-22T17:18:13.408Z"
+stopped_at: Completed 09-00-PLAN.md
+last_updated: "2026-03-22T18:28:00.801Z"
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 10
+  completed_plans: 7
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Any Kubex can become any agent — new capabilities are skill files, not Docker builds.
-**Current focus:** Phase 08.1 — agent-system-prompts
+**Current focus:** Phase 09 — cli-runtime-claude-code
 
 ## Current Position
 
-Phase: 08.2
-Plan: Not started
+Phase: 09 (cli-runtime-claude-code) — EXECUTING
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Plan: Not started
 | Phase 08-mcp-bridge P04 | 35 | 3 tasks | 7 files |
 | Phase 08.1-agent-system-prompts P01 | 2 | 2 tasks | 3 files |
 | Phase 08.1-agent-system-prompts P02 | 8 | 2 tasks | 4 files |
+| Phase 09 P00 | 3 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,7 @@ Recent decisions affecting current work:
 - [Phase 08.1-agent-system-prompts]: Policy and budget parse defensively: configs with no policy/budget stanza produce safe defaults, not an error
 - [Phase 08.1-agent-system-prompts]: Sync httpx.get used in _fetch_worker_descriptions — _load_system_prompt runs at startup before asyncio loop, sync call is safe in this one-time path
 - [Phase 08.1-agent-system-prompts]: Orchestrator filters self from worker list by comparing agent_id — prevents self-delegation via worker list section
+- [Phase 09]: Test stubs use pytest.skip() (not xfail) so they are collected but never count as failures until Plan 03 fills them in
 
 ### Pending Todos
 
@@ -94,6 +96,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T17:18:13.405Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-cli-runtime-claude-code/09-CONTEXT.md
+Last session: 2026-03-22T18:28:00.797Z
+Stopped at: Completed 09-00-PLAN.md
+Resume file: None
