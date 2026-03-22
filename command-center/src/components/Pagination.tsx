@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 interface PaginationProps {
   page: number;
   totalPages: number;
@@ -14,7 +16,9 @@ interface PaginationProps {
 
 const PAGE_SIZES = [5, 10, 20, 50];
 
-export default function Pagination({
+// Wrapped in React.memo — Pagination is rendered inside AgentsPanel and TrafficLog which
+// re-render on every poll tick. Memo prevents re-rendering when pagination state is unchanged.
+const Pagination = memo(function Pagination({
   page, totalPages, pageSize, totalItems, startIndex, endIndex,
   hasNext, hasPrev, onNextPage, onPrevPage, onPageSizeChange,
 }: PaginationProps) {
@@ -70,4 +74,6 @@ export default function Pagination({
       </div>
     </div>
   );
-}
+});
+
+export default Pagination;

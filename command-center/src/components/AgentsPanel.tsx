@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePolling } from '../hooks/usePolling';
 import { useSearch } from '../hooks/useSearch';
@@ -43,7 +43,8 @@ export default function AgentsPanel() {
 
   const { refresh } = usePolling(load, { interval: 10_000, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
 
-  // Search
+  // Search — useSearch internally uses useMemo, so searchedAgents only recomputes when
+  // agents array or query changes (not on every parent render).
   const { query, setQuery, filteredItems: searchedAgents } = useSearch(agents, {
     fields: [
       (a) => a.agent_id,
@@ -53,10 +54,11 @@ export default function AgentsPanel() {
     ],
   });
 
-  // Sort
+  // Sort — useSort internally uses useMemo, sortedItems only recomputes when
+  // searchedAgents or sortConfig changes.
   const { sortedItems, requestSort, getSortIndicator } = useSort(searchedAgents, sortComparators);
 
-  // Paginate
+  // Paginate — usePagination internally uses useMemo for paginatedItems slice.
   const pagination = usePagination(sortedItems, { initialPageSize: 10 });
 
   function requestDeregister(agentId: string) {
@@ -194,7 +196,12 @@ interface AgentRowProps {
   deregistering: boolean;
 }
 
-function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, onNavigateToDetail, deregistering }: AgentRowProps) {
+// Wrapped in React.memo — AgentsPanel re-renders on every 10s poll tick (setLoading, setAgents).
+// Each AgentRow will skip re-render when its own props haven't changed.
+// Note: onToggle/onDeregister/onNavigateToDetail are new arrow functions on every parent render;
+// for full stability these would need useCallback in the parent. The memo still helps for
+// rows that are not in the "active" slot (e.g., expanded row changes, others stay stable).
+const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, onNavigateToDetail, deregistering }: AgentRowProps) {
   return (
     <div className={`${!isLast ? 'border-b border-[#2a2f45]' : ''}`}>
       {/* Main row */}
@@ -276,7 +283,7 @@ function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, onNavigateT
       )}
     </div>
   );
-}
+});
 
 function DetailField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
@@ -286,4 +293,3 @@ function DetailField({ label, value, mono }: { label: string; value: string; mon
     </div>
   );
 }
-

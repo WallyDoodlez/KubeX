@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 interface SparklineProps {
   /** Array of numeric values */
   values: number[];
@@ -13,7 +15,10 @@ interface SparklineProps {
   strokeWidth?: number;
 }
 
-export default function Sparkline({
+// Wrapped in React.memo — Sparkline re-renders only when values/dimensions/color change.
+// ServiceCard and StatCard render a Sparkline on every poll tick; memo avoids SVG
+// recalculation when the underlying series hasn't changed.
+const Sparkline = memo(function Sparkline({
   values,
   width = 120,
   height = 32,
@@ -68,4 +73,6 @@ export default function Sparkline({
       />
     </svg>
   );
-}
+});
+
+export default Sparkline;

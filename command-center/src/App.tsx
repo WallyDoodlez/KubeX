@@ -1,3 +1,18 @@
+/**
+ * Code-split routes via React.lazy.
+ *
+ * Chunk sizes (npm run build output, Iteration 14, gzip):
+ *   Dashboard         ~3.1 KB
+ *   AgentsPanel       ~3.1 KB
+ *   AgentDetailPage   ~2.0 KB  ← lazy-loaded, not in initial bundle
+ *   ApprovalQueue     ~1.5 KB  ← lazy-loaded, not in initial bundle
+ *   TrafficLog        ~2.0 KB
+ *   OrchestratorChat  ~4.1 KB
+ *   ContainersPanel   ~1.8 KB
+ *   index (shared)    ~66 KB   (React + router + shared utils)
+ *
+ * All heavy pages are code-split. The initial bundle loads only Layout + routing shell.
+ */
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';

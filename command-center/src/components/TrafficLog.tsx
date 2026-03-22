@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import type { TrafficEntry, ActionStatus, TrafficFilter } from '../types';
 import { usePagination } from '../hooks/usePagination';
 import TrafficFilterBar from './TrafficFilterBar';
@@ -30,13 +30,15 @@ export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
     search: '',
   });
 
-  // Get unique agent IDs for the filter dropdown
+  // Get unique agent IDs for the filter dropdown.
+  // useMemo ensures this only recalculates when entries changes, not on every filter keystroke.
   const agentIds = useMemo(() => {
     const ids = new Set(entries.map((e) => e.agent_id));
     return [...ids].sort();
   }, [entries]);
 
-  // Apply filters
+  // Apply filters.
+  // Dependency array is minimal: only recalculates when entries or filter changes.
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
       if (filter.status !== 'all' && entry.status !== filter.status) return false;
@@ -53,7 +55,8 @@ export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
     });
   }, [entries, filter]);
 
-  // Paginate
+  // Paginate — localStorage is capped at 500 entries in AppContext (addTrafficEntry slices to 500).
+  // The paginator slices filteredEntries so only the visible page is rendered.
   const pagination = usePagination(filteredEntries, { initialPageSize: 20 });
 
   return (
@@ -118,7 +121,9 @@ export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
   );
 }
 
-function TrafficRow({ entry }: { entry: TrafficEntry }) {
+// Wrapped in React.memo — TrafficLog re-renders when new entries arrive.
+// TrafficRow memo ensures existing rows don't re-render when only a new entry is added.
+const TrafficRow = memo(function TrafficRow({ entry }: { entry: TrafficEntry }) {
   const statusStyle = STATUS_COLORS[entry.status] ?? 'text-slate-400 bg-slate-500/10 border-slate-500/30';
   const rowBorder = STATUS_ROW_BG[entry.status] ?? 'border-l-slate-500/40';
 
@@ -172,7 +177,7 @@ function TrafficRow({ entry }: { entry: TrafficEntry }) {
       </span>
     </div>
   );
-}
+});
 
 function LegendDot({ color, label }: { color: string; label: string }) {
   const dots: Record<string, string> = {

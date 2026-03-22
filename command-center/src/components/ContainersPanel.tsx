@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import type { Kubex } from '../types';
 import { getKubexes, killKubex, startKubex } from '../api';
 import StatusBadge from './StatusBadge';
@@ -153,7 +153,9 @@ interface KubexRowProps {
   onStart: () => void;
 }
 
-function KubexRow({ kubex, isLast, actionIn, onKill, onStart }: KubexRowProps) {
+// Wrapped in React.memo — ContainersPanel re-renders on every 10s poll tick.
+// KubexRow skips re-render when its own props haven't changed.
+const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, onKill, onStart }: KubexRowProps) {
   const isRunning = kubex.status === 'running';
 
   return (
@@ -204,5 +206,4 @@ function KubexRow({ kubex, isLast, actionIn, onKill, onStart }: KubexRowProps) {
       </div>
     </div>
   );
-}
-
+});

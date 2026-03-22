@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import type { ApprovalRequest, ApprovalDecision } from '../types';
 import ConfirmDialog from './ConfirmDialog';
 import { SkeletonCard } from './SkeletonLoader';
@@ -103,7 +103,10 @@ export default function ApprovalQueue() {
   );
 }
 
-function ApprovalCard({
+// Wrapped in React.memo — ApprovalQueue ticks every 10s to update pending timers,
+// causing a parent re-render. Resolved cards don't need to re-render on tick.
+// Pending cards still re-render (their pendingFor text changes), which is correct.
+const ApprovalCard = memo(function ApprovalCard({
   request,
   onApprove,
   onReject,
@@ -173,4 +176,4 @@ function ApprovalCard({
       </div>
     </div>
   );
-}
+});

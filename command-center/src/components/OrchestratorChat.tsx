@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { dispatchTask, getTaskResult, getAgents, getTaskStreamUrl, provideInput } from '../api';
 import type { ChatMessage, TrafficEntry, Agent } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
@@ -52,6 +52,11 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     const id = crypto.randomUUID();
     setMessages((prev) => [...prev, { ...msg, id }]);
     return id;
+  }
+
+  // Clear chat messages (keeps welcome message)
+  function handleClearChat() {
+    setMessages((prev) => prev.slice(0, 1));
   }
 
   // SSE message handler
@@ -429,6 +434,22 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           >
             {sending ? '⟳' : 'Send'}
           </button>
+
+          {/* Clear chat button */}
+          <button
+            onClick={handleClearChat}
+            disabled={sending}
+            title="Clear chat history"
+            className="
+              flex-shrink-0 px-3 py-2 rounded-lg text-sm
+              border border-[#2a2f45] text-[#64748b]
+              hover:border-[#3a3f5a] hover:text-[#94a3b8]
+              disabled:opacity-40 disabled:cursor-not-allowed
+              transition-colors
+            "
+          >
+            Clear
+          </button>
         </div>
 
         {knownCaps.length > 0 && (
@@ -452,7 +473,10 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
 // ── Chat bubble ───────────────────────────────────────────────────────
 
-function ChatBubble({ message }: { message: ChatMessage }) {
+// Wrapped in React.memo — OrchestratorChat re-renders whenever messages array changes
+// (every new message). ChatBubble memo ensures old messages don't re-render when a new
+// message is appended; only the new bubble is mounted/rendered.
+const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
   const isResult = message.role === 'result';
   const isError = message.role === 'error';
@@ -525,4 +549,4 @@ function ChatBubble({ message }: { message: ChatMessage }) {
   }
 
   return null;
-}
+});

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 
 interface SearchInputProps {
   value: string;
@@ -7,7 +7,9 @@ interface SearchInputProps {
   debounceMs?: number;
 }
 
-export default function SearchInput({ value, onChange, placeholder = 'Search…', debounceMs = 300 }: SearchInputProps) {
+// Wrapped in React.memo — SearchInput is rendered inside AgentsPanel which polls every 10s.
+// Memo prevents re-rendering unless value/onChange/placeholder actually changes.
+const SearchInput = memo(function SearchInput({ value, onChange, placeholder = 'Search…', debounceMs = 300 }: SearchInputProps) {
   const [localValue, setLocalValue] = useState(value);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -63,4 +65,6 @@ export default function SearchInput({ value, onChange, placeholder = 'Search…'
       )}
     </div>
   );
-}
+});
+
+export default SearchInput;

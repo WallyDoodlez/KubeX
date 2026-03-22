@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 interface StatusBadgeProps {
   status: string;
   size?: 'sm' | 'md';
@@ -47,7 +49,9 @@ const STATUS_DOT: Record<string, string> = {
   pending: 'bg-blue-400',
 };
 
-export default function StatusBadge({ status, size = 'sm' }: StatusBadgeProps) {
+// Wrapped in React.memo — StatusBadge is used in every row/card and re-renders
+// on every poll tick (every 10s). Memo prevents re-renders when status+size are unchanged.
+const StatusBadge = memo(function StatusBadge({ status, size = 'sm' }: StatusBadgeProps) {
   const key = status.toLowerCase();
   const style = STATUS_STYLES[key] ?? 'bg-slate-500/20 text-slate-400 border-slate-500/30';
   const dot = STATUS_DOT[key] ?? 'bg-slate-400';
@@ -59,4 +63,6 @@ export default function StatusBadge({ status, size = 'sm' }: StatusBadgeProps) {
       {status}
     </span>
   );
-}
+});
+
+export default StatusBadge;

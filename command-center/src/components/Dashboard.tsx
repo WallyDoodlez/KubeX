@@ -84,18 +84,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const res = await getAgents();
     if (res.ok && Array.isArray(res.data)) {
       setAgents(res.data);
+      // agentSeries.push is intentionally omitted from deps: useTimeSeries returns a
+      // ref-based push function whose identity is stable across renders (never changes),
+      // so including it would not affect correctness and would add unnecessary noise.
       agentSeries.push(res.data.length);
     }
     setLoadingAgents(false);
-  }, []); // agentSeries.push is stable from ref
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadKubexes = useCallback(async () => {
     const res = await getKubexes();
     if (res.ok && Array.isArray(res.data)) {
       setKubexCount(res.data.length);
+      // kubexSeries.push is intentionally omitted from deps — same reason as agentSeries.push above.
       kubexSeries.push(res.data.length);
     }
-  }, []); // kubexSeries.push is stable from ref
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pollAll = useCallback(() => {
     checkHealth();

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import type { ServiceHealth } from '../types';
 import StatusBadge from './StatusBadge';
 import { useTimeSeries } from '../hooks/useTimeSeries';
@@ -16,7 +16,9 @@ const SERVICE_ICONS: Record<string, string> = {
   Redis: '🗄',
 };
 
-export default function ServiceCard({ service }: ServiceCardProps) {
+// Wrapped in React.memo — Dashboard re-renders every 10s poll tick; memo prevents
+// ServiceCard from re-rendering when the service object props are unchanged.
+const ServiceCard = memo(function ServiceCard({ service }: ServiceCardProps) {
   const rtSeries = useTimeSeries({ maxPoints: 20 });
 
   useEffect(() => {
@@ -79,4 +81,6 @@ export default function ServiceCard({ service }: ServiceCardProps) {
       )}
     </div>
   );
-}
+});
+
+export default ServiceCard;
