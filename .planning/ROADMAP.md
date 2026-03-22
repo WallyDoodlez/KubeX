@@ -78,16 +78,6 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd:plan-phase 08.3 to break down)
 
-### Phase 08.2: Vault Persistence (INSERTED)
-
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 8
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 08.2 to break down)
-
 ### Phase 08.1: Agent System Prompts (INSERTED)
 
 **Goal:** Structured system prompts for all agents with shared preamble, capability-bounded behavior, security directives, and standard output contract

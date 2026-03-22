@@ -1,0 +1,24 @@
+{
+  "main": {
+    "id": "main",
+    "type": "split",
+    "children": [],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "left",
+    "type": "split",
+    "children": [],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "right",
+    "type": "split",
+    "children": [],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "active": "main",
+  "lastOpenFiles": []
+}

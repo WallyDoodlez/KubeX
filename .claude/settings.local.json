@@ -11,7 +11,18 @@
       "Glob(*)",
       "Grep(*)",
       "WebFetch(*)",
-      "WebSearch"
+      "WebSearch",
+      "Skill(gsd:new-project)",
+      "Skill(gsd:update)",
+      "Skill(gsd:plan-phase)",
+      "Skill(gsd:discuss-phase)",
+      "Skill(gsd:verify-work)",
+      "Skill(gsd:add-todo)",
+      "Skill(gsd:complete-milestone)",
+      "Skill(gsd:audit-milestone)",
+      "Skill(gsd:new-milestone)",
+      "Skill(gsd:insert-phase)",
+      "Skill(gsd:next)"
     ]
   }
 }
