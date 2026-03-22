@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import { AppProvider, useAppContext } from './context/AppContext';
 import type { NavPage } from './types';
 
@@ -52,15 +53,17 @@ export default function App() {
     <BrowserRouter>
       <AppProvider>
         <Layout>
-          <Suspense fallback={LoadingFallback}>
-            <Routes>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/agents" element={<LazyAgentsPanel />} />
-              <Route path="/traffic" element={<TrafficPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/containers" element={<LazyContainersPanel />} />
-            </Routes>
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={LoadingFallback}>
+              <Routes>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/agents" element={<LazyAgentsPanel />} />
+                <Route path="/traffic" element={<TrafficPage />} />
+                <Route path="/chat" element={<ChatPage />} />
+                <Route path="/containers" element={<LazyContainersPanel />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
         </Layout>
       </AppProvider>
     </BrowserRouter>

@@ -17,6 +17,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [sending, setSending] = useState(false);
   const [knownCaps, setKnownCaps] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load known capabilities from registry
   const loadCaps = useCallback(async () => {
@@ -30,6 +31,14 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   useEffect(() => {
     loadCaps();
   }, [loadCaps]);
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
@@ -103,12 +112,13 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
     // Poll for result
     let polls = 0;
-    const interval = setInterval(async () => {
+    pollIntervalRef.current = setInterval(async () => {
       polls++;
       const rr = await getTaskResult(taskId);
 
       if (rr.ok && rr.data) {
-        clearInterval(interval);
+        clearInterval(pollIntervalRef.current!);
+        pollIntervalRef.current = null;
         setSending(false);
 
         const resultText =
@@ -139,7 +149,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       }
 
       if (polls >= POLL_MAX) {
-        clearInterval(interval);
+        clearInterval(pollIntervalRef.current!);
+        pollIntervalRef.current = null;
         setSending(false);
         addMessage({
           role: 'error',

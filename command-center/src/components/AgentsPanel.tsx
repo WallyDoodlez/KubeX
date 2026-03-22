@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import type { Agent } from '../types';
 import { getAgents, deregisterAgent } from '../api';
 import StatusBadge from './StatusBadge';
@@ -22,11 +23,7 @@ export default function AgentsPanel() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 10_000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { refresh } = usePolling(load, { interval: 10_000, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
 
   async function handleDeregister(agentId: string) {
     if (!confirm(`Deregister agent "${agentId}"?`)) return;
@@ -47,7 +44,7 @@ export default function AgentsPanel() {
           </p>
         </div>
         <button
-          onClick={load}
+          onClick={refresh}
           className="px-3 py-1.5 text-xs rounded-lg border border-[#2a2f45] text-[#94a3b8] hover:border-[#3a3f5a] hover:text-[#e2e8f0] transition-colors"
         >
           ↻ Refresh

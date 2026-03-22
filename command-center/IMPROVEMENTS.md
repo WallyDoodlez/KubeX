@@ -16,18 +16,18 @@
   - [x] Verify: npm run build clean + npx playwright test passes
   - [x] Commit
 
-- [ ] **Iteration 2: Custom Hooks + Interval Cleanup + Error Boundaries**
-  - [ ] Create src/hooks/usePolling.ts (cleanup on unmount, exponential backoff, pause on tab hidden)
-  - [ ] Create src/hooks/useApiCall.ts (one-shot API call with loading/error)
-  - [ ] Create src/components/ErrorBoundary.tsx (catch render errors, retry UI)
-  - [ ] Refactor Dashboard.tsx — replace setInterval with usePolling
-  - [ ] Refactor AgentsPanel.tsx — replace setInterval with usePolling
-  - [ ] Refactor ContainersPanel.tsx — replace setInterval with usePolling
-  - [ ] Refactor OrchestratorChat.tsx — fix memory leak (uncleared setInterval in handleSend), use usePolling
-  - [ ] Wrap routes in ErrorBoundary (App.tsx)
-  - [ ] Create tests/e2e/error-recovery.spec.ts (3 tests)
-  - [ ] Verify: npm run build clean + npx playwright test passes
-  - [ ] Commit
+- [x] **Iteration 2: Custom Hooks + Interval Cleanup + Error Boundaries**
+  - [x] Create src/hooks/usePolling.ts (cleanup on unmount, exponential backoff, pause on tab hidden)
+  - [x] Create src/hooks/useApiCall.ts (one-shot API call with loading/error)
+  - [x] Create src/components/ErrorBoundary.tsx (catch render errors, retry UI)
+  - [x] Refactor Dashboard.tsx — replace setInterval with usePolling
+  - [x] Refactor AgentsPanel.tsx — replace setInterval with usePolling
+  - [x] Refactor ContainersPanel.tsx — replace setInterval with usePolling
+  - [x] Refactor OrchestratorChat.tsx — fix memory leak (uncleared setInterval in handleSend), use usePolling
+  - [x] Wrap routes in ErrorBoundary (App.tsx)
+  - [x] Create tests/e2e/error-recovery.spec.ts (3 tests)
+  - [x] Verify: npm run build clean + npx playwright test passes
+  - [x] Commit
 
 - [ ] **Iteration 3: API Hardening + Auth + Input Validation**
   - [ ] Harden src/api.ts — remove changeme token default, add request dedup, 401/403 detection

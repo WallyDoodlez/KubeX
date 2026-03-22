@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { Kubex } from '../types';
 import { getKubexes, killKubex, startKubex } from '../api';
 import StatusBadge from './StatusBadge';
+import { usePolling } from '../hooks/usePolling';
 
 export default function ContainersPanel() {
   const [kubexes, setKubexes] = useState<Kubex[]>([]);
@@ -21,11 +22,7 @@ export default function ContainersPanel() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 10_000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { refresh } = usePolling(load, { interval: 10_000, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
 
   async function handleKill(kubexId: string) {
     if (!confirm(`Kill kubex "${kubexId}"?`)) return;
@@ -56,7 +53,7 @@ export default function ContainersPanel() {
           </p>
         </div>
         <button
-          onClick={load}
+          onClick={refresh}
           className="px-3 py-1.5 text-xs rounded-lg border border-[#2a2f45] text-[#94a3b8] hover:border-[#3a3f5a] hover:text-[#e2e8f0] transition-colors"
         >
           ↻ Refresh

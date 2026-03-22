@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import type { ServiceHealth, Agent, NavPage } from '../types';
 import {
   getGatewayHealth,
@@ -85,17 +86,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     }
   }, []);
 
-  useEffect(() => {
+  const pollAll = useCallback(() => {
     checkHealth();
     loadAgents();
     loadKubexes();
-    const interval = setInterval(() => {
-      checkHealth();
-      loadAgents();
-      loadKubexes();
-    }, REFRESH_INTERVAL);
-    return () => clearInterval(interval);
   }, [checkHealth, loadAgents, loadKubexes]);
+
+  usePolling(pollAll, { interval: REFRESH_INTERVAL, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
 
   const servicesUp = services.filter((s) => s.status === 'healthy').length;
   const servicesDown = services.filter((s) => s.status === 'down').length;
