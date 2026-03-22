@@ -336,6 +336,110 @@
 
 ---
 
+## OAuth Endpoints (Iteration 32 — Required from Backend)
+
+> The Command Center frontend has OAuth scaffolding ready (see `src/services/auth.ts`).
+> These endpoints are needed from the backend identity / auth service before OAuth can be enabled.
+> Set `VITE_OAUTH_AUTHORITY` to activate the OAuth code path in the frontend.
+
+### 🔴 POST /authorize — OAuth Authorization endpoint
+
+- **Frontend file:** `src/services/auth.ts` — `login()` redirects to `{VITE_OAUTH_AUTHORITY}/authorize`
+- **Protocol:** OAuth 2.0 Authorization Code + PKCE (RFC 7636)
+- **Required query params the frontend will send:**
+  ```
+  response_type=code
+  client_id={VITE_OAUTH_CLIENT_ID}
+  redirect_uri={VITE_OAUTH_REDIRECT_URI}   (default: {origin}/auth/callback)
+  scope=openid profile email
+  state={random_state}
+  code_challenge={pkce_challenge}
+  code_challenge_method=S256
+  ```
+- **Expected response:** 302 redirect to `redirect_uri?code=...&state=...` on success, or `redirect_uri?error=...&error_description=...` on failure.
+- **Backend status:** NOT IMPLEMENTED. Only static bearer token auth exists today.
+- **Action needed:** Implement an OAuth 2.0 Authorization Server (or integrate with an existing IdP such as Keycloak, Auth0, Okta). The frontend is IdP-agnostic — it uses standard PKCE endpoints.
+
+---
+
+### 🔴 POST /token — Token endpoint
+
+- **Frontend file:** `src/services/auth.ts` — `handleCallback()` posts to `{VITE_OAUTH_AUTHORITY}/token`
+- **Used for:** Authorization code exchange AND refresh token grant
+- **Authorization Code exchange body (application/x-www-form-urlencoded):**
+  ```
+  grant_type=authorization_code
+  client_id={VITE_OAUTH_CLIENT_ID}
+  redirect_uri={VITE_OAUTH_REDIRECT_URI}
+  code={authorization_code}
+  code_verifier={pkce_verifier}
+  ```
+- **Refresh token body:**
+  ```
+  grant_type=refresh_token
+  client_id={VITE_OAUTH_CLIENT_ID}
+  refresh_token={stored_refresh_token}
+  ```
+- **Expected response:**
+  ```json
+  {
+    "access_token": "...",
+    "refresh_token": "...",
+    "expires_in": 3600,
+    "token_type": "Bearer",
+    "scope": "openid profile email"
+  }
+  ```
+- **Backend status:** NOT IMPLEMENTED.
+- **Action needed:** Implement token endpoint per RFC 6749 with PKCE support (RFC 7636). Access tokens should be JWTs acceptable by the Gateway and Manager as Bearer tokens (replacing the current static `VITE_MANAGER_TOKEN`).
+
+---
+
+### 🔴 GET /userinfo — OIDC UserInfo endpoint
+
+- **Frontend file:** `src/services/auth.ts` — `fetchUserProfile()` calls `{VITE_OAUTH_AUTHORITY}/userinfo`
+- **Auth:** `Authorization: Bearer {access_token}`
+- **Expected response (OpenID Connect standard):**
+  ```json
+  {
+    "sub": "user-id",
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "picture": "https://..."
+  }
+  ```
+- **Used by:** `UserMenu.tsx` to display the logged-in user's name, email, and avatar in the top bar.
+- **Backend status:** NOT IMPLEMENTED.
+- **Action needed:** Implement the OIDC UserInfo endpoint (RFC 9068 / OIDC Core 1.0 §5.3). Return at minimum `sub`, `name`, `email`. `picture` (avatar URL) is optional but will appear in the top bar if provided.
+
+---
+
+### 🔴 GET /logout — RP-Initiated Logout (optional)
+
+- **Frontend file:** `src/services/auth.ts` — `logout()` redirects to `{VITE_OAUTH_AUTHORITY}/logout`
+- **Query params sent:**
+  ```
+  client_id={VITE_OAUTH_CLIENT_ID}
+  post_logout_redirect_uri={window.location.origin}
+  ```
+- **Expected behaviour:** Invalidate the server-side session and redirect the browser to `post_logout_redirect_uri`.
+- **Backend status:** NOT IMPLEMENTED.
+- **Action needed:** Implement RP-Initiated Logout per OIDC Session Management spec. If not implemented, the frontend degrades gracefully — it clears local tokens and reloads; the provider session remains active until it expires naturally.
+
+---
+
+### Notes on JWT Bearer token compatibility
+
+Once OAuth is live, `access_token` values issued by the IdP will be sent as `Authorization: Bearer {access_token}` to the Gateway and Manager (via `src/api.ts` `managerHeaders()`). The backend services must:
+
+1. Accept and validate JWTs (not just the static `VITE_MANAGER_TOKEN` string).
+2. Verify the token signature against the IdP's JWKS endpoint.
+3. Check `exp`, `iss`, `aud` claims.
+
+This is a **breaking change** to the Manager's auth model — the static bearer token can remain as a fallback for local dev, but production deployments must move to JWT validation.
+
+---
+
 ## Summary Table
 
 | # | Endpoint | Service | Status | Blocker? |
@@ -360,3 +464,7 @@
 | 18 | `POST /tasks/{id}/input` | Gateway | 🔴 MISSING | Yes (HITL) |
 | 19 | `GET /escalations` | Gateway | 🔴 MISSING | No (mock active) |
 | 20 | `POST /escalations/{id}/resolve` | Gateway | 🔴 MISSING | No (mock active) |
+| 21 | `POST /authorize` | Auth Service | 🔴 MISSING | Yes (OAuth login) |
+| 22 | `POST /token` | Auth Service | 🔴 MISSING | Yes (OAuth token exchange) |
+| 23 | `GET /userinfo` | Auth Service | 🔴 MISSING | No (user profile display) |
+| 24 | `GET /logout` | Auth Service | 🔴 MISSING | No (logout redirect, degrades gracefully) |

@@ -6,6 +6,7 @@ import type {
   TaskResponse,
   TaskResult,
 } from './types';
+import { getAccessToken } from './services/auth';
 
 // ── Service base URLs ───────────────────────────────────────────────
 // In Docker Compose the command-center reaches services by container name.
@@ -100,7 +101,9 @@ function apiFetch<T>(
 }
 
 function managerHeaders(): Record<string, string> {
-  return { Authorization: `Bearer ${MANAGER_TOKEN}` };
+  // Prefer the OAuth access token when available; fall back to the static env token.
+  const token = getAccessToken() || MANAGER_TOKEN;
+  return { Authorization: `Bearer ${token}` };
 }
 
 // ── Health checks ────────────────────────────────────────────────────

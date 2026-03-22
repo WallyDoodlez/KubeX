@@ -18,6 +18,7 @@ import { useHealthCheck } from '../hooks/useHealthCheck';
 import ThemeToggle from './ThemeToggle';
 import { useTheme } from '../hooks/useTheme';
 import NotificationCenter from './NotificationCenter';
+import UserMenu from './UserMenu';
 
 interface NavItem {
   label: string;
@@ -466,6 +467,9 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* Notification center */}
             <NotificationCenter />
+
+            {/* User menu — shown when OAuth is active or a legacy token is present */}
+            <UserMenu />
 
             <div aria-hidden="true" className="hidden sm:block w-px h-4 bg-[var(--color-border)]" />
 

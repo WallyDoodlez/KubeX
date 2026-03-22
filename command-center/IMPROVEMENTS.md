@@ -303,6 +303,21 @@
   - [x] Test: npx playwright test — 397/397 passed
   - [x] Update `docs/CHANGELOG.md`
 
+- [x] **Iteration 32: OAuth Authentication Scaffolding**
+  - [x] Create `src/services/auth.ts` — OAuth service layer: `login()` (PKCE redirect), `handleCallback()` (code exchange), `refreshToken()`, `logout()`, `getAccessToken()`, `isAuthenticated()`, `getUser()`, `isOAuthConfigured()`; all URLs configurable via `VITE_OAUTH_AUTHORITY`, `VITE_OAUTH_CLIENT_ID`, `VITE_OAUTH_REDIRECT_URI`; falls back to legacy bearer token when OAuth env vars are not set
+  - [x] Update `src/context/AuthContext.tsx` — integrate OAuth service; add `oauthEnabled`, `isAuthenticated`, `user`, `login()`, `logout()` to context; backward-compatible: all existing consumers (`token`, `setToken`, `isConfigured`, `clearToken`) continue to work unchanged
+  - [x] Create `src/components/LoginPage.tsx` — full-screen sign-in page with "Sign in with OAuth" button; shown only when `oauthEnabled=true` and user is not authenticated
+  - [x] Create `src/components/UserMenu.tsx` — top-bar avatar + name dropdown with logout; displays OAuth user profile (name, email, avatar) or "API Token" label in legacy mode; closes on Escape and outside click
+  - [x] Create `src/components/AuthCallbackPage.tsx` — handles OAuth redirect; exchanges code for tokens via `handleCallback()`; shows loading spinner during exchange and error state on failure; redirects to `/` on success
+  - [x] Update `src/App.tsx` — add `OAuthGate` wrapper (shows LoginPage when OAuth configured + not authenticated; handles callback route); add `/auth/callback` route; lazy-load both new pages
+  - [x] Update `src/components/Layout.tsx` — add `<UserMenu />` to top bar between NotificationCenter and the divider
+  - [x] Update `src/api.ts` — `managerHeaders()` calls `getAccessToken()` (prefers OAuth token, falls back to static `VITE_MANAGER_TOKEN`)
+  - [x] Update `docs/FE-BE-REQUESTS.md` — add OAuth endpoints section (entries 21–24): `/authorize`, `/token`, `/userinfo`, `/logout`; note JWT validation requirements for Manager/Gateway
+  - [x] Create `tests/e2e/oauth.spec.ts` (16 tests) — legacy mode compatibility, login page visibility, callback route registration, UserMenu accessibility, PKCE storage, OAuthGate pass-through
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 468/468 passed
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 31: URL query params for shareable filters**
   - [x] Create `src/hooks/useQueryParams.ts` — typed wrapper around React Router's `useSearchParams`; reads initial values from URL on mount; omits params that equal their defaults to keep URLs clean; `push=true` for discrete filter changes (navigable back/forward), `push=false` for incremental keystrokes (replaceState)
   - [x] Update `src/hooks/useSearch.ts` — add optional `initialQuery` param to seed search state from URL on mount

@@ -18,7 +18,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AppProvider, useAppContext } from './context/AppContext';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import { SettingsProvider } from './hooks/useSettings';
@@ -33,6 +33,8 @@ const LazyAgentDetailPage = lazy(() => import('./components/AgentDetailPage'));
 const LazyApprovalQueue = lazy(() => import('./components/ApprovalQueue'));
 const LazySettingsPage = lazy(() => import('./components/SettingsPage'));
 const LazyNotFoundPage = lazy(() => import('./components/NotFoundPage'));
+const LazyAuthCallbackPage = lazy(() => import('./components/AuthCallbackPage'));
+const LazyLoginPage = lazy(() => import('./components/LoginPage'));
 
 const PAGE_TO_PATH: Record<NavPage, string> = {
   dashboard: '/',
@@ -84,6 +86,36 @@ function ToastBridge({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * OAuthGate — when OAuth is configured and the user is NOT authenticated,
+ * render the login page instead of the app shell.
+ * The /auth/callback route is always rendered regardless of auth state
+ * (it's how the user becomes authenticated).
+ */
+function OAuthGate({ children }: { children: React.ReactNode }) {
+  const { oauthEnabled, isAuthenticated } = useAuth();
+
+  // OAuth callback page — always accessible
+  const isCallbackRoute = window.location.pathname.startsWith('/auth/callback');
+  if (isCallbackRoute) {
+    return (
+      <Suspense fallback={LoadingFallback}>
+        <LazyAuthCallbackPage />
+      </Suspense>
+    );
+  }
+
+  if (oauthEnabled && !isAuthenticated) {
+    return (
+      <Suspense fallback={LoadingFallback}>
+        <LazyLoginPage />
+      </Suspense>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -92,23 +124,26 @@ export default function App() {
       <SettingsProvider>
       <NotificationProvider>
       <ToastBridge>
-        <Layout>
-          <ErrorBoundary>
-            <Suspense fallback={LoadingFallback}>
-              <Routes>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/agents" element={<LazyAgentsPanel />} />
-                <Route path="/agents/:agentId" element={<LazyAgentDetailPage />} />
-                <Route path="/traffic" element={<TrafficPage />} />
-                <Route path="/chat" element={<ChatPage />} />
-                <Route path="/containers" element={<LazyContainersPanel />} />
-                <Route path="/approvals" element={<LazyApprovalQueue />} />
-                <Route path="/settings" element={<LazySettingsPage />} />
-                <Route path="*" element={<LazyNotFoundPage />} />
-              </Routes>
-            </Suspense>
-          </ErrorBoundary>
-        </Layout>
+        <OAuthGate>
+          <Layout>
+            <ErrorBoundary>
+              <Suspense fallback={LoadingFallback}>
+                <Routes>
+                  <Route path="/" element={<DashboardPage />} />
+                  <Route path="/agents" element={<LazyAgentsPanel />} />
+                  <Route path="/agents/:agentId" element={<LazyAgentDetailPage />} />
+                  <Route path="/traffic" element={<TrafficPage />} />
+                  <Route path="/chat" element={<ChatPage />} />
+                  <Route path="/containers" element={<LazyContainersPanel />} />
+                  <Route path="/approvals" element={<LazyApprovalQueue />} />
+                  <Route path="/settings" element={<LazySettingsPage />} />
+                  <Route path="/auth/callback" element={<LazyAuthCallbackPage />} />
+                  <Route path="*" element={<LazyNotFoundPage />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
+          </Layout>
+        </OAuthGate>
       </ToastBridge>
       </NotificationProvider>
       </SettingsProvider>
