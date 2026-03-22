@@ -4,6 +4,16 @@
 
 ---
 
+- [x] **Iteration 37: Pinned/Favorite Agents**
+  - [x] Create `src/hooks/useFavorites.ts` — manages a `string[]` of favorited agent IDs in localStorage under `kubex-favorite-agents`; exposes `favorites` (array), `favoritesSet` (Set for O(1) lookup), `isFavorite(id)`, and `toggle(id)` (adds if absent, removes if present); built on `useLocalStorage`
+  - [x] Update `AgentsPanel.tsx` — add `useFavorites` hook; sort `sortedItems` with a stable secondary sort that lifts favorites to the top (before pagination); add `auto` star column to `grid-cols` template in both header and rows; render a "Pinned" amber section label row before the first favorited agent; render an "All Agents" separator row before the first non-favorited agent when both groups are present on the same page; each `AgentRow` receives `favorited` prop and `onToggleFavorite` callback; star button shows `★` (amber) when favorited, `☆` (dim) otherwise; click is stop-propagated to prevent row expand
+  - [x] Update `AgentDetailPage.tsx` — import `useFavorites`; add amber star toggle button next to agent ID heading (between CopyButton and StatusBadge); aria-label switches between "Pin agent" and "Unpin agent"; state reflects current localStorage value
+  - [x] Update `Dashboard.tsx` — import `useFavorites`; sort the dashboard agent grid by favorites-first before slicing to `AGENT_DISPLAY_LIMIT`; `AgentCard` accepts optional `pinned` prop — when true, card border becomes amber and an amber `★` appears before the agent ID
+  - [x] Create `tests/e2e/favorites.spec.ts` (24 tests) — star button presence; unfilled by default; correct aria-label; click fills star; aria-label changes to "Unpin"; toggle back to unfilled; no Pinned label when none favorited; Pinned label appears after favoriting; label contains ★; All Agents separator appears; Pinned label disappears after unpinning; favorites persist across reload; localStorage key and value; unfavoriting removes from localStorage; favorited agent moves to top; top row has filled star; detail page has favorite button; detail defaults to ☆; detail click fills ★; dashboard shows pinned star; star button is focusable; star button has tabIndex 0; star click does not propagate to row expand
+  - [x] Build: npm run build — clean (109 modules)
+  - [x] Test: npx playwright test — 582/582 passed (1 skipped)
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 36: Keyboard-Navigable Tables**
   - [x] Create `src/hooks/useTableKeyboardNav.ts` — manages focused row index within a table; handles ArrowDown/ArrowUp to move focus between rows, Home key for first row, Enter to expand/activate the focused row, Space to toggle selection of the focused row; returns `focusedIndex`, `setFocusedIndex`, `handleKeyDown`, and `getRowProps` (tabIndex + id + aria-rowindex + data-nav-index + onFocus helpers)
   - [x] Update `AgentsPanel.tsx` — wire `useTableKeyboardNav` to the agent table; table container gets `role="grid"` + `aria-label` + `aria-activedescendant` + `tabIndex={0}`; each row gets stable `id`, `tabIndex`, `aria-rowindex`, `data-nav-index`, `onFocus`; focused row shows emerald focus ring (`ring-2 ring-inset ring-emerald-500/60`); Enter expands row detail; Space toggles selection; updated existing `agents.spec.ts` test to use `role="grid"` selector

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { usePolling } from '../hooks/usePolling';
 import { useTimeSeries } from '../hooks/useTimeSeries';
 import { useCollapsible } from '../hooks/useCollapsible';
+import { useFavorites } from '../hooks/useFavorites';
 import type { Agent, NavPage } from '../types';
 import { getAgents, getKubexes } from '../api';
 import { useAppContext } from '../context/AppContext';
@@ -33,6 +34,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const kubexSeries = useTimeSeries({ maxPoints: 20 });
 
   const { isCollapsed, toggle } = useCollapsible('kubex-dashboard-sections');
+  const { favoritesSet } = useFavorites();
 
   const loadAgents = useCallback(async () => {
     setLoadingAgents(true);
@@ -146,19 +148,33 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             description="No agents registered. Start agents with docker compose up."
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {agents.slice(0, AGENT_DISPLAY_LIMIT).map((agent) => (
-              <AgentCard key={agent.agent_id} agent={agent} />
-            ))}
-            {agents.length > AGENT_DISPLAY_LIMIT && (
-              <button
-                onClick={() => onNavigate('agents')}
-                className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-4 flex items-center justify-center text-sm text-emerald-400 hover:text-emerald-300 hover:border-[var(--color-border-strong)] transition-colors"
-              >
-                +{agents.length - AGENT_DISPLAY_LIMIT} more →
-              </button>
-            )}
-          </div>
+          (() => {
+            // Sort pinned agents to the top of the dashboard grid
+            const sortedForDashboard = agents.slice().sort((a, b) => {
+              const aFav = favoritesSet.has(a.agent_id) ? 0 : 1;
+              const bFav = favoritesSet.has(b.agent_id) ? 0 : 1;
+              return aFav - bFav;
+            });
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {sortedForDashboard.slice(0, AGENT_DISPLAY_LIMIT).map((agent) => (
+                  <AgentCard
+                    key={agent.agent_id}
+                    agent={agent}
+                    pinned={favoritesSet.has(agent.agent_id)}
+                  />
+                ))}
+                {agents.length > AGENT_DISPLAY_LIMIT && (
+                  <button
+                    onClick={() => onNavigate('agents')}
+                    className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-4 flex items-center justify-center text-sm text-emerald-400 hover:text-emerald-300 hover:border-[var(--color-border-strong)] transition-colors"
+                  >
+                    +{agents.length - AGENT_DISPLAY_LIMIT} more →
+                  </button>
+                )}
+              </div>
+            );
+          })()
         )}
       </CollapsibleSection>
 
@@ -272,13 +288,16 @@ function SectionHeader({
   );
 }
 
-function AgentCard({ agent }: { agent: Agent }) {
+function AgentCard({ agent, pinned }: { agent: Agent; pinned?: boolean }) {
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:border-[var(--color-border-strong)] transition-colors">
+    <div className={`rounded-xl border bg-[var(--color-surface)] p-4 hover:border-[var(--color-border-strong)] transition-colors ${pinned ? 'border-amber-500/30' : 'border-[var(--color-border)]'}`}>
       <div className="flex items-start justify-between mb-2">
-        <p className="font-mono-data text-sm font-semibold text-[var(--color-text)] truncate mr-2">
-          {agent.agent_id}
-        </p>
+        <div className="flex items-center gap-1.5 min-w-0 mr-2">
+          {pinned && <span className="text-amber-400 text-xs flex-shrink-0" aria-label="Pinned">★</span>}
+          <p className="font-mono-data text-sm font-semibold text-[var(--color-text)] truncate">
+            {agent.agent_id}
+          </p>
+        </div>
         <StatusBadge status={agent.status} />
       </div>
       <div className="flex flex-wrap gap-1 mb-2">

@@ -4,6 +4,19 @@
 
 ---
 
+## Iteration 37: Pinned/Favorite Agents
+**Files created:** `src/hooks/useFavorites.ts`, `tests/e2e/favorites.spec.ts`
+**Files modified:** `src/components/AgentsPanel.tsx`, `src/components/AgentDetailPage.tsx`, `src/components/Dashboard.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `src/hooks/useFavorites.ts` — manages a `string[]` of favorited agent IDs in localStorage under the key `kubex-favorite-agents`. Built on `useLocalStorage`. Exposes: `favorites` (raw array), `favoritesSet` (a `Set<string>` for O(1) membership checks in render loops), `isFavorite(id)` (memoized callback), and `toggle(id)` (adds if absent, removes if present via immutable filter/spread).
+- Updated `src/components/AgentsPanel.tsx` — imports and wires `useFavorites`. After `useSort`, a stable secondary sort lifts favorited agents to the top of `sortedItems` (preserving relative order within each group). Grid column template extended from `[auto_2fr_3fr_1fr_1fr_auto]` to `[auto_auto_2fr_3fr_1fr_1fr_auto]` to accommodate the star column in both the header row and each data row. When at least one favorited agent is present on the current page, a "Pinned" amber section label renders before the first favorited row. When both pinned and unpinned agents coexist on the page, an "All Agents" separator renders before the first unpinned row. Each `AgentRow` receives `favorited: boolean` and `onToggleFavorite: () => void`; click is `stopPropagation`'d so it does not expand the row.
+- Updated `src/components/AgentDetailPage.tsx` — imports `useFavorites`. An amber star button (`data-testid="agent-detail-favorite-btn"`) renders in the heading row between the CopyButton and StatusBadge. Shows `★` (amber) when favorited, `☆` (dim) otherwise. `aria-label` switches between "Pin agent" and "Unpin agent". State reads from the same localStorage key as AgentsPanel — changes on the detail page are immediately reflected in the agents list and vice versa.
+- Updated `src/components/Dashboard.tsx` — imports `useFavorites`. The `agents` array is sorted favorites-first before slicing to `AGENT_DISPLAY_LIMIT` for the Registered Agents grid. `AgentCard` accepts an optional `pinned?: boolean` prop: when true, card border is amber (`border-amber-500/30`) and an amber `★` (with `aria-label="Pinned"`) appears before the agent ID.
+- Created `tests/e2e/favorites.spec.ts` — 24 tests (1 conditional skip): star button presence; defaults to ☆; aria-label says "Pin agent"; click toggles to ★; aria-label becomes "Unpin agent"; second click toggles back to ☆; no "Pinned" label when none favorited; "Pinned" label appears after first star; label contains ★; "All Agents" separator appears when mixed; Pinned label disappears after unpinning all; favorites persist across page reload; localStorage stores agent IDs; unfavoriting removes from localStorage; favorited agent moves to top of list; top row has filled star; detail page has favorite button; detail defaults to ☆; detail click fills ★; dashboard pinned star icon; star button is focusable; star button tabIndex 0; click does not propagate to row expand.
+**Tests:** 559 → 582
+
+---
+
 ## Iteration 36: Keyboard-Navigable Tables
 **Files created:** `src/hooks/useTableKeyboardNav.ts`, `tests/e2e/keyboard-nav.spec.ts`
 **Files modified:** `src/components/AgentsPanel.tsx`, `src/components/ContainersPanel.tsx`, `tests/e2e/agents.spec.ts`, `tests/e2e/containers.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

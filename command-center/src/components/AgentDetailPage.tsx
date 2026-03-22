@@ -4,6 +4,7 @@ import { getAgents, dispatchTask } from '../api';
 import type { Agent, TrafficEntry } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
 import { useAppContext } from '../context/AppContext';
+import { useFavorites } from '../hooks/useFavorites';
 import Tabs from './Tabs';
 import StatusBadge from './StatusBadge';
 import { SkeletonCard, SkeletonText } from './SkeletonLoader';
@@ -26,6 +27,7 @@ export default function AgentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const { trafficLog, addTrafficEntry } = useAppContext();
+  const { isFavorite, toggle: toggleFavorite } = useFavorites();
 
   const loadAgent = useCallback(async () => {
     setLoading(true);
@@ -89,6 +91,14 @@ export default function AgentDetailPage() {
       <div className="flex items-center gap-3 mb-6">
         <h2 className="text-lg font-semibold text-[var(--color-text)] font-mono-data">{agent.agent_id}</h2>
         <CopyButton text={agent.agent_id} ariaLabel="Copy agent ID" testId="copy-agent-id-heading" />
+        <button
+          aria-label={isFavorite(agent.agent_id) ? 'Unpin agent' : 'Pin agent'}
+          data-testid="agent-detail-favorite-btn"
+          onClick={() => toggleFavorite(agent.agent_id)}
+          className={`text-lg transition-colors focus:outline-none focus:ring-1 focus:ring-amber-400/40 rounded ${isFavorite(agent.agent_id) ? 'text-amber-400 hover:text-amber-300' : 'text-[var(--color-text-muted)] hover:text-amber-400'}`}
+        >
+          {isFavorite(agent.agent_id) ? '★' : '☆'}
+        </button>
         <StatusBadge status={agent.status} />
       </div>
 
