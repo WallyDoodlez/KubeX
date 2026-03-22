@@ -209,6 +209,16 @@
   - [x] Test: npx playwright test — 212/212 passed
   - [x] Commit
 
+- [x] **Iteration 20: Agent detail action dispatch**
+  - [x] Upgrade ActionsTab in AgentDetailPage — dispatch form with capability pre-filled from agent's capabilities, message textarea, priority selector
+  - [x] Show dispatch history for this agent (filtered from AppContext trafficLog by agent_id)
+  - [x] Wire to dispatchTask() in api.ts, add traffic entry to AppContext on success/failure
+  - [x] Add "Dispatch Task →" button on OverviewTab that navigates to Actions tab
+  - [x] Create tests/e2e/agent-dispatch.spec.ts (12 tests)
+  - [x] Build: npm run build — clean (82 modules, no errors)
+  - [x] Test: npx playwright test — 224/224 passed
+  - [x] Commit
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays
