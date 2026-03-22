@@ -15,6 +15,8 @@ const STATUS_ROW_ACCENT: Record<ActionStatus, string> = {
 interface ActivityFeedProps {
   entries: TrafficEntry[];
   onViewAll: () => void;
+  /** When true, suppresses the built-in section header (e.g. when wrapped in CollapsibleSection) */
+  hideHeader?: boolean;
 }
 
 const ActivityRow = memo(function ActivityRow({ entry }: { entry: TrafficEntry }) {
@@ -52,28 +54,30 @@ const ActivityRow = memo(function ActivityRow({ entry }: { entry: TrafficEntry }
   );
 });
 
-const ActivityFeed = memo(function ActivityFeed({ entries, onViewAll }: ActivityFeedProps) {
+const ActivityFeed = memo(function ActivityFeed({ entries, onViewAll, hideHeader = false }: ActivityFeedProps) {
   const recent = entries.slice(0, ACTIVITY_LIMIT);
 
   return (
     <section data-testid="activity-feed">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--color-text)]">Recent Activity</h2>
-          <p className="text-xs text-[var(--color-text-dim)]">
-            Last {Math.min(ACTIVITY_LIMIT, entries.length)} of {entries.length} traffic event
-            {entries.length !== 1 ? 's' : ''}
-          </p>
+      {/* Header — suppressed when wrapped in a CollapsibleSection that provides its own header */}
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-[var(--color-text)]">Recent Activity</h2>
+            <p className="text-xs text-[var(--color-text-dim)]">
+              Last {Math.min(ACTIVITY_LIMIT, entries.length)} of {entries.length} traffic event
+              {entries.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <button
+            onClick={onViewAll}
+            className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+            data-testid="activity-feed-view-all"
+          >
+            View all →
+          </button>
         </div>
-        <button
-          onClick={onViewAll}
-          className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
-          data-testid="activity-feed-view-all"
-        >
-          View all →
-        </button>
-      </div>
+      )}
 
       {/* Feed list */}
       {recent.length === 0 ? (

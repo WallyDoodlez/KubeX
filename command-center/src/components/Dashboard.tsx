@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { usePolling } from '../hooks/usePolling';
 import { useTimeSeries } from '../hooks/useTimeSeries';
+import { useCollapsible } from '../hooks/useCollapsible';
 import type { Agent, NavPage } from '../types';
 import { getAgents, getKubexes } from '../api';
 import { useAppContext } from '../context/AppContext';
@@ -11,6 +12,7 @@ import { SkeletonCard } from './SkeletonLoader';
 import EmptyState from './EmptyState';
 import SystemStatusBanner from './SystemStatusBanner';
 import ActivityFeed from './ActivityFeed';
+import CollapsibleSection from './CollapsibleSection';
 
 const REFRESH_INTERVAL = 15_000; // Match global health check interval
 const AGENT_DISPLAY_LIMIT = 6;
@@ -29,6 +31,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const agentSeries = useTimeSeries({ maxPoints: 20 });
   const kubexSeries = useTimeSeries({ maxPoints: 20 });
+
+  const { isCollapsed, toggle } = useCollapsible('kubex-dashboard-sections');
 
   const loadAgents = useCallback(async () => {
     setLoadingAgents(true);
@@ -106,25 +110,29 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Service health grid */}
-      <section>
-        <SectionHeader
-          title="Service Health"
-          subtitle={`Last updated ${timeAgo(lastUpdated)} · Auto-refresh every ${REFRESH_INTERVAL / 1000}s`}
-        />
+      <CollapsibleSection
+        sectionId="service-health"
+        title="Service Health"
+        subtitle={`Last updated ${timeAgo(lastUpdated)} · Auto-refresh every ${REFRESH_INTERVAL / 1000}s`}
+        collapsed={isCollapsed('service-health')}
+        onToggle={() => toggle('service-health')}
+      >
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
           {services.map((s) => (
             <ServiceCard key={s.name} service={s} />
           ))}
         </div>
-      </section>
+      </CollapsibleSection>
 
       {/* Agent overview */}
-      <section>
-        <SectionHeader
-          title="Registered Agents"
-          subtitle={`${agents.length} agents in registry`}
-          action={{ label: 'View all →', onClick: () => onNavigate('agents') }}
-        />
+      <CollapsibleSection
+        sectionId="registered-agents"
+        title="Registered Agents"
+        subtitle={`${agents.length} agents in registry`}
+        action={{ label: 'View all →', onClick: () => onNavigate('agents') }}
+        collapsed={isCollapsed('registered-agents')}
+        onToggle={() => toggle('registered-agents')}
+      >
         {loadingAgents ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             <SkeletonCard />
@@ -152,13 +160,23 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             )}
           </div>
         )}
-      </section>
+      </CollapsibleSection>
 
       {/* Recent Activity Feed */}
-      <ActivityFeed
-        entries={trafficLog}
-        onViewAll={() => onNavigate('traffic')}
-      />
+      <CollapsibleSection
+        sectionId="activity-feed"
+        title="Recent Activity"
+        subtitle={`${trafficLog.length} events`}
+        action={{ label: 'View all →', onClick: () => onNavigate('traffic') }}
+        collapsed={isCollapsed('activity-feed')}
+        onToggle={() => toggle('activity-feed')}
+      >
+        <ActivityFeed
+          entries={trafficLog}
+          onViewAll={() => onNavigate('traffic')}
+          hideHeader
+        />
+      </CollapsibleSection>
     </div>
   );
 }

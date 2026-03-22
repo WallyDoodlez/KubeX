@@ -4,6 +4,19 @@
 
 ---
 
+- [x] **Iteration 35: Collapsible Dashboard Sections**
+  - [x] Create `src/hooks/useCollapsible.ts` — manages collapse state for named sections, persisted in localStorage under a caller-supplied key; `isCollapsed(id)` returns current state, `toggle(id)` flips it, `setCollapsed(id, bool)` sets explicitly
+  - [x] Create `src/components/CollapsibleSection.tsx` — section wrapper with clickable header button (`aria-expanded`, `aria-controls`, `data-testid`); chevron indicator rotates -90° when collapsed; smooth height transition via `scrollHeight` measurement and `height` CSS transition; `subtitle` and `action` only shown when expanded; `role="region"` + `aria-labelledby` on content panel for accessibility
+  - [x] Wire into `Dashboard.tsx` — wrap Service Health, Registered Agents, and Activity Feed sections in `CollapsibleSection`; state persisted in localStorage under `kubex-dashboard-sections`; pass `hideHeader` to `ActivityFeed` to suppress its internal header when wrapped
+  - [x] Update `ActivityFeed.tsx` — add optional `hideHeader` prop to suppress built-in section header when section is owned by `CollapsibleSection`
+  - [x] Create `tests/e2e/collapsible-sections.spec.ts` (22 tests) — section presence, toggle button visibility, default expanded state with `aria-expanded=true`, section titles visible, collapse interaction sets `aria-expanded=false`, toggle idempotency, localStorage persistence after collapse, expanded state leaves storage clean, persistence across page reload, multiple sections collapse independently, `aria-controls` points to panel id, panel has `role=region` + `aria-labelledby`
+  - [x] Update `tests/e2e/activity-feed.spec.ts` — fix 4 tests that referenced the ActivityFeed header which now lives in the CollapsibleSection: heading selector, subtitle selector, "View all →" button selector and navigation test
+  - [x] Build: npm run build — clean (107 modules)
+  - [x] Test: npx playwright test — 529/529 passed
+  - [x] Update `docs/CHANGELOG.md`
+
+---
+
 - [x] **Iteration 34: Task History Page**
   - [x] Create `src/components/TaskHistoryPage.tsx` — dedicated table view of dispatched tasks extracted from traffic log entries where `action === 'dispatch_task'`; columns: task_id, agent_id, capability, status, dispatched_at; expandable rows show full result/error details; uses `useSearch`, `useSort`, `usePagination`, `useQueryParams`; status filter (all/pending/allowed/denied/escalated); search across task_id, agent_id, capability; sort by dispatched_at, agent_id, status; expandable detail row with JSON pretty-print of entry details
   - [x] Add `Tasks` nav item with `✦` icon to `NAV_ITEMS` in `Layout.tsx`; add `G+h` keyboard shortcut for go-to-tasks

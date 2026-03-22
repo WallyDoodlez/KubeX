@@ -11,8 +11,9 @@ test.describe('Dashboard activity feed', () => {
   });
 
   test('activity feed has "Recent Activity" heading', async ({ page }) => {
+    // Heading now lives in the CollapsibleSection wrapper, not inside the activity-feed element
     await expect(
-      page.locator('[data-testid="activity-feed"] h2', { hasText: 'Recent Activity' }),
+      page.locator('[data-testid="collapsible-section-activity-feed"] h2', { hasText: 'Recent Activity' }),
     ).toBeVisible();
   });
 
@@ -108,7 +109,8 @@ test.describe('Dashboard activity feed', () => {
     }, entries);
     await page.reload();
     await expect(page.locator('header h1')).toHaveText('Dashboard');
-    const subtitle = page.locator('[data-testid="activity-feed"] p').first();
+    // Subtitle ("3 events") is now in the CollapsibleSection header, shown when section is expanded
+    const subtitle = page.locator('[data-testid="collapsible-section-activity-feed"] [data-testid="collapsible-toggle-activity-feed"] p');
     await expect(subtitle).toContainText('3');
   });
 
@@ -151,12 +153,15 @@ test.describe('Dashboard activity feed', () => {
   });
 
   test('"View all →" button is present', async ({ page }) => {
-    await expect(page.locator('[data-testid="activity-feed-view-all"]')).toBeVisible();
-    await expect(page.locator('[data-testid="activity-feed-view-all"]')).toHaveText('View all →');
+    // "View all →" is now the CollapsibleSection action button for the activity-feed section
+    const viewAll = page.locator('[data-testid="collapsible-section-activity-feed"] button', { hasText: 'View all →' });
+    await expect(viewAll).toBeVisible();
+    await expect(viewAll).toHaveText('View all →');
   });
 
   test('"View all →" navigates to Traffic page', async ({ page }) => {
-    await page.locator('[data-testid="activity-feed-view-all"]').click();
+    const viewAll = page.locator('[data-testid="collapsible-section-activity-feed"] button', { hasText: 'View all →' });
+    await viewAll.click();
     await expect(page.locator('header h1')).toHaveText('Traffic');
   });
 

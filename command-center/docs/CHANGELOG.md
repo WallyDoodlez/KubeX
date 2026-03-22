@@ -4,6 +4,20 @@
 
 ---
 
+## Iteration 35: Collapsible Dashboard Sections
+**Files created:** `src/hooks/useCollapsible.ts`, `src/components/CollapsibleSection.tsx`, `tests/e2e/collapsible-sections.spec.ts`
+**Files modified:** `src/components/Dashboard.tsx`, `src/components/ActivityFeed.tsx`, `tests/e2e/activity-feed.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `src/hooks/useCollapsible.ts` — manages collapse state for named dashboard sections, persisted in localStorage via `useLocalStorage`. API: `isCollapsed(id)` reads current state (defaults to false/expanded), `toggle(id)` flips it, `setCollapsed(id, bool)` sets explicitly. State is stored as a `Record<string, boolean>` under the caller-supplied storage key.
+- Created `src/components/CollapsibleSection.tsx` — wrapper component with a clickable `<button>` header that toggles content visibility. Features: `aria-expanded` attribute tracks state; `aria-controls` links to panel id; `role="region"` + `aria-labelledby` on content for screen readers; chevron rotates -90° when collapsed via CSS transition; smooth height animation using `scrollHeight` measurement — collapses to 0, expands to scrollHeight then releases to `auto`; `subtitle` and `action` props only rendered when expanded; all regions addressable via `data-testid`.
+- Updated `src/components/Dashboard.tsx` — replaced bare `<section>` wrappers for Service Health, Registered Agents, and Activity Feed with `<CollapsibleSection>`. Collapse state persisted under `'kubex-dashboard-sections'` in localStorage. ActivityFeed rendered with `hideHeader` to avoid duplicate heading.
+- Updated `src/components/ActivityFeed.tsx` — added optional `hideHeader?: boolean` prop (default `false`). When true, the internal section header (h2, subtitle p, "View all →" button) is suppressed so the parent CollapsibleSection can own the header layout.
+- Created `tests/e2e/collapsible-sections.spec.ts` — 22 tests: section presence (3), toggle button visibility (3), default `aria-expanded=true` state (3), section title visibility (3), collapse sets `aria-expanded=false` (3), toggle idempotency (1), localStorage persistence after collapse (1), expanded state leaves storage clean (1), persistence across page reload (1), independent multi-section collapse (1), `aria-controls` attribute correctness (1), panel `role=region` + `aria-labelledby` (1).
+- Updated `tests/e2e/activity-feed.spec.ts` — updated 4 tests whose selectors referenced the ActivityFeed's now-suppressed header: "Recent Activity" heading now found in `[data-testid="collapsible-section-activity-feed"] h2`; subtitle count now found in the CollapsibleSection toggle button's `p` element; "View all →" button now found as the CollapsibleSection action button scoped to the activity-feed section.
+**Tests:** 507 → 529
+
+---
+
 ## Iteration 34: Task History Page
 **Files created:** `src/components/TaskHistoryPage.tsx`, `tests/e2e/task-history.spec.ts`
 **Files modified:** `src/App.tsx`, `src/components/Layout.tsx`, `src/components/CommandPalette.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
