@@ -61,15 +61,15 @@
   - [x] Verify: npm run build clean + npx playwright test passes
   - [x] Commit
 
-- [ ] **Iteration 6: Traffic Log Upgrade + Persistence**
-  - [ ] Create src/hooks/useLocalStorage.ts
-  - [ ] Update src/context/AppContext.tsx — persist trafficLog + chatMessages to localStorage
-  - [ ] Create src/components/TrafficFilterBar.tsx (status, agent, time range, search)
-  - [ ] Upgrade TrafficLog.tsx — filter bar, pagination, clear log, entry count
-  - [ ] Add TrafficFilter type to types.ts
-  - [ ] Create tests/e2e/traffic.spec.ts (7 tests)
-  - [ ] Verify: npm run build clean + npx playwright test passes
-  - [ ] Commit
+- [x] **Iteration 6: Traffic Log Upgrade + Persistence**
+  - [x] Create src/hooks/useLocalStorage.ts
+  - [x] Update src/context/AppContext.tsx — persist trafficLog + chatMessages to localStorage
+  - [x] Create src/components/TrafficFilterBar.tsx (status, agent, time range, search)
+  - [x] Upgrade TrafficLog.tsx — filter bar, pagination, clear log, entry count
+  - [x] Add TrafficFilter type to types.ts
+  - [x] Create tests/e2e/traffic.spec.ts (7 tests)
+  - [x] Verify: npm run build clean + npx playwright test passes
+  - [x] Commit
 
 - [ ] **Iteration 7: Agent Detail View (New Page)**
   - [ ] Create src/components/Tabs.tsx (reusable, keyboard nav, role=tablist)

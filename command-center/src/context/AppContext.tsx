@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext } from 'react';
 import { ChatMessage, TrafficEntry } from '../types';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
@@ -11,6 +12,7 @@ const WELCOME_MESSAGE: ChatMessage = {
 interface AppContextValue {
   trafficLog: TrafficEntry[];
   addTrafficEntry: (entry: TrafficEntry) => void;
+  clearTrafficLog: () => void;
   chatMessages: ChatMessage[];
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
@@ -18,15 +20,19 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [trafficLog, setTrafficLog] = useState<TrafficEntry[]>([]);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [trafficLog, setTrafficLog] = useLocalStorage<TrafficEntry[]>('kubex-traffic-log', []);
+  const [chatMessages, setChatMessages] = useLocalStorage<ChatMessage[]>('kubex-chat-messages', [WELCOME_MESSAGE]);
 
   function addTrafficEntry(entry: TrafficEntry) {
     setTrafficLog((prev) => [entry, ...prev].slice(0, 500));
   }
 
+  function clearTrafficLog() {
+    setTrafficLog([]);
+  }
+
   return (
-    <AppContext.Provider value={{ trafficLog, addTrafficEntry, chatMessages, setChatMessages }}>
+    <AppContext.Provider value={{ trafficLog, addTrafficEntry, clearTrafficLog, chatMessages, setChatMessages }}>
       {children}
     </AppContext.Provider>
   );

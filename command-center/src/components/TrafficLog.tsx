@@ -1,7 +1,12 @@
-import type { TrafficEntry, ActionStatus } from '../types';
+import { useState, useMemo } from 'react';
+import type { TrafficEntry, ActionStatus, TrafficFilter } from '../types';
+import { usePagination } from '../hooks/usePagination';
+import TrafficFilterBar from './TrafficFilterBar';
+import Pagination from './Pagination';
 
 interface TrafficLogProps {
   entries: TrafficEntry[];
+  onClear?: () => void;
 }
 
 const STATUS_COLORS: Record<ActionStatus, string> = {
@@ -18,14 +23,47 @@ const STATUS_ROW_BG: Record<ActionStatus, string> = {
   pending: 'border-l-blue-500/40',
 };
 
-export default function TrafficLog({ entries }: TrafficLogProps) {
+export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
+  const [filter, setFilter] = useState<TrafficFilter>({
+    status: 'all',
+    agentId: '',
+    search: '',
+  });
+
+  // Get unique agent IDs for the filter dropdown
+  const agentIds = useMemo(() => {
+    const ids = new Set(entries.map((e) => e.agent_id));
+    return [...ids].sort();
+  }, [entries]);
+
+  // Apply filters
+  const filteredEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      if (filter.status !== 'all' && entry.status !== filter.status) return false;
+      if (filter.agentId && entry.agent_id !== filter.agentId) return false;
+      if (filter.search) {
+        const needle = filter.search.toLowerCase();
+        const haystack = [entry.action, entry.capability, entry.task_id, entry.agent_id, entry.policy_rule]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
+      return true;
+    });
+  }, [entries, filter]);
+
+  // Paginate
+  const pagination = usePagination(filteredEntries, { initialPageSize: 20 });
+
   return (
     <div className="p-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-sm font-semibold text-[#e2e8f0]">Traffic / Actions Log</h2>
           <p className="text-xs text-[#64748b]">
-            Actions dispatched through the Gateway — live feed from this session
+            Actions dispatched through the Gateway — {entries.length} entries
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-[#64748b]">
@@ -36,14 +74,45 @@ export default function TrafficLog({ entries }: TrafficLogProps) {
         </div>
       </div>
 
-      {entries.length === 0 ? (
-        <EmptyTraffic />
+      {/* Filter bar */}
+      <TrafficFilterBar
+        filter={filter}
+        onFilterChange={setFilter}
+        agentIds={agentIds}
+        totalCount={entries.length}
+        filteredCount={filteredEntries.length}
+        onClear={onClear ?? (() => {})}
+      />
+
+      {/* Content */}
+      {filteredEntries.length === 0 ? (
+        entries.length === 0 ? <EmptyTraffic /> : (
+          <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-8 text-center">
+            <p className="text-sm text-[#64748b]">No entries match the current filters.</p>
+          </div>
+        )
       ) : (
-        <div className="space-y-1.5">
-          {entries.map((entry) => (
-            <TrafficRow key={entry.id} entry={entry} />
-          ))}
-        </div>
+        <>
+          <div className="space-y-1.5">
+            {pagination.paginatedItems.map((entry) => (
+              <TrafficRow key={entry.id} entry={entry} />
+            ))}
+          </div>
+
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            pageSize={pagination.pageSize}
+            totalItems={filteredEntries.length}
+            startIndex={pagination.startIndex}
+            endIndex={pagination.endIndex}
+            hasNext={pagination.hasNext}
+            hasPrev={pagination.hasPrev}
+            onNextPage={pagination.nextPage}
+            onPrevPage={pagination.prevPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </>
       )}
     </div>
   );

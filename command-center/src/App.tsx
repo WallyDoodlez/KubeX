@@ -28,8 +28,8 @@ function DashboardPage() {
 }
 
 function TrafficPage() {
-  const { trafficLog } = useAppContext();
-  return <LazyTrafficLog entries={trafficLog} />;
+  const { trafficLog, clearTrafficLog } = useAppContext();
+  return <LazyTrafficLog entries={trafficLog} onClear={clearTrafficLog} />;
 }
 
 function ChatPage() {

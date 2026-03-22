@@ -102,6 +102,14 @@ export interface ChatMessage {
   raw?: unknown;
 }
 
+// ── Traffic filters ─────────────────────────────────────────────────
+
+export interface TrafficFilter {
+  status: ActionStatus | 'all';
+  agentId: string;
+  search: string;
+}
+
 // ── Navigation ───────────────────────────────────────────────────────
 
 export type NavPage = 'dashboard' | 'agents' | 'traffic' | 'chat' | 'containers';
