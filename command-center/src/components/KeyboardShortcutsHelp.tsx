@@ -10,6 +10,7 @@ const SHORTCUT_GROUPS: { heading: string; shortcuts: ShortcutRow[] }[] = [
     heading: 'Global',
     shortcuts: [
       { keys: ['Ctrl', 'K'], description: 'Open command palette' },
+      { keys: ['Ctrl', 'D'], description: 'Open quick dispatch modal' },
       { keys: ['?'], description: 'Show / hide this help overlay' },
       { keys: ['Esc'], description: 'Close palette, dialog, or overlay' },
     ],

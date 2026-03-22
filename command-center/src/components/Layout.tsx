@@ -19,6 +19,7 @@ import ThemeToggle from './ThemeToggle';
 import { useTheme } from '../hooks/useTheme';
 import NotificationCenter from './NotificationCenter';
 import UserMenu from './UserMenu';
+import QuickDispatchModal from './QuickDispatchModal';
 
 interface NavItem {
   label: string;
@@ -95,6 +96,7 @@ export default function Layout({ children }: LayoutProps) {
   const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+  const [quickDispatchOpen, setQuickDispatchOpen] = useState(false);
 
   // ── Global health checks (runs everywhere, not just Dashboard) ──────
   useHealthCheck();
@@ -124,6 +126,14 @@ export default function Layout({ children }: LayoutProps) {
       allowInInput: true,
       handler: () => setCommandPaletteOpen((o) => !o),
     },
+    // Ctrl+D — open quick dispatch modal
+    {
+      key: 'd',
+      ctrl: true,
+      description: 'Open quick dispatch modal',
+      allowInInput: true,
+      handler: () => setQuickDispatchOpen((o) => !o),
+    },
     // ? — show shortcuts help (not in input)
     {
       key: '?',
@@ -138,6 +148,7 @@ export default function Layout({ children }: LayoutProps) {
       handler: () => {
         if (commandPaletteOpen) { setCommandPaletteOpen(false); return; }
         if (shortcutsHelpOpen) { setShortcutsHelpOpen(false); return; }
+        if (quickDispatchOpen) { setQuickDispatchOpen(false); return; }
         if (killAllOpen) { setKillAllOpen(false); return; }
         if (mobileSidebarOpen) { setMobileSidebarOpen(false); return; }
       },
@@ -354,6 +365,13 @@ export default function Layout({ children }: LayoutProps) {
       <CommandPalette
         isOpen={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}
+        onOpenQuickDispatch={() => setQuickDispatchOpen(true)}
+      />
+
+      {/* Quick dispatch modal */}
+      <QuickDispatchModal
+        isOpen={quickDispatchOpen}
+        onClose={() => setQuickDispatchOpen(false)}
       />
 
       {/* Keyboard shortcuts help overlay */}
@@ -446,6 +464,19 @@ export default function Layout({ children }: LayoutProps) {
             )}
           </div>
           <div className="flex items-center gap-2 md:gap-3" role="toolbar" aria-label="Global controls">
+            {/* Quick Dispatch trigger */}
+            <button
+              onClick={() => setQuickDispatchOpen(true)}
+              data-testid="quick-dispatch-trigger"
+              aria-label="Open quick dispatch (Ctrl+D)"
+              aria-keyshortcuts="Control+d"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded-lg hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)]"
+            >
+              <span aria-hidden="true" className="text-sm">⚡</span>
+              <span>Dispatch</span>
+              <kbd aria-hidden="true" className="ml-1 text-[10px] font-mono border border-emerald-500/30 rounded px-1">^D</kbd>
+            </button>
+
             {/* Command palette trigger */}
             <button
               onClick={() => setCommandPaletteOpen(true)}

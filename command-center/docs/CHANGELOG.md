@@ -4,6 +4,19 @@
 
 ---
 
+## Iteration 38: Quick Dispatch Modal (Ctrl+D)
+**Files created:** `src/components/QuickDispatchModal.tsx`, `tests/e2e/quick-dispatch.spec.ts`
+**Files modified:** `src/components/Layout.tsx`, `src/components/CommandPalette.tsx`, `src/components/KeyboardShortcutsHelp.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `src/components/QuickDispatchModal.tsx` — global modal overlay for dispatching tasks to any agent from any page in the app. Key details: agent selector uses `useFavorites` to sort favorited agents to the top and groups them into `<optgroup>` sections ("★ Pinned" and "All Agents"); capability input includes real-time autocomplete seeded from the selected agent's capabilities (or all capabilities if none selected) with ArrowDown/Up/Enter keyboard navigation and mousedown-based selection to prevent blur race; three-way priority radio-group (Low / Normal / High); validates with existing `validateCapability` / `validateMessage` utils on submit and on blur with clear-on-type UX; dispatches via `dispatchTask(capability, message, agentId)` API and adds a `TrafficEntry` to the global traffic log via `addTrafficEntry` from `AppContext`; inline success/error result panel with `aria-live="polite"`; full reset of all form state (capability, message, priority, errors, result, suggestions) on each open; backdrop click, Escape, Cancel, and close-icon all close the modal.
+- Updated `src/components/Layout.tsx` — added `Ctrl+D` shortcut to `useKeyboardShortcuts` (`ctrl: true`, `allowInInput: true`, toggles `quickDispatchOpen`); added `QuickDispatchOpen` to the Escape handler chain; added `<QuickDispatchModal>` to JSX after CommandPalette; added "⚡ Dispatch" toolbar button with `^D` hint kbd before the command palette trigger; wired `onOpenQuickDispatch` prop to CommandPalette.
+- Updated `src/components/CommandPalette.tsx` — added `onOpenQuickDispatch?: () => void` prop; added `action-quick-dispatch` builtin command in the `Actions` category with description "Send a task to any agent from anywhere (Ctrl+D)" and keywords `['dispatch', 'task', 'send', 'agent', 'quick', 'ctrl+d']`; action closes palette then invokes `onOpenQuickDispatch?.()`.
+- Updated `src/components/KeyboardShortcutsHelp.tsx` — added `{ keys: ['Ctrl', 'D'], description: 'Open quick dispatch modal' }` to the Global shortcuts group.
+- Created `tests/e2e/quick-dispatch.spec.ts` — 34 tests: toolbar trigger visible; aria-label "Open quick dispatch (Ctrl+D)"; click opens modal; Ctrl+D from Dashboard; Ctrl+D from Agents page (waits for h1 not table); Ctrl+D from Traffic page; second Ctrl+D toggles closed; role=dialog; aria-modal=true; heading "Quick Dispatch"; Ctrl+D kbd hint in header; agent select visible; default empty; capability input; message textarea; three priority buttons; Normal aria-checked=true default; priority click changes aria-checked; submit button; X closes; Escape closes; backdrop click closes; Cancel closes; empty submit shows both errors; cap error text; msg error text; error clears on type; blur shows invalid char error; aria-autocomplete=list; command palette has Quick Dispatch; palette item opens modal; item in Actions category; shortcuts help contains "quick dispatch"; fields empty on reopen; priority resets to Normal on reopen.
+**Tests:** 582 → 616 (34 new quick-dispatch tests; all pass)
+
+---
+
 ## Iteration 37: Pinned/Favorite Agents
 **Files created:** `src/hooks/useFavorites.ts`, `tests/e2e/favorites.spec.ts`
 **Files modified:** `src/components/AgentsPanel.tsx`, `src/components/AgentDetailPage.tsx`, `src/components/Dashboard.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

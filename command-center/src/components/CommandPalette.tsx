@@ -17,6 +17,7 @@ interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
   extraCommands?: CommandItem[];
+  onOpenQuickDispatch?: () => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ function scoreMatch(query: string, item: CommandItem): number {
 
 // ── Component ─────────────────────────────────────────────────────────
 
-function CommandPalette({ isOpen, onClose, extraCommands = [] }: CommandPaletteProps) {
+function CommandPalette({ isOpen, onClose, extraCommands = [], onOpenQuickDispatch }: CommandPaletteProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -124,6 +125,18 @@ function CommandPalette({ isOpen, onClose, extraCommands = [] }: CommandPaletteP
       category: 'Navigation',
       keywords: ['tasks', 'history', 'dispatched', 'results', 'status'],
       action: () => navigate('/tasks'),
+    },
+    {
+      id: 'action-quick-dispatch',
+      label: 'Quick Dispatch',
+      description: 'Send a task to any agent from anywhere (Ctrl+D)',
+      icon: '⚡',
+      category: 'Actions',
+      keywords: ['dispatch', 'task', 'send', 'agent', 'quick', 'ctrl+d'],
+      action: () => {
+        onClose();
+        onOpenQuickDispatch?.();
+      },
     },
   ];
 
