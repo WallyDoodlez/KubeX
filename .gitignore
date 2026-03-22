@@ -36,6 +36,9 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # Test / Coverage
 .coverage
 htmlcov/

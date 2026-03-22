@@ -2,6 +2,20 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npm update -g @playwright/cli && playwright-cli install --skills 2>/dev/null || true",
+            "timeout": 120,
+            "statusMessage": "Updating Playwright CLI skills..."
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(*)",
@@ -22,7 +36,8 @@
       "Skill(gsd:audit-milestone)",
       "Skill(gsd:new-milestone)",
       "Skill(gsd:insert-phase)",
-      "Skill(gsd:next)"
+      "Skill(gsd:next)",
+      "Skill(update-config)"
     ]
   }
 }
