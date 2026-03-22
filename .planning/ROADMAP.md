@@ -79,12 +79,12 @@ Plans:
   3. OAuth tokens survive container restarts via named Docker volumes; a restarted container with a valid token goes directly to READY without triggering re-auth
   4. Sending SIGTERM to the container forwards the signal to the PTY child, waits up to 5 seconds, issues SIGKILL if needed, and exits cleanly with no orphaned processes
   5. Skill files injected at spawn appear as CLAUDE.md inside the container and are picked up by Claude Code at session start
-**Plans:** 1/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 09-00-PLAN.md — Wave 0: test stub scaffolding for Nyquist compliance
 - [x] 09-01-PLAN.md — Infrastructure: tini PID 1, named Docker volumes, docker-compose.yml, CLAUDE.md skill injection in entrypoint
-- [ ] 09-02-PLAN.md — CLIRuntime core module: state machine, PTY spawn, credential gate, failure detection
+- [x] 09-02-PLAN.md — CLIRuntime core module: state machine, PTY spawn, credential gate, failure detection
 - [ ] 09-03-PLAN.md — Wiring into main.py, full unit tests, integration verification
 
 ### Phase 10: Hooks Monitoring
@@ -127,7 +127,7 @@ Plans:
 | 7. Agent Migration and Dockerfile Removal | v1.1 | 3/3 | Complete | 2026-03-17 |
 | 8. MCP Bridge | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 8.1 Agent System Prompts | v1.2 | 0/2 | In progress | - |
-| 9. CLI Runtime — Claude Code | v1.2 | 1/4 | In Progress|  |
+| 9. CLI Runtime — Claude Code | v1.2 | 3/4 | In Progress|  |
 | 10. Hooks Monitoring | v1.2 | 0/? | Not started | - |
 | 11. Codex + Gemini Runtimes | v1.2 | 0/? | Not started | - |
 | 12. OAuth Command Center Web Flow | v1.2 | 0/? | Not started | - |
