@@ -29,6 +29,7 @@ from typing import Any
 import httpx
 
 from kubex_harness.config_loader import AgentConfig
+from kubex_harness.prompt_builder import build_system_prompt
 
 logger = logging.getLogger("kubex_harness.standalone")
 
@@ -170,14 +171,10 @@ class StandaloneAgent:
         self.poll_timeout = int(os.environ.get("KUBEX_POLL_TIMEOUT", "30"))
         self.registry_url = os.environ.get("REGISTRY_URL", "http://registry:8070")
 
-        # Build system prompt: load from skill SKILL.md files
+        # Build system prompt: preamble + skill content
         skills_dir = os.environ.get("KUBEX_SKILLS_DIR", "/app/skills")
         skill_content = _load_skill_files(skills_dir)
-        if skill_content:
-            # Skill SKILL.md content becomes the system prompt
-            self.system_prompt = skill_content
-        else:
-            self.system_prompt = DEFAULT_SYSTEM_PROMPT
+        self.system_prompt = build_system_prompt(config, skill_content=skill_content)
 
         # Load tool definitions from skill manifests
         self.tool_definitions = _load_tool_definitions(skills_dir)

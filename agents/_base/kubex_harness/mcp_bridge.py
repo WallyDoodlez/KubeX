@@ -35,6 +35,7 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 
 from kubex_harness.config_loader import AgentConfig
+from kubex_harness.prompt_builder import build_system_prompt
 
 logger = logging.getLogger("kubex_harness.mcp_bridge")
 
@@ -487,33 +488,61 @@ class MCPBridgeServer:
         logger.info("Task %s completed", task_id)
 
     def _load_system_prompt(self) -> str:
-        """Load system prompt from skill files (same as standalone)."""
+        """Load system prompt: preamble (with worker list) + skill files."""
+        # Load skill content (same as standalone)
         skills_dir = os.environ.get("KUBEX_SKILLS_DIR", "/app/skills")
         skills_path = Path(skills_dir)
-        if not skills_path.is_dir():
-            return (
-                "You are a KubexClaw orchestrator agent. Coordinate worker agents to "
-                "complete the task. Use the available tools to delegate work, check "
-                "results, manage the knowledge vault, and monitor agent status."
-            )
+        skill_content = ""
+        if skills_path.is_dir():
+            parts: list[str] = []
+            for md_file in sorted(skills_path.rglob("*.md")):
+                try:
+                    content = md_file.read_text(encoding="utf-8")
+                    rel = md_file.relative_to(skills_path)
+                    parts.append(f"\n--- Skill: {rel} ---\n{content}")
+                except OSError:
+                    pass
+            if parts:
+                skill_content = "\n\n## Loaded Skills\n" + "\n".join(parts)
 
-        parts: list[str] = []
-        for md_file in sorted(skills_path.rglob("*.md")):
-            try:
-                content = md_file.read_text(encoding="utf-8")
-                rel = md_file.relative_to(skills_path)
-                parts.append(f"\n--- Skill: {rel} ---\n{content}")
-            except OSError:
-                pass
+        # Fetch worker descriptions from Registry for orchestrator prompt (D-04)
+        worker_descriptions = self._fetch_worker_descriptions()
 
-        if parts:
-            return "\n\n## Loaded Skills\n" + "\n".join(parts)
-
-        return (
-            "You are a KubexClaw orchestrator agent. Coordinate worker agents to "
-            "complete the task. Use the available tools to delegate work, check "
-            "results, manage the knowledge vault, and monitor agent status."
+        return build_system_prompt(
+            self.config,
+            skill_content=skill_content,
+            worker_descriptions=worker_descriptions,
         )
+
+    def _fetch_worker_descriptions(self) -> list[dict[str, str]] | None:
+        """Fetch registered worker agents from Registry for system prompt.
+
+        Returns list of worker dicts, or None if Registry is unreachable.
+        This is a snapshot at prompt build time — kubex__list_agents provides
+        runtime discovery (per CONTEXT.md specifics).
+        """
+        registry_url = os.environ.get("REGISTRY_URL", "http://registry:8070")
+        try:
+            # Synchronous call — prompt is built once at startup, not in hot path
+            resp = httpx.get(f"{registry_url}/agents", timeout=5.0)
+            if resp.status_code != 200:
+                logger.warning("Registry returned %d when fetching workers", resp.status_code)
+                return None
+            agents = resp.json()
+            # Filter out self (orchestrator) from worker list
+            workers: list[dict[str, str]] = []
+            for agent in agents:
+                agent_id = agent.get("agent_id", "")
+                if agent_id and agent_id != self.config.agent_id:
+                    workers.append({
+                        "agent_id": agent_id,
+                        "description": agent.get("description", "No description"),
+                        "capabilities": ", ".join(agent.get("capabilities", [])),
+                    })
+            return workers if workers else None
+        except Exception as exc:
+            logger.warning("Failed to fetch workers from Registry: %s", exc)
+            return None
 
     async def _call_llm_with_mcp_tools(
         self,
