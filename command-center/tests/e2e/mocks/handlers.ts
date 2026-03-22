@@ -110,6 +110,21 @@ export const handlers = [
     return HttpResponse.json({ status: 'ok', message: 'Kubex started' });
   }),
 
+  // Kill all kubexes — Manager
+  http.post(`${MANAGER}/kubexes/kill-all`, () => {
+    return HttpResponse.json({ status: 'ok', message: 'All kubexes killed' });
+  }),
+
+  // Pause kubex — Manager
+  http.post(`${MANAGER}/kubexes/:kubexId/pause`, () => {
+    return HttpResponse.json({ status: 'ok', message: 'Kubex paused' });
+  }),
+
+  // Resume kubex — Manager
+  http.post(`${MANAGER}/kubexes/:kubexId/resume`, () => {
+    return HttpResponse.json({ status: 'ok', message: 'Kubex resumed' });
+  }),
+
   // Dispatch task — Gateway
   http.post(`${GATEWAY}/actions`, () => {
     return HttpResponse.json({ task_id: 'mock-task-1', status: 'accepted' });

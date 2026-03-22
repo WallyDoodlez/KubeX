@@ -106,16 +106,16 @@
   - [x] Verify: npm run build clean + npx playwright test passes
   - [x] Commit
 
-- [ ] **Iteration 10: Emergency Controls (Top Bar)**
-  - [ ] Create src/components/KillAllDialog.tsx (typed "KILL ALL" confirmation)
-  - [ ] Create src/components/QuickActionsMenu.tsx (dropdown with kubex list)
-  - [ ] Create src/components/Toast.tsx (auto-dismiss notifications)
-  - [ ] Create src/context/ToastContext.tsx (toast state management)
-  - [ ] Add killAllKubexes(), pauseKubex(), resumeKubex() to api.ts
-  - [ ] Add emergency controls to Layout.tsx top bar
-  - [ ] Create tests/e2e/controls.spec.ts (8 tests)
-  - [ ] Verify: npm run build clean + npx playwright test passes
-  - [ ] Commit
+- [x] **Iteration 10: Emergency Controls (Top Bar)**
+  - [x] Create src/components/KillAllDialog.tsx (typed "KILL ALL" confirmation)
+  - [x] Create src/components/QuickActionsMenu.tsx (dropdown with kubex list)
+  - [x] Create src/components/Toast.tsx (auto-dismiss notifications)
+  - [x] Create src/context/ToastContext.tsx (toast state management)
+  - [x] Add killAllKubexes(), pauseKubex(), resumeKubex() to api.ts
+  - [x] Add emergency controls to Layout.tsx top bar
+  - [x] Create tests/e2e/controls.spec.ts (8 tests)
+  - [x] Verify: npm run build clean + npx playwright test passes
+  - [x] Commit
 
 - [ ] **Iteration 11: Polish + Accessibility Audit**
   - [ ] Create src/components/SkeletonLoader.tsx (reusable SkeletonTable, SkeletonCard, SkeletonText)

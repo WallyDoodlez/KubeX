@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import type { NavPage } from './types';
 
 const LazyDashboard = lazy(() => import('./components/Dashboard'));
@@ -56,6 +57,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
       <AppProvider>
+      <ToastProvider>
         <Layout>
           <ErrorBoundary>
             <Suspense fallback={LoadingFallback}>
@@ -71,6 +73,7 @@ export default function App() {
             </Suspense>
           </ErrorBoundary>
         </Layout>
+      </ToastProvider>
       </AppProvider>
       </AuthProvider>
     </BrowserRouter>

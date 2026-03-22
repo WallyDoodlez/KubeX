@@ -1,6 +1,12 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
+import { killAllKubexes, getKubexes } from '../api';
+import KillAllDialog from './KillAllDialog';
+import QuickActionsMenu from './QuickActionsMenu';
+import Toast from './Toast';
 
 interface NavItem {
   label: string;
@@ -26,11 +32,52 @@ export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { pendingApprovalCount } = useAppContext();
+  const { addToast } = useToast();
+
+  const [killAllOpen, setKillAllOpen] = useState(false);
+  const [killAllLoading, setKillAllLoading] = useState(false);
+  const [kubexCount, setKubexCount] = useState<number | undefined>(undefined);
 
   const currentItem = NAV_ITEMS.find((n) => n.path === location.pathname) ?? NAV_ITEMS[0];
 
+  async function openKillAllDialog() {
+    // Pre-fetch count so dialog can show it
+    const res = await getKubexes();
+    if (res.ok && res.data) {
+      const running = res.data.filter((k) => k.status === 'running').length;
+      setKubexCount(running);
+    } else {
+      setKubexCount(undefined);
+    }
+    setKillAllOpen(true);
+  }
+
+  async function handleKillAll() {
+    setKillAllLoading(true);
+    const res = await killAllKubexes();
+    setKillAllLoading(false);
+    setKillAllOpen(false);
+    if (res.ok) {
+      addToast('All kubexes have been killed', 'success');
+    } else {
+      addToast(`Kill all failed: ${res.error ?? 'Unknown error'}`, 'error');
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#0f1117' }}>
+      {/* Toast notifications (portal-like, fixed position) */}
+      <Toast />
+
+      {/* Kill All confirmation dialog */}
+      <KillAllDialog
+        isOpen={killAllOpen}
+        onClose={() => setKillAllOpen(false)}
+        onConfirm={handleKillAll}
+        kubexCount={kubexCount}
+        isLoading={killAllLoading}
+      />
+
       {/* Sidebar */}
       <aside className="w-56 flex-shrink-0 flex flex-col border-r border-[#2a2f45] bg-[#12151f]">
         {/* Brand */}
@@ -106,6 +153,20 @@ export default function Layout({ children }: LayoutProps) {
             <span className="text-xs text-[#64748b]">{currentItem.description}</span>
           </div>
           <div className="flex items-center gap-3">
+            {/* Emergency Controls */}
+            <QuickActionsMenu />
+            <button
+              onClick={openKillAllDialog}
+              data-testid="kill-all-button"
+              aria-label="Kill all kubexes"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 hover:border-red-500/50 transition-all"
+            >
+              <span>⏹</span>
+              <span>Kill All</span>
+            </button>
+
+            <div className="w-px h-4 bg-[#2a2f45]" />
+
             <span className="text-xs text-[#3a3f5a] font-mono-data">
               {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>

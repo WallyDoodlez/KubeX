@@ -168,6 +168,28 @@ export async function startKubex(kubexId: string): Promise<FetchResult<unknown>>
   );
 }
 
+export async function killAllKubexes(): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>('POST', `${MANAGER}/kubexes/kill-all`, undefined, managerHeaders());
+}
+
+export async function pauseKubex(kubexId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>(
+    'POST',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/pause`,
+    undefined,
+    managerHeaders(),
+  );
+}
+
+export async function resumeKubex(kubexId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>(
+    'POST',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/resume`,
+    undefined,
+    managerHeaders(),
+  );
+}
+
 // ── Tasks (Gateway) ──────────────────────────────────────────────────
 
 export async function dispatchTask(
