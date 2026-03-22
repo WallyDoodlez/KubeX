@@ -38,7 +38,7 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 
 ### Active
 
-- [ ] MCP Bridge — workers as MCP servers, orchestrator as MCP client, custom tool loop replaced
+- [x] MCP Bridge — orchestrator coordinates workers via MCP protocol with policy-gated vault tools and live agent discovery — Phase 8 (v1.2)
 - [ ] CLI Runtime — any CLI agent (Claude Code, Codex, Gemini CLI) runs in PTY inside Kubex containers
 - [ ] Bidirectional MCP — harness is MCP server for CLI reporting (fallback for CLIs without hooks)
 - [ ] Hooks-based monitoring — passive instrumentation via CLI hooks where supported
@@ -47,7 +47,7 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 
 ### Future
 
-- [ ] Agent descriptions in config.yaml for dynamic discovery
+- ✓ Agent descriptions in config.yaml for dynamic discovery — Phase 8 (v1.2)
 - [ ] Obsidian knowledge vault with auto git commit+push
 - [ ] Command Center web dashboard (service health, orchestrator chat, containers)
 - [ ] Multi-user session isolation
@@ -64,7 +64,7 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 
 ## Context
 
-- **Current state:** 5 core services + 4 agents running live on Docker. 789 tests passing. Full E2E pipeline verified: Command Center → Gateway → Broker → Agent → GPT-5.2 → Result.
+- **Current state:** 5 core services + 4 agents running live on Docker. 917 tests passing. Orchestrator uses MCP Bridge (`harness_mode: mcp-bridge`) for worker coordination. Full E2E pipeline verified: Command Center → Gateway → Broker → Agent → GPT-5.2 → Result.
 - **Tech stack:** Python, Docker, Redis, FastAPI, GPT-5.2 (non-pro), o3-mini (reviewer)
 - **Codebase:** ~30,700 LOC Python
 - **Live system:** Obsidian knowledge vault replacing Neo4j/Graphiti/OpenSearch. Command Center at :3001.
@@ -83,7 +83,7 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 | config.yaml sole source of truth — no env var overrides | Prevents identity confusion, single place to look | ✓ Good |
 | Obsidian vault replacing Neo4j/Graphiti/OpenSearch | Human-readable, git-versioned, wiki-link knowledge graph | ✓ Good |
 | Gateway ingress scanning, not vault-layer scanning | Defense at boundary; LLM scanning LLM attacks is circular | ✓ Good — v1.2 |
-| MCP Bridge for orchestration | Standard protocol, any harness works, worker tools as MCP tools | — Pending v1.2 |
+| MCP Bridge for orchestration | Standard protocol, any harness works, worker tools as MCP tools | ✓ Good — v1.2 Phase 8 |
 | Workers are domain specialists with own LLM | Orchestrator decides WHO/WHAT, worker decides HOW | — Pending v1.2 |
 | CLI runs as-is in PTY, not wrapped | Stem cell philosophy — container doesn't care what CLI you put in it | — Pending v1.2 |
 | Hooks preferred, MCP fallback for monitoring | Hooks are passive (zero prompt tokens), MCP for CLIs without hooks | — Pending v1.2 |
@@ -127,4 +127,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after v1.2 milestone started*
+*Last updated: 2026-03-22 after Phase 8 (MCP Bridge) complete*
