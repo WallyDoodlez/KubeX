@@ -888,7 +888,11 @@ class TestSkillInjection:
         assert "Scrape carefully." in agent.system_prompt
 
     def test_config_no_skills_dir_uses_base_prompt(self) -> None:
-        """When skills dir doesn't exist, system prompt is just the base prompt."""
+        """When skills dir doesn't exist, system prompt is built from preamble template (Phase 08.1).
+
+        Pre-08.1: system prompt fell back to DEFAULT_SYSTEM_PROMPT constant.
+        Post-08.1: build_system_prompt() always builds from PREAMBLE.md, no raw fallback.
+        """
         agent_config = AgentConfig(
             agent_id="test-agent",
             model="gpt-5.2",
@@ -898,10 +902,10 @@ class TestSkillInjection:
         }
         with patch.dict(os.environ, env, clear=False):
             agent = StandaloneAgent(agent_config)
-        assert agent.system_prompt == (
-            "You are a KubexClaw worker agent. Complete the task described in the user message. "
-            "Be concise and return structured results when possible."
-        )
+        # Prompt is now always preamble-based, not the old DEFAULT_SYSTEM_PROMPT constant
+        assert "test-agent" in agent.system_prompt
+        assert "KubexClaw" in agent.system_prompt
+        assert "Security Directives" in agent.system_prompt
 
     def test_config_custom_prompt_plus_skills(self, tmp_path: Any) -> None:
         """Skills SKILL.md content is loaded as the system prompt."""
