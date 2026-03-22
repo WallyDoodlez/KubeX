@@ -294,14 +294,14 @@ test.describe('Responsive — layout structure', () => {
     ] as [string, typeof VIEWPORTS.laptop][]) {
       await page.setViewportSize(size);
       await page.goto('/');
-      await expect(page.locator('[role="status"][aria-label="Connection status: live"]')).toBeVisible();
+      await expect(page.getByTestId('connection-indicator')).toBeVisible();
     }
   });
 
   test('live indicator is visible on mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await page.goto('/');
-    await expect(page.locator('[role="status"][aria-label="Connection status: live"]')).toBeVisible();
+    await expect(page.getByTestId('connection-indicator')).toBeVisible();
   });
 
   test('main content fills available width on mobile (no sidebar offset)', async ({ page }) => {

@@ -13,6 +13,8 @@ import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import Breadcrumb from './Breadcrumb';
 import type { BreadcrumbItem } from './Breadcrumb';
+import ConnectionIndicator from './ConnectionIndicator';
+import { useHealthCheck } from '../hooks/useHealthCheck';
 
 interface NavItem {
   label: string;
@@ -87,6 +89,9 @@ export default function Layout({ children }: LayoutProps) {
   const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+
+  // ── Global health checks (runs everywhere, not just Dashboard) ──────
+  useHealthCheck();
 
   // "G then X" two-key navigation — store first key with a timeout
   const gKeyPending = useRef(false);
@@ -471,14 +476,7 @@ export default function Layout({ children }: LayoutProps) {
             >
               {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </time>
-            <div
-              role="status"
-              aria-label="Connection status: live"
-              className="flex items-center gap-1.5 text-xs text-emerald-400"
-            >
-              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-mono-data">live</span>
-            </div>
+            <ConnectionIndicator />
           </div>
         </header>
 

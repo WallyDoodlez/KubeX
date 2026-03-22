@@ -92,8 +92,12 @@ test.describe('Accessibility — ARIA attributes', () => {
 
   test('live status indicator has accessible role and label', async ({ page }) => {
     await page.goto('/');
-    const liveStatus = page.locator('[role="status"][aria-label="Connection status: live"]');
-    await expect(liveStatus).toBeVisible();
+    // ConnectionIndicator replaces the old static live badge — verify it is present
+    // and has an aria-label describing system health
+    const indicator = page.getByTestId('connection-indicator');
+    await expect(indicator).toBeVisible();
+    const ariaLabel = await indicator.getAttribute('aria-label');
+    expect(ariaLabel).toMatch(/system health/i);
   });
 
   test('nav buttons have descriptive aria-labels', async ({ page }) => {

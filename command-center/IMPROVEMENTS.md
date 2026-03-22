@@ -219,6 +219,20 @@
   - [x] Test: npx playwright test — 224/224 passed
   - [x] Commit
 
+- [x] **Iteration 21: Global Connection Health Indicator (Top Bar)**
+  - [x] Add `services: ServiceHealth[]`, `setServices`, and derived `systemStatus: SystemStatus` to `AppContext`
+  - [x] Export `deriveSystemStatus()` helper and `INITIAL_SERVICES` constant from `AppContext`
+  - [x] Create `src/hooks/useHealthCheck.ts` — runs health checks on a 15 s interval globally; writes results into `AppContext.services`; replaces per-component health logic
+  - [x] Create `src/components/ConnectionIndicator.tsx` — colored dot + short label in top bar; click/hover opens popover listing each service's status, response time, and aggregate label; closes on Escape / outside click
+  - [x] Mount `useHealthCheck()` in `Layout.tsx` so health runs on every page (not just Dashboard)
+  - [x] Replace static `[role="status"] live` badge in `Layout.tsx` top bar with `<ConnectionIndicator />`
+  - [x] Refactor `Dashboard.tsx` — remove own `services` state and `checkHealth` callback; read `services` from `AppContext` instead; no longer calls `getGatewayHealth` / `getRegistryHealth` / `getManagerHealth` / `getBrokerHealth` directly
+  - [x] Fix 4 pre-existing tests that targeted the old static badge (accessibility, integration, responsive)
+  - [x] Create `tests/e2e/connection-indicator.spec.ts` (24 tests: presence on all 6 pages, healthy dot color, label text, aria-label, aria-haspopup, aria-expanded, popover open/close, Escape/outside-click dismiss, all 5 service rows, healthy status text, role=tooltip, aria-label list, refresh hint, degraded state simulation, navigation persistence)
+  - [x] Build: npm run build — clean (84 modules, no errors)
+  - [x] Test: npx playwright test — 248/248 passed
+  - [x] Commit
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays

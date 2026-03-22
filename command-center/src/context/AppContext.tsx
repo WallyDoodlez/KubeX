@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
-import { ChatMessage, TrafficEntry } from '../types';
+import { ChatMessage, ServiceHealth, TrafficEntry } from '../types';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
 const WELCOME_MESSAGE: ChatMessage = {
@@ -24,6 +24,8 @@ function rehydrateChatMessages(raw: ChatMessage[]): ChatMessage[] {
   }));
 }
 
+export type SystemStatus = 'loading' | 'operational' | 'degraded' | 'critical';
+
 interface AppContextValue {
   trafficLog: TrafficEntry[];
   addTrafficEntry: (entry: TrafficEntry) => void;
@@ -32,20 +34,49 @@ interface AppContextValue {
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   pendingApprovalCount: number;
   setPendingApprovalCount: (count: number) => void;
+  // ── Global service health ──────────────────────────────────────────
+  /** Live service health state shared across the whole app */
+  services: ServiceHealth[];
+  setServices: React.Dispatch<React.SetStateAction<ServiceHealth[]>>;
+  /** Aggregate status derived from services */
+  systemStatus: SystemStatus;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
+
+const INITIAL_SERVICES: ServiceHealth[] = [
+  { name: 'Gateway',  url: 'localhost:8080', status: 'loading', responseTime: null, lastChecked: null },
+  { name: 'Registry', url: 'localhost:8070', status: 'loading', responseTime: null, lastChecked: null },
+  { name: 'Manager',  url: 'localhost:8090', status: 'loading', responseTime: null, lastChecked: null },
+  { name: 'Broker',   url: 'internal',       status: 'loading', responseTime: null, lastChecked: null },
+  { name: 'Redis',    url: 'localhost:6379', status: 'loading', responseTime: null, lastChecked: null },
+];
+
+/** Derive aggregate system status from a list of service health entries. */
+export function deriveSystemStatus(services: ServiceHealth[]): SystemStatus {
+  const nonLoading = services.filter((s) => s.status !== 'loading');
+  if (nonLoading.length === 0) return 'loading';
+  const downCount = nonLoading.filter((s) => s.status === 'down').length;
+  const degradedCount = nonLoading.filter((s) => s.status === 'degraded').length;
+  if (downCount >= 2 || (downCount >= 1 && degradedCount >= 1)) return 'critical';
+  if (downCount >= 1 || degradedCount >= 1) return 'degraded';
+  return 'operational';
+}
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [rawTrafficLog, setTrafficLog] = useLocalStorage<TrafficEntry[]>('kubex-traffic-log', []);
   const [rawChatMessages, setChatMessages] = useLocalStorage<ChatMessage[]>('kubex-chat-messages', [WELCOME_MESSAGE]);
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+  const [services, setServices] = useState<ServiceHealth[]>(INITIAL_SERVICES);
 
   // Rehydrate Date objects from JSON-parsed strings on every read.
   // useLocalStorage stores/retrieves via JSON.parse which converts Dates to ISO strings.
   // useMemo ensures we only rehydrate when the raw arrays change (not on every render).
   const trafficLog = useMemo(() => rehydrateTrafficEntries(rawTrafficLog), [rawTrafficLog]);
   const chatMessages = useMemo(() => rehydrateChatMessages(rawChatMessages), [rawChatMessages]);
+
+  // Derive aggregate system status from live service states.
+  const systemStatus = useMemo(() => deriveSystemStatus(services), [services]);
 
   function addTrafficEntry(entry: TrafficEntry) {
     setTrafficLog((prev) => [entry, ...prev].slice(0, 500));
@@ -56,7 +87,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ trafficLog, addTrafficEntry, clearTrafficLog, chatMessages, setChatMessages, pendingApprovalCount, setPendingApprovalCount }}>
+    <AppContext.Provider value={{ trafficLog, addTrafficEntry, clearTrafficLog, chatMessages, setChatMessages, pendingApprovalCount, setPendingApprovalCount, services, setServices, systemStatus }}>
       {children}
     </AppContext.Provider>
   );

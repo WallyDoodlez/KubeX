@@ -26,7 +26,7 @@ test.describe('Integration — full user flow', () => {
     await page.goto('/');
     await expect(page.locator('header h1')).toHaveText('Dashboard');
     await expect(page.locator('text=KubexClaw')).toBeVisible();
-    await expect(page.locator('[role="status"][aria-label="Connection status: live"]')).toBeVisible();
+    await expect(page.getByTestId('connection-indicator')).toBeVisible();
 
     // ── 2. Browse Agents ─────────────────────────────────────────────
     await navigateTo(page, 'Agents');

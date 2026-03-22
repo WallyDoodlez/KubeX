@@ -1,15 +1,9 @@
 import { useState, useCallback } from 'react';
 import { usePolling } from '../hooks/usePolling';
 import { useTimeSeries } from '../hooks/useTimeSeries';
-import type { ServiceHealth, Agent, NavPage } from '../types';
-import {
-  getGatewayHealth,
-  getRegistryHealth,
-  getManagerHealth,
-  getBrokerHealth,
-  getAgents,
-  getKubexes,
-} from '../api';
+import type { Agent, NavPage } from '../types';
+import { getAgents, getKubexes } from '../api';
+import { useAppContext } from '../context/AppContext';
 import ServiceCard from './ServiceCard';
 import StatusBadge from './StatusBadge';
 import Sparkline from './Sparkline';
@@ -17,7 +11,7 @@ import { SkeletonCard } from './SkeletonLoader';
 import EmptyState from './EmptyState';
 import SystemStatusBanner from './SystemStatusBanner';
 
-const REFRESH_INTERVAL = 10_000;
+const REFRESH_INTERVAL = 15_000; // Match global health check interval
 const AGENT_DISPLAY_LIMIT = 6;
 
 interface DashboardProps {
@@ -25,13 +19,8 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
-  const [services, setServices] = useState<ServiceHealth[]>([
-    { name: 'Gateway', url: 'localhost:8080', status: 'loading', responseTime: null, lastChecked: null },
-    { name: 'Registry', url: 'localhost:8070', status: 'loading', responseTime: null, lastChecked: null },
-    { name: 'Manager', url: 'localhost:8090', status: 'loading', responseTime: null, lastChecked: null },
-    { name: 'Broker', url: 'internal', status: 'loading', responseTime: null, lastChecked: null },
-    { name: 'Redis', url: 'localhost:6379', status: 'loading', responseTime: null, lastChecked: null },
-  ]);
+  // Read service health from context — it is managed globally by useHealthCheck in Layout
+  const { services } = useAppContext();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [kubexCount, setKubexCount] = useState<number | null>(null);
   const [loadingAgents, setLoadingAgents] = useState(true);
@@ -39,46 +28,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const agentSeries = useTimeSeries({ maxPoints: 20 });
   const kubexSeries = useTimeSeries({ maxPoints: 20 });
-
-  const checkHealth = useCallback(async () => {
-    const checks = [
-      { name: 'Gateway', fn: getGatewayHealth },
-      { name: 'Registry', fn: getRegistryHealth },
-      { name: 'Manager', fn: getManagerHealth },
-      { name: 'Broker', fn: getBrokerHealth },
-    ];
-
-    const results = await Promise.all(checks.map(async ({ name, fn }) => {
-      const res = await fn();
-      return {
-        name,
-        status: (res.ok ? 'healthy' : res.status === 0 ? 'down' : 'degraded') as ServiceHealth['status'],
-        responseTime: res.responseTime,
-        lastChecked: new Date(),
-        detail: res.error ?? (res.data as { status?: string } | null)?.status ?? undefined,
-      };
-    }));
-
-    // Redis — infer from Gateway health (if gateway is up, redis is probably up too)
-    // We don't have a direct Redis endpoint from the browser, so we mark it based on gateway
-    const gatewayUp = results[0].status === 'healthy';
-    const redisEntry: Partial<ServiceHealth> = {
-      name: 'Redis',
-      status: gatewayUp ? 'healthy' : 'down',
-      responseTime: null,
-      lastChecked: new Date(),
-      detail: 'inferred from Gateway',
-    };
-
-    setServices((prev) =>
-      prev.map((s) => {
-        const found = results.find((r) => r.name === s.name);
-        if (found) return { ...s, ...found };
-        if (s.name === 'Redis') return { ...s, ...redisEntry };
-        return s;
-      }),
-    );
-  }, []);
 
   const loadAgents = useCallback(async () => {
     setLoadingAgents(true);
@@ -103,11 +52,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pollAll = useCallback(() => {
-    checkHealth();
     loadAgents();
     loadKubexes();
     setLastUpdated(new Date());
-  }, [checkHealth, loadAgents, loadKubexes]);
+  }, [loadAgents, loadKubexes]);
 
   usePolling(pollAll, { interval: REFRESH_INTERVAL, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
 
