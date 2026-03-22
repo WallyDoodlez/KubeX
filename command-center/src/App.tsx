@@ -1,52 +1,68 @@
-import { useState } from 'react';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import AgentsPanel from './components/AgentsPanel';
-import TrafficLog from './components/TrafficLog';
-import OrchestratorChat from './components/OrchestratorChat';
-import ContainersPanel from './components/ContainersPanel';
-import type { NavPage, TrafficEntry, ChatMessage } from './types';
+import { AppProvider, useAppContext } from './context/AppContext';
+import type { NavPage } from './types';
 
-const WELCOME_MESSAGE: ChatMessage = {
-  id: 'welcome',
-  role: 'system',
-  content:
-    'KubexClaw Command Center — dispatch tasks to the orchestrator via the Gateway. Enter a capability and message below.',
-  timestamp: new Date(),
+const LazyDashboard = lazy(() => import('./components/Dashboard'));
+const LazyAgentsPanel = lazy(() => import('./components/AgentsPanel'));
+const LazyTrafficLog = lazy(() => import('./components/TrafficLog'));
+const LazyOrchestratorChat = lazy(() => import('./components/OrchestratorChat'));
+const LazyContainersPanel = lazy(() => import('./components/ContainersPanel'));
+
+const PAGE_TO_PATH: Record<NavPage, string> = {
+  dashboard: '/',
+  agents: '/agents',
+  traffic: '/traffic',
+  chat: '/chat',
+  containers: '/containers',
 };
 
-export default function App() {
-  const [page, setPage] = useState<NavPage>('dashboard');
-  const [trafficLog, setTrafficLog] = useState<TrafficEntry[]>([]);
-  // Chat messages lifted here so they persist across page navigation
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
-
-  function addTrafficEntry(entry: TrafficEntry) {
-    setTrafficLog((prev) => [entry, ...prev].slice(0, 500));
-  }
-
+function DashboardPage() {
+  const navigate = useNavigate();
   return (
-    <Layout currentPage={page} onNavigate={setPage}>
-      {/* Render all pages but only show the active one — keeps chat state alive */}
-      <div className={page === 'dashboard' ? '' : 'hidden'}>
-        <Dashboard onNavigate={setPage} />
-      </div>
-      <div className={page === 'agents' ? '' : 'hidden'}>
-        <AgentsPanel />
-      </div>
-      <div className={page === 'traffic' ? '' : 'hidden'}>
-        <TrafficLog entries={trafficLog} />
-      </div>
-      <div className={page === 'chat' ? 'h-full' : 'hidden'}>
-        <OrchestratorChat
-          onTrafficEntry={addTrafficEntry}
-          messages={chatMessages}
-          setMessages={setChatMessages}
-        />
-      </div>
-      <div className={page === 'containers' ? '' : 'hidden'}>
-        <ContainersPanel />
-      </div>
-    </Layout>
+    <LazyDashboard onNavigate={(page) => navigate(PAGE_TO_PATH[page] ?? '/')} />
+  );
+}
+
+function TrafficPage() {
+  const { trafficLog } = useAppContext();
+  return <LazyTrafficLog entries={trafficLog} />;
+}
+
+function ChatPage() {
+  const { addTrafficEntry, chatMessages, setChatMessages } = useAppContext();
+  return (
+    <LazyOrchestratorChat
+      onTrafficEntry={addTrafficEntry}
+      messages={chatMessages}
+      setMessages={setChatMessages}
+    />
+  );
+}
+
+const LoadingFallback = (
+  <div className="flex items-center justify-center h-full text-[#3a3f5a] text-sm">
+    Loading…
+  </div>
+);
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppProvider>
+        <Layout>
+          <Suspense fallback={LoadingFallback}>
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/agents" element={<LazyAgentsPanel />} />
+              <Route path="/traffic" element={<TrafficPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/containers" element={<LazyContainersPanel />} />
+            </Routes>
+          </Suspense>
+        </Layout>
+      </AppProvider>
+    </BrowserRouter>
   );
 }

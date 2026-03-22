@@ -1,28 +1,31 @@
 import type { ReactNode } from 'react';
-import type { NavPage } from '../types';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface NavItem {
-  id: NavPage;
   label: string;
   icon: string;
   description: string;
+  path: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '◈', description: 'System overview' },
-  { id: 'agents', label: 'Agents', icon: '◎', description: 'Registered agents' },
-  { id: 'traffic', label: 'Traffic', icon: '⇌', description: 'Actions log' },
-  { id: 'chat', label: 'Orchestrator', icon: '⌘', description: 'Dispatch tasks' },
-  { id: 'containers', label: 'Containers', icon: '⬡', description: 'Docker kubexes' },
+  { label: 'Dashboard',   icon: '◈', description: 'System overview',   path: '/'          },
+  { label: 'Agents',      icon: '◎', description: 'Registered agents', path: '/agents'    },
+  { label: 'Traffic',     icon: '⇌', description: 'Actions log',       path: '/traffic'   },
+  { label: 'Orchestrator',icon: '⌘', description: 'Dispatch tasks',    path: '/chat'      },
+  { label: 'Containers',  icon: '⬡', description: 'Docker kubexes',    path: '/containers'},
 ];
 
 interface LayoutProps {
-  currentPage: NavPage;
-  onNavigate: (page: NavPage) => void;
   children: ReactNode;
 }
 
-export default function Layout({ currentPage, onNavigate, children }: LayoutProps) {
+export default function Layout({ children }: LayoutProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const currentItem = NAV_ITEMS.find((n) => n.path === location.pathname) ?? NAV_ITEMS[0];
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#0f1117' }}>
       {/* Sidebar */}
@@ -46,11 +49,11 @@ export default function Layout({ currentPage, onNavigate, children }: LayoutProp
             Navigation
           </p>
           {NAV_ITEMS.map((item) => {
-            const active = currentPage === item.id;
+            const active = location.pathname === item.path;
             return (
               <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
+                key={item.path}
+                onClick={() => navigate(item.path)}
                 className={`
                   w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-0.5 text-left transition-all
                   ${active
@@ -89,16 +92,10 @@ export default function Layout({ currentPage, onNavigate, children }: LayoutProp
         {/* Top bar */}
         <header className="flex-shrink-0 h-12 border-b border-[#2a2f45] bg-[#12151f] flex items-center justify-between px-6">
           <div className="flex items-center gap-2">
-            <span className="text-[#64748b] text-sm">
-              {NAV_ITEMS.find((n) => n.id === currentPage)?.icon}
-            </span>
-            <h1 className="text-sm font-semibold text-[#e2e8f0]">
-              {NAV_ITEMS.find((n) => n.id === currentPage)?.label}
-            </h1>
+            <span className="text-[#64748b] text-sm">{currentItem.icon}</span>
+            <h1 className="text-sm font-semibold text-[#e2e8f0]">{currentItem.label}</h1>
             <span className="text-[#3a3f5a] text-sm">/</span>
-            <span className="text-xs text-[#64748b]">
-              {NAV_ITEMS.find((n) => n.id === currentPage)?.description}
-            </span>
+            <span className="text-xs text-[#64748b]">{currentItem.description}</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-[#3a3f5a] font-mono-data">

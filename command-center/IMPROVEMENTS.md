@@ -1,0 +1,130 @@
+# Command Center Improvement Tracker
+
+> **Loop protocol:** Check for `[~]` (resume) before `[ ]` (start next). Mark `[x]` only after build + tests pass.
+
+---
+
+- [x] **Iteration 1: Test Infrastructure + React Router**
+  - [x] Install dependencies (react-router-dom, vitest, @testing-library/react, @playwright/test, msw)
+  - [x] Configure Vitest in vite.config.ts
+  - [x] Create playwright.config.ts
+  - [x] Create src/context/AppContext.tsx (shared state context)
+  - [x] Refactor src/App.tsx — replace hidden divs with BrowserRouter + Routes + React.lazy + Suspense
+  - [x] Refactor src/components/Layout.tsx — useNavigate/useLocation instead of state callback
+  - [x] Create tests/e2e/mocks/handlers.ts (MSW mock API handlers)
+  - [x] Create tests/e2e/smoke.spec.ts (4 tests: load, nav, routes, direct URL)
+  - [x] Verify: npm run build clean + npx playwright test passes
+  - [x] Commit
+
+- [ ] **Iteration 2: Custom Hooks + Interval Cleanup + Error Boundaries**
+  - [ ] Create src/hooks/usePolling.ts (cleanup on unmount, exponential backoff, pause on tab hidden)
+  - [ ] Create src/hooks/useApiCall.ts (one-shot API call with loading/error)
+  - [ ] Create src/components/ErrorBoundary.tsx (catch render errors, retry UI)
+  - [ ] Refactor Dashboard.tsx — replace setInterval with usePolling
+  - [ ] Refactor AgentsPanel.tsx — replace setInterval with usePolling
+  - [ ] Refactor ContainersPanel.tsx — replace setInterval with usePolling
+  - [ ] Refactor OrchestratorChat.tsx — fix memory leak (uncleared setInterval in handleSend), use usePolling
+  - [ ] Wrap routes in ErrorBoundary (App.tsx)
+  - [ ] Create tests/e2e/error-recovery.spec.ts (3 tests)
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
+
+- [ ] **Iteration 3: API Hardening + Auth + Input Validation**
+  - [ ] Harden src/api.ts — remove changeme token default, add request dedup, 401/403 detection
+  - [ ] Create src/context/AuthContext.tsx (manager token state)
+  - [ ] Create src/components/AuthGate.tsx (token input when env var missing)
+  - [ ] Create src/components/ConfirmDialog.tsx (accessible modal, replace window.confirm)
+  - [ ] Create src/utils/validation.ts (validateCapability, validateMessage)
+  - [ ] Add validation to OrchestratorChat.tsx (inline errors, disable send on invalid)
+  - [ ] Replace window.confirm in AgentsPanel.tsx and ContainersPanel.tsx with ConfirmDialog
+  - [ ] Create tests/e2e/auth.spec.ts + tests/e2e/validation.spec.ts (6 tests)
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
+
+- [ ] **Iteration 4: Dashboard Enhancement**
+  - [ ] Create src/hooks/useTimeSeries.ts (accumulate data points for sparklines)
+  - [ ] Create src/components/Sparkline.tsx (SVG polyline, no chart library)
+  - [ ] Upgrade Dashboard.tsx — sparklines, clickable stat cards, "Last updated Xs ago", "+N more" link
+  - [ ] Upgrade ServiceCard.tsx — response time sparkline history
+  - [ ] Create tests/e2e/dashboard.spec.ts (6 tests)
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
+
+- [ ] **Iteration 5: AgentsPanel — Search, Filter, Pagination**
+  - [ ] Create src/hooks/usePagination.ts
+  - [ ] Create src/hooks/useSearch.ts
+  - [ ] Create src/hooks/useSort.ts
+  - [ ] Create src/components/SearchInput.tsx (debounced, clear button)
+  - [ ] Create src/components/Pagination.tsx (prev/next, page indicator, page size)
+  - [ ] Upgrade AgentsPanel.tsx — integrate search, sort, pagination, ARIA table roles
+  - [ ] Create tests/e2e/agents.spec.ts (8 tests)
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
+
+- [ ] **Iteration 6: Traffic Log Upgrade + Persistence**
+  - [ ] Create src/hooks/useLocalStorage.ts
+  - [ ] Update src/context/AppContext.tsx — persist trafficLog + chatMessages to localStorage
+  - [ ] Create src/components/TrafficFilterBar.tsx (status, agent, time range, search)
+  - [ ] Upgrade TrafficLog.tsx — filter bar, pagination, clear log, entry count
+  - [ ] Add TrafficFilter type to types.ts
+  - [ ] Create tests/e2e/traffic.spec.ts (7 tests)
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
+
+- [ ] **Iteration 7: Agent Detail View (New Page)**
+  - [ ] Create src/components/Tabs.tsx (reusable, keyboard nav, role=tablist)
+  - [ ] Create src/components/AgentDetailPage.tsx (Overview, Actions, Config tabs)
+  - [ ] Add route /agents/:agentId in App.tsx
+  - [ ] Make AgentsPanel.tsx rows clickable → navigate to detail
+  - [ ] Update types.ts (NavPage, AgentDetail interface)
+  - [ ] Create tests/e2e/agent-detail.spec.ts (7 tests)
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
+
+- [ ] **Iteration 8: SSE Live Streaming + Terminal Renderer + HITL**
+  - [ ] PRE-CHECK: git pull and verify GET /tasks/{id}/stream endpoint exists in Gateway code. If not available, mark this iteration BLOCKED and skip to iteration 9
+  - [ ] Create src/hooks/useSSE.ts (EventSource lifecycle, reconnect, final handling)
+  - [ ] Create src/components/TerminalOutput.tsx (monospace stdout/stderr renderer, auto-scroll)
+  - [ ] Create src/components/HITLPrompt.tsx (awaiting_input prompt card, submit via POST /actions)
+  - [ ] Upgrade OrchestratorChat.tsx — switch from polling to SSE, embed TerminalOutput + HITLPrompt
+  - [ ] Add "Live Output" tab to AgentDetailPage.tsx
+  - [ ] Add SSEChunk, HITLRequest types to types.ts + new agent states (booting, credential_wait, ready)
+  - [ ] Update StatusBadge.tsx — colors for new lifecycle states
+  - [ ] Add getTaskStream(), provideInput() to api.ts
+  - [ ] Create tests/e2e/streaming.spec.ts (8 tests)
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
+
+- [ ] **Iteration 9: Approval Queue (New Page)**
+  - [ ] Create src/components/ApprovalQueue.tsx (card list, approve/reject, time ticker)
+  - [ ] Add getEscalations(), resolveEscalation() to api.ts
+  - [ ] Add "Approvals" nav item with count badge to Layout.tsx
+  - [ ] Add route /approvals in App.tsx
+  - [ ] Add pendingApprovalCount to AppContext.tsx
+  - [ ] Add ApprovalRequest, ApprovalDecision types to types.ts
+  - [ ] Create tests/e2e/approvals.spec.ts (7 tests)
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
+
+- [ ] **Iteration 10: Emergency Controls (Top Bar)**
+  - [ ] Create src/components/KillAllDialog.tsx (typed "KILL ALL" confirmation)
+  - [ ] Create src/components/QuickActionsMenu.tsx (dropdown with kubex list)
+  - [ ] Create src/components/Toast.tsx (auto-dismiss notifications)
+  - [ ] Create src/context/ToastContext.tsx (toast state management)
+  - [ ] Add killAllKubexes(), pauseKubex(), resumeKubex() to api.ts
+  - [ ] Add emergency controls to Layout.tsx top bar
+  - [ ] Create tests/e2e/controls.spec.ts (8 tests)
+  - [ ] Verify: npm run build clean + npx playwright test passes
+  - [ ] Commit
+
+- [ ] **Iteration 11: Polish + Accessibility Audit**
+  - [ ] Create src/components/SkeletonLoader.tsx (reusable SkeletonTable, SkeletonCard, SkeletonText)
+  - [ ] Create src/components/EmptyState.tsx (reusable empty state)
+  - [ ] Upgrade Layout.tsx — skip-to-content, aria-current, responsive sidebar, landmark roles
+  - [ ] Audit all components — focus-visible rings, ARIA labels, semantic HTML
+  - [ ] Update index.css — focus-visible utilities, print stylesheet
+  - [ ] Create tests/e2e/accessibility.spec.ts (axe-core scan, landmarks, tab order)
+  - [ ] Create tests/e2e/responsive.spec.ts (sidebar breakpoints)
+  - [ ] Create tests/e2e/integration.spec.ts (full user flow: dispatch → stream → HITL → traffic → persist)
+  - [ ] Verify: npm run build clean + npx playwright test ALL green
+  - [ ] Commit
