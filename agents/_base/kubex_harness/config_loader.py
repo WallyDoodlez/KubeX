@@ -24,6 +24,37 @@ logger = logging.getLogger("kubex_harness.config_loader")
 
 
 # ---------------------------------------------------------------------------
+# PolicyConfig and BudgetConfig — sub-models for AgentConfig (PROMPT-01)
+# ---------------------------------------------------------------------------
+
+
+class PolicyConfig(BaseModel):
+    """Policy constraints for an agent, parsed from config.yaml agent.policy stanza.
+
+    Fields:
+        allowed_actions: List of Gateway action names this agent may perform.
+        blocked_actions: List of Gateway action names explicitly denied.
+
+    Actions not in either list are ESCALATED to the reviewer agent.
+    """
+
+    allowed_actions: list[str] = Field(default_factory=list)
+    blocked_actions: list[str] = Field(default_factory=list)
+
+
+class BudgetConfig(BaseModel):
+    """Token and cost budget for an agent, parsed from config.yaml agent.budget stanza.
+
+    Fields:
+        per_task_token_limit: Maximum tokens allowed per task (0 = unconstrained).
+        daily_cost_limit_usd: Maximum USD spend per day (0.0 = unconstrained).
+    """
+
+    per_task_token_limit: int = 0
+    daily_cost_limit_usd: float = 0.0
+
+
+# ---------------------------------------------------------------------------
 # AgentConfig — harness-specific config model
 # ---------------------------------------------------------------------------
 
@@ -45,6 +76,8 @@ class AgentConfig(BaseModel):
         broker_url:   Broker base URL (default: http://kubex-broker:8060)
         description:  Human-readable agent description for MCP tool metadata (MCP-05)
         boundary:     Policy boundary this agent belongs to (default: "default")
+        policy:       Policy constraints parsed from config.yaml agent.policy stanza (PROMPT-01)
+        budget:       Token/cost budget parsed from config.yaml agent.budget stanza (PROMPT-01)
     """
 
     agent_id: str = ""
@@ -57,6 +90,8 @@ class AgentConfig(BaseModel):
     broker_url: str = "http://kubex-broker:8060"
     description: str = ""
     boundary: str = "default"
+    policy: PolicyConfig = Field(default_factory=PolicyConfig)
+    budget: BudgetConfig = Field(default_factory=BudgetConfig)
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +137,10 @@ def load_agent_config(config_path: str = "/app/config.yaml") -> AgentConfig:
     if not agent_id:
         raise ValueError("Config missing required field: agent.id")
 
+    # Parse policy and budget stanzas — both are optional (hello-world has neither)
+    policy_raw: dict[str, Any] = file_data.get("policy", {}) or {}
+    budget_raw: dict[str, Any] = file_data.get("budget", {}) or {}
+
     return AgentConfig(
         agent_id=agent_id,
         model=file_data.get("model", "gpt-5.2"),
@@ -113,4 +152,6 @@ def load_agent_config(config_path: str = "/app/config.yaml") -> AgentConfig:
         broker_url=file_data.get("broker_url", "http://kubex-broker:8060"),
         description=file_data.get("description", ""),
         boundary=file_data.get("boundary", "default"),
+        policy=PolicyConfig(**policy_raw) if policy_raw else PolicyConfig(),
+        budget=BudgetConfig(**budget_raw) if budget_raw else BudgetConfig(),
     )
