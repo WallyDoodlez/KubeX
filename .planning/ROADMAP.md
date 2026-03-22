@@ -33,7 +33,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details.
 **Milestone Goal:** Replace the orchestrator's custom tool loop with MCP protocol and enable any CLI agent (Claude Code, Codex, Gemini CLI) to run inside Kubex containers via PTY subprocess with hooks-based monitoring and OAuth provisioning.
 
 - [x] **Phase 8: MCP Bridge** — Orchestrator coordination via MCP protocol, replacing custom 8-tool OpenAI loop (completed 2026-03-22)
-- [ ] **Phase 9: CLI Runtime — Claude Code** — PTY supervisor and credential management, Claude Code as first runtime
+- [x] **Phase 9: CLI Runtime — Claude Code** — PTY supervisor and credential management, Claude Code as first runtime (completed 2026-03-22)
 - [ ] **Phase 10: Hooks Monitoring** — Zero-token passive observability via Claude Code hooks HTTP endpoint
 - [ ] **Phase 11: Codex + Gemini Runtimes** — Extend CLI runtime to Codex CLI and Gemini CLI via PTY
 - [ ] **Phase 12: OAuth Command Center Web Flow** — Web-based OAuth provisioning, replacing docker-exec HITL
@@ -79,13 +79,13 @@ Plans:
   3. OAuth tokens survive container restarts via named Docker volumes; a restarted container with a valid token goes directly to READY without triggering re-auth
   4. Sending SIGTERM to the container forwards the signal to the PTY child, waits up to 5 seconds, issues SIGKILL if needed, and exits cleanly with no orphaned processes
   5. Skill files injected at spawn appear as CLAUDE.md inside the container and are picked up by Claude Code at session start
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 09-00-PLAN.md — Wave 0: test stub scaffolding for Nyquist compliance
 - [x] 09-01-PLAN.md — Infrastructure: tini PID 1, named Docker volumes, docker-compose.yml, CLAUDE.md skill injection in entrypoint
 - [x] 09-02-PLAN.md — CLIRuntime core module: state machine, PTY spawn, credential gate, failure detection
-- [ ] 09-03-PLAN.md — Wiring into main.py, full unit tests, integration verification
+- [x] 09-03-PLAN.md — Wiring into main.py, full unit tests, integration verification
 
 ### Phase 10: Hooks Monitoring
 **Goal**: Claude Code tool invocations, turn completions, and session ends are passively captured at the harness HTTP endpoint with no prompt token cost and a tamper-proof hook config
@@ -127,7 +127,7 @@ Plans:
 | 7. Agent Migration and Dockerfile Removal | v1.1 | 3/3 | Complete | 2026-03-17 |
 | 8. MCP Bridge | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 8.1 Agent System Prompts | v1.2 | 0/2 | In progress | - |
-| 9. CLI Runtime — Claude Code | v1.2 | 3/4 | In Progress|  |
+| 9. CLI Runtime — Claude Code | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 10. Hooks Monitoring | v1.2 | 0/? | Not started | - |
 | 11. Codex + Gemini Runtimes | v1.2 | 0/? | Not started | - |
 | 12. OAuth Command Center Web Flow | v1.2 | 0/? | Not started | - |

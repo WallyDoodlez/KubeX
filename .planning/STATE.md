@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-03-22T18:35:12.495Z"
+stopped_at: Completed 09-03-PLAN.md
+last_updated: "2026-03-22T18:44:19.210Z"
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -51,6 +51,7 @@ Plan: 4 of 4
 | Phase 09 P00 | 3 | 1 tasks | 1 files |
 | Phase 09-cli-runtime-claude-code P01 | 135s | 2 tasks | 5 files |
 | Phase 09 P02 | 429 | 1 tasks | 2 files |
+| Phase 09-cli-runtime-claude-code P03 | 10 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ Recent decisions affecting current work:
 - [Phase 09-cli-runtime-claude-code]: CLAUDE.md generated at /app/CLAUDE.md from all SKILL.md files when runtime != openai-api; skipped for LLM-harness agents
 - [Phase 09]: SIGTERM always sent unconditionally in graceful_shutdown (no isalive() pre-check) so shutdown protocol is deterministic
 - [Phase 09]: _execute_task does not publish BUSY — task_loop owns READY/BUSY state transitions; _execute_task handles pre-flight credential check
+- [Phase 09-03]: CLI runtime routing placed BEFORE harness_mode routing in main.py so CLI agents bypass StandaloneAgent even when harness_mode is standalone
 
 ### Pending Todos
 
@@ -103,6 +105,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T18:35:12.491Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-03-22T18:44:19.206Z
+Stopped at: Completed 09-03-PLAN.md
 Resume file: None
