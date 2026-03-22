@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePolling } from '../hooks/usePolling';
 import { useSearch } from '../hooks/useSearch';
 import { useSort } from '../hooks/useSort';
@@ -18,6 +19,7 @@ const sortComparators = {
 };
 
 export default function AgentsPanel() {
+  const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -143,6 +145,7 @@ export default function AgentsPanel() {
                   setExpandedId((prev) => (prev === agent.agent_id ? null : agent.agent_id))
                 }
                 onDeregister={() => requestDeregister(agent.agent_id)}
+                onNavigateToDetail={() => navigate(`/agents/${agent.agent_id}`)}
                 deregistering={deregistering === agent.agent_id}
               />
             ))}
@@ -185,10 +188,11 @@ interface AgentRowProps {
   expanded: boolean;
   onToggle: () => void;
   onDeregister: () => void;
+  onNavigateToDetail: () => void;
   deregistering: boolean;
 }
 
-function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, deregistering }: AgentRowProps) {
+function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, onNavigateToDetail, deregistering }: AgentRowProps) {
   return (
     <div className={`${!isLast ? 'border-b border-[#2a2f45]' : ''}`}>
       {/* Main row */}
@@ -200,7 +204,14 @@ function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, deregisteri
         {/* Agent ID */}
         <div className="flex items-center gap-2 min-w-0">
           <span className={`text-xs transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
-          <span className="font-mono-data text-sm text-[#e2e8f0] truncate">{agent.agent_id}</span>
+          <span
+            className="font-mono-data text-sm text-[#e2e8f0] truncate hover:text-emerald-400 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onNavigateToDetail(); }}
+            role="link"
+            tabIndex={0}
+          >
+            {agent.agent_id}
+          </span>
         </div>
 
         {/* Capabilities */}

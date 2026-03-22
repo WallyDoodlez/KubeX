@@ -110,6 +110,15 @@ export interface TrafficFilter {
   search: string;
 }
 
+// ── Agent detail ────────────────────────────────────────────────────
+
+export interface AgentDetail extends Agent {
+  tasks_completed?: number;
+  tasks_failed?: number;
+  uptime?: string;
+  last_active?: string;
+}
+
 // ── Navigation ───────────────────────────────────────────────────────
 
 export type NavPage = 'dashboard' | 'agents' | 'traffic' | 'chat' | 'containers';

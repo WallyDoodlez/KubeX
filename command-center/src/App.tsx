@@ -11,6 +11,7 @@ const LazyAgentsPanel = lazy(() => import('./components/AgentsPanel'));
 const LazyTrafficLog = lazy(() => import('./components/TrafficLog'));
 const LazyOrchestratorChat = lazy(() => import('./components/OrchestratorChat'));
 const LazyContainersPanel = lazy(() => import('./components/ContainersPanel'));
+const LazyAgentDetailPage = lazy(() => import('./components/AgentDetailPage'));
 
 const PAGE_TO_PATH: Record<NavPage, string> = {
   dashboard: '/',
@@ -60,6 +61,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/agents" element={<LazyAgentsPanel />} />
+                <Route path="/agents/:agentId" element={<LazyAgentDetailPage />} />
                 <Route path="/traffic" element={<TrafficPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/containers" element={<LazyContainersPanel />} />

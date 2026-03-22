@@ -71,15 +71,15 @@
   - [x] Verify: npm run build clean + npx playwright test passes
   - [x] Commit
 
-- [ ] **Iteration 7: Agent Detail View (New Page)**
-  - [ ] Create src/components/Tabs.tsx (reusable, keyboard nav, role=tablist)
-  - [ ] Create src/components/AgentDetailPage.tsx (Overview, Actions, Config tabs)
-  - [ ] Add route /agents/:agentId in App.tsx
-  - [ ] Make AgentsPanel.tsx rows clickable → navigate to detail
-  - [ ] Update types.ts (NavPage, AgentDetail interface)
-  - [ ] Create tests/e2e/agent-detail.spec.ts (7 tests)
-  - [ ] Verify: npm run build clean + npx playwright test passes
-  - [ ] Commit
+- [x] **Iteration 7: Agent Detail View (New Page)**
+  - [x] Create src/components/Tabs.tsx (reusable, keyboard nav, role=tablist)
+  - [x] Create src/components/AgentDetailPage.tsx (Overview, Actions, Config tabs)
+  - [x] Add route /agents/:agentId in App.tsx
+  - [x] Make AgentsPanel.tsx rows clickable → navigate to detail
+  - [x] Update types.ts (NavPage, AgentDetail interface)
+  - [x] Create tests/e2e/agent-detail.spec.ts (7 tests)
+  - [x] Verify: npm run build clean + npx playwright test passes
+  - [x] Commit
 
 - [ ] **Iteration 8: SSE Live Streaming + Terminal Renderer + HITL**
   - [ ] PRE-CHECK: git pull and verify GET /tasks/{id}/stream endpoint exists in Gateway code. If not available, mark this iteration BLOCKED and skip to iteration 9
