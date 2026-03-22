@@ -1328,3 +1328,80 @@ class TestManagerAPIExtensions:
         assert resp.status_code != 404, (
             f"GET /configs returned 404 — endpoint not implemented"
         )
+
+
+# ===========================================================================
+# Phase 9 — CLI runtime named volumes (CLI-06)
+# ===========================================================================
+
+
+class TestCliRuntimeNamedVolumes:
+    """CLI-06: create_kubex() adds a named Docker volume for CLI runtime agents.
+
+    Named volumes (e.g. ``kubex-creds-{agent_id}``) persist credentials across
+    container restarts. Only created when config.agent.runtime != "openai-api".
+    """
+
+    @patch("kubex_manager.lifecycle.docker.from_env")
+    def test_named_volume_for_cli_runtime(self, mock_docker_env: MagicMock) -> None:
+        """CLI-06: Named Docker volume created for CLI runtime agents.
+
+        When ``config.agent.runtime`` is ``"claude-code"``, the volumes dict
+        passed to Docker SDK must contain a ``kubex-creds-{agent_id}`` key
+        mapped to the correct credential container path with mode ``"rw"``.
+        """
+        mock_docker, mock_container = make_mock_docker()
+        mock_docker_env.return_value = mock_docker
+
+        lifecycle = make_lifecycle()
+        cli_config: dict[str, Any] = {
+            "agent": {
+                "id": "claude-agent-1",
+                "boundary": "default",
+                "providers": [],
+                "skills": [],
+                "runtime": "claude-code",
+            }
+        }
+        req = CreateKubexRequest(config=cli_config)
+        lifecycle.create_kubex(req)
+
+        call_kwargs = mock_docker.containers.create.call_args
+        volumes = call_kwargs.kwargs.get("volumes") or call_kwargs[1].get("volumes", {})
+
+        assert isinstance(volumes, dict), "volumes should be a dict"
+        assert "kubex-creds-claude-agent-1" in volumes, (
+            f"Expected named volume 'kubex-creds-claude-agent-1' not found. "
+            f"Volumes: {list(volumes.keys())}"
+        )
+        vol_spec = volumes["kubex-creds-claude-agent-1"]
+        assert vol_spec.get("bind") == "/root/.claude", (
+            f"Expected bind='/root/.claude' but got {vol_spec.get('bind')}"
+        )
+        assert vol_spec.get("mode") == "rw", (
+            f"Expected mode='rw' but got {vol_spec.get('mode')}"
+        )
+
+    @patch("kubex_manager.lifecycle.docker.from_env")
+    def test_no_volume_for_openai_api(self, mock_docker_env: MagicMock) -> None:
+        """No named credential volume added for standard openai-api runtime.
+
+        When ``config.agent.runtime`` is ``"openai-api"`` (the default), no
+        ``kubex-creds-*`` named volume should appear in the Docker SDK call.
+        """
+        mock_docker, mock_container = make_mock_docker()
+        mock_docker_env.return_value = mock_docker
+
+        lifecycle = make_lifecycle()
+        # SAMPLE_CONFIG has no "runtime" field — defaults to openai-api
+        req = CreateKubexRequest(config=SAMPLE_CONFIG)
+        lifecycle.create_kubex(req)
+
+        call_kwargs = mock_docker.containers.create.call_args
+        volumes = call_kwargs.kwargs.get("volumes") or call_kwargs[1].get("volumes", {})
+
+        cred_volumes = [k for k in volumes if k.startswith("kubex-creds-")]
+        assert len(cred_volumes) == 0, (
+            f"Expected no kubex-creds-* named volumes for openai-api runtime, "
+            f"but found: {cred_volumes}"
+        )
