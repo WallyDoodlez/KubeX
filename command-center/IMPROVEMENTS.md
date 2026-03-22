@@ -155,6 +155,13 @@
   - [x] Verify: npm run build clean + npx playwright test passes (142/142)
   - [x] Commit
 
+- [x] **Iteration 15: ContainersPanel — Search, Filter, Sort, and Pagination**
+  - [x] Upgrade ContainersPanel.tsx — integrate `useSearch` (kubex_id, agent_id, image, status), `useSort` (kubex_id, agent_id, status), `usePagination` (10/page), and a status filter dropdown (all / running / created / stopped / error)
+  - [x] Add ARIA `role="table"` + `role="columnheader"` to the containers table (matching AgentsPanel pattern)
+  - [x] Show result count in header subtitle: "3 of 7 kubexes" when filtered
+  - [x] Create tests/e2e/containers.spec.ts (9 tests: header, refresh, search input, search filters, clear button, status filter, ARIA table role, column headers sortable, route-mocked data tests)
+  - [x] Verify: npm run build + npx playwright test passes (163/163)
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays

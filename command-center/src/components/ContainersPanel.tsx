@@ -1,11 +1,26 @@
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, useMemo, memo } from 'react';
 import type { Kubex } from '../types';
 import { getKubexes, killKubex, startKubex } from '../api';
 import StatusBadge from './StatusBadge';
 import { usePolling } from '../hooks/usePolling';
+import { useSearch } from '../hooks/useSearch';
+import { useSort } from '../hooks/useSort';
+import { usePagination } from '../hooks/usePagination';
 import ConfirmDialog from './ConfirmDialog';
+import SearchInput from './SearchInput';
+import Pagination from './Pagination';
 import { SkeletonTable } from './SkeletonLoader';
 import EmptyState from './EmptyState';
+
+// Status filter options
+type StatusFilter = 'all' | 'running' | 'created' | 'stopped' | 'error';
+
+// Stable comparators defined at module level so their references don't change between renders
+const sortComparators = {
+  kubex_id: (a: Kubex, b: Kubex) => a.kubex_id.localeCompare(b.kubex_id),
+  agent_id: (a: Kubex, b: Kubex) => (a.agent_id ?? '').localeCompare(b.agent_id ?? ''),
+  status: (a: Kubex, b: Kubex) => a.status.localeCompare(b.status),
+};
 
 export default function ContainersPanel() {
   const [kubexes, setKubexes] = useState<Kubex[]>([]);
@@ -13,6 +28,7 @@ export default function ContainersPanel() {
   const [error, setError] = useState<string | null>(null);
   const [actionIn, setActionIn] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{ kubexId: string; action: 'kill' } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -27,6 +43,28 @@ export default function ContainersPanel() {
   }, []);
 
   const { refresh } = usePolling(load, { interval: 10_000, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
+
+  // Status pre-filter — applied before search and sort
+  const statusFiltered = useMemo(() => {
+    if (statusFilter === 'all') return kubexes;
+    return kubexes.filter((k) => k.status === statusFilter);
+  }, [kubexes, statusFilter]);
+
+  // Search — useSearch internally uses useMemo
+  const { query, setQuery, filteredItems: searchedKubexes } = useSearch(statusFiltered, {
+    fields: [
+      (k) => k.kubex_id,
+      (k) => k.agent_id ?? '',
+      (k) => k.image ?? '',
+      (k) => k.status,
+    ],
+  });
+
+  // Sort — useSort internally uses useMemo
+  const { sortedItems, requestSort, getSortIndicator } = useSort(searchedKubexes, sortComparators);
+
+  // Paginate — usePagination internally uses useMemo for paginatedItems slice
+  const pagination = usePagination(sortedItems, { initialPageSize: 10 });
 
   function requestKill(kubexId: string) {
     setConfirmTarget({ kubexId, action: 'kill' });
@@ -52,6 +90,13 @@ export default function ContainersPanel() {
   const running = kubexes.filter((k) => k.status === 'running').length;
   const stopped = kubexes.filter((k) => k.status === 'stopped' || k.status === 'error').length;
 
+  // Subtitle reflects filtering state
+  const subtitle = loading
+    ? 'Loading…'
+    : query || statusFilter !== 'all'
+    ? `${sortedItems.length} of ${kubexes.length} kubexes`
+    : `${running} running, ${stopped} stopped`;
+
   return (
     <div className="p-6 animate-fade-in">
       {/* Header */}
@@ -59,7 +104,7 @@ export default function ContainersPanel() {
         <div>
           <h2 className="text-sm font-semibold text-[#e2e8f0]">Docker Containers (Kubexes)</h2>
           <p className="text-xs text-[#64748b]">
-            Managed by Kubex Manager — {running} running, {stopped} stopped
+            Managed by Kubex Manager — {subtitle}
           </p>
         </div>
         <button
@@ -68,6 +113,29 @@ export default function ContainersPanel() {
         >
           ↻ Refresh
         </button>
+      </div>
+
+      {/* Search + filter bar */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex-1">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search kubexes by ID, agent, image, status…"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          aria-label="Filter by status"
+          className="px-3 py-2 text-xs rounded-lg border border-[#2a2f45] bg-[#12151f] text-[#94a3b8] hover:border-[#3a3f5a] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 focus:ring-offset-[#0f1117] transition-colors"
+        >
+          <option value="all">All statuses</option>
+          <option value="running">Running</option>
+          <option value="created">Created</option>
+          <option value="stopped">Stopped</option>
+          <option value="error">Error</option>
+        </select>
       </div>
 
       {error && (
@@ -87,28 +155,64 @@ export default function ContainersPanel() {
           title="No kubexes found"
           description="Kubexes appear here when spawned via Manager."
         />
+      ) : sortedItems.length === 0 ? (
+        <EmptyState
+          icon="⬡"
+          title="No matching kubexes"
+          description={query ? `No kubexes match "${query}"` : `No kubexes with status "${statusFilter}"`}
+        />
       ) : (
-        <div className="rounded-xl border border-[#2a2f45] overflow-hidden">
-          {/* Table header */}
-          <div className="grid grid-cols-[2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-2.5 border-b border-[#2a2f45] bg-[#12151f]">
-            {['Kubex ID', 'Agent', 'Status', 'Image', 'Actions'].map((h) => (
-              <span key={h} className="text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a]">
-                {h}
-              </span>
+        <>
+          <div className="rounded-xl border border-[#2a2f45] overflow-hidden" role="table">
+            {/* Table header */}
+            <div
+              className="grid grid-cols-[2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-2.5 border-b border-[#2a2f45] bg-[#12151f]"
+              role="row"
+            >
+              {[
+                { label: 'Kubex ID', sortKey: 'kubex_id' as const },
+                { label: 'Agent', sortKey: 'agent_id' as const },
+                { label: 'Status', sortKey: 'status' as const },
+                { label: 'Image', sortKey: null },
+                { label: 'Actions', sortKey: null },
+              ].map(({ label, sortKey }) => (
+                <span
+                  key={label}
+                  className={`text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a] ${sortKey ? 'cursor-pointer hover:text-[#64748b] select-none' : ''}`}
+                  onClick={sortKey ? () => requestSort(sortKey) : undefined}
+                  role="columnheader"
+                >
+                  {label}{sortKey ? getSortIndicator(sortKey) : ''}
+                </span>
+              ))}
+            </div>
+
+            {pagination.paginatedItems.map((kubex, idx) => (
+              <KubexRow
+                key={kubex.kubex_id}
+                kubex={kubex}
+                isLast={idx === pagination.paginatedItems.length - 1}
+                actionIn={actionIn === kubex.kubex_id}
+                onKill={() => requestKill(kubex.kubex_id)}
+                onStart={() => handleStart(kubex.kubex_id)}
+              />
             ))}
           </div>
 
-          {kubexes.map((kubex, idx) => (
-            <KubexRow
-              key={kubex.kubex_id}
-              kubex={kubex}
-              isLast={idx === kubexes.length - 1}
-              actionIn={actionIn === kubex.kubex_id}
-              onKill={() => requestKill(kubex.kubex_id)}
-              onStart={() => handleStart(kubex.kubex_id)}
-            />
-          ))}
-        </div>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            pageSize={pagination.pageSize}
+            totalItems={sortedItems.length}
+            startIndex={pagination.startIndex}
+            endIndex={pagination.endIndex}
+            hasNext={pagination.hasNext}
+            hasPrev={pagination.hasPrev}
+            onNextPage={pagination.nextPage}
+            onPrevPage={pagination.prevPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </>
       )}
 
       <ConfirmDialog
@@ -165,27 +269,30 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, onKill, onSta
         bg-[#1a1d27] hover:bg-[#20243a] transition-colors
         ${!isLast ? 'border-b border-[#2a2f45]' : ''}
       `}
+      role="row"
     >
       {/* Kubex ID */}
-      <span className="font-mono-data text-sm text-[#e2e8f0] truncate" title={kubex.kubex_id}>
+      <span className="font-mono-data text-sm text-[#e2e8f0] truncate" title={kubex.kubex_id} role="cell">
         {kubex.kubex_id}
       </span>
 
       {/* Agent ID */}
-      <span className="font-mono-data text-sm text-[#94a3b8] truncate" title={kubex.agent_id ?? '—'}>
+      <span className="font-mono-data text-sm text-[#94a3b8] truncate" title={kubex.agent_id ?? '—'} role="cell">
         {kubex.agent_id ?? <span className="text-[#3a3f5a]">—</span>}
       </span>
 
       {/* Status */}
-      <StatusBadge status={kubex.status} />
+      <span role="cell">
+        <StatusBadge status={kubex.status} />
+      </span>
 
       {/* Image */}
-      <span className="font-mono-data text-xs text-[#64748b] truncate" title={kubex.image ?? '—'}>
+      <span className="font-mono-data text-xs text-[#64748b] truncate" title={kubex.image ?? '—'} role="cell">
         {kubex.image ?? '—'}
       </span>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" role="cell">
         {isRunning ? (
           <button
             onClick={onKill}
