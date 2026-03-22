@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { usePolling } from '../hooks/usePolling';
+import { useTimeSeries } from '../hooks/useTimeSeries';
 import type { ServiceHealth, Agent, NavPage } from '../types';
 import {
   getGatewayHealth,
@@ -11,8 +12,10 @@ import {
 } from '../api';
 import ServiceCard from './ServiceCard';
 import StatusBadge from './StatusBadge';
+import Sparkline from './Sparkline';
 
 const REFRESH_INTERVAL = 10_000;
+const AGENT_DISPLAY_LIMIT = 6;
 
 interface DashboardProps {
   onNavigate: (page: NavPage) => void;
@@ -29,6 +32,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [kubexCount, setKubexCount] = useState<number | null>(null);
   const [loadingAgents, setLoadingAgents] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const agentSeries = useTimeSeries({ maxPoints: 20 });
+  const kubexSeries = useTimeSeries({ maxPoints: 20 });
 
   const checkHealth = useCallback(async () => {
     const checks = [
@@ -75,21 +82,24 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const res = await getAgents();
     if (res.ok && Array.isArray(res.data)) {
       setAgents(res.data);
+      agentSeries.push(res.data.length);
     }
     setLoadingAgents(false);
-  }, []);
+  }, []); // agentSeries.push is stable from ref
 
   const loadKubexes = useCallback(async () => {
     const res = await getKubexes();
     if (res.ok && Array.isArray(res.data)) {
       setKubexCount(res.data.length);
+      kubexSeries.push(res.data.length);
     }
-  }, []);
+  }, []); // kubexSeries.push is stable from ref
 
   const pollAll = useCallback(() => {
     checkHealth();
     loadAgents();
     loadKubexes();
+    setLastUpdated(new Date());
   }, [checkHealth, loadAgents, loadKubexes]);
 
   usePolling(pollAll, { interval: REFRESH_INTERVAL, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
@@ -118,18 +128,25 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           value={loadingAgents ? '…' : String(agents.length)}
           accent="blue"
           icon="◎"
+          onClick={() => onNavigate('agents')}
+          sparklineValues={agentSeries.values}
         />
         <StatCard
           label="Running Kubexes"
           value={kubexCount === null ? '…' : String(kubexCount)}
           accent="purple"
           icon="⬡"
+          onClick={() => onNavigate('containers')}
+          sparklineValues={kubexSeries.values}
         />
       </div>
 
       {/* Service health grid */}
       <section>
-        <SectionHeader title="Service Health" subtitle={`Auto-refresh every ${REFRESH_INTERVAL / 1000}s`} />
+        <SectionHeader
+          title="Service Health"
+          subtitle={`Last updated ${timeAgo(lastUpdated)} · Auto-refresh every ${REFRESH_INTERVAL / 1000}s`}
+        />
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
           {services.map((s) => (
             <ServiceCard key={s.name} service={s} />
@@ -152,14 +169,33 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <EmptyState message="No agents registered. Start agents with docker compose up." />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {agents.map((agent) => (
+            {agents.slice(0, AGENT_DISPLAY_LIMIT).map((agent) => (
               <AgentCard key={agent.agent_id} agent={agent} />
             ))}
+            {agents.length > AGENT_DISPLAY_LIMIT && (
+              <button
+                onClick={() => onNavigate('agents')}
+                className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-4 flex items-center justify-center text-sm text-emerald-400 hover:text-emerald-300 hover:border-[#3a3f5a] transition-colors"
+              >
+                +{agents.length - AGENT_DISPLAY_LIMIT} more →
+              </button>
+            )}
           </div>
         )}
       </section>
     </div>
   );
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function timeAgo(date: Date | null): string {
+  if (!date) return '—';
+  const seconds = Math.round((Date.now() - date.getTime()) / 1000);
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ago`;
 }
 
 // ── Sub-components ───────────────────────────────────────────────────
@@ -169,11 +205,15 @@ function StatCard({
   value,
   accent,
   icon,
+  onClick,
+  sparklineValues,
 }: {
   label: string;
   value: string;
   accent: 'emerald' | 'red' | 'blue' | 'purple' | 'slate';
   icon: string;
+  onClick?: () => void;
+  sparklineValues?: number[];
 }) {
   const accentColors = {
     emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -182,9 +222,19 @@ function StatCard({
     purple: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
     slate: 'text-slate-400 bg-slate-500/10 border-slate-500/20',
   };
+  const sparklineColorMap = {
+    emerald: '#34d399',
+    red: '#f87171',
+    blue: '#60a5fa',
+    purple: '#a78bfa',
+    slate: '#94a3b8',
+  };
 
   return (
-    <div className="rounded-xl border border-[#2a2f45] bg-[#1a1d27] p-4">
+    <div
+      className={`rounded-xl border border-[#2a2f45] bg-[#1a1d27] p-4 ${onClick ? 'cursor-pointer hover:border-[#3a3f5a] transition-colors' : ''}`}
+      onClick={onClick}
+    >
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-[#64748b] font-medium uppercase tracking-wide">{label}</span>
         <span className={`text-xs rounded-full p-1 border ${accentColors[accent]}`}>{icon}</span>
@@ -192,6 +242,11 @@ function StatCard({
       <p className={`text-2xl font-bold font-mono-data ${accentColors[accent].split(' ')[0]}`}>
         {value}
       </p>
+      {sparklineValues && sparklineValues.length > 1 && (
+        <div className="mt-2">
+          <Sparkline values={sparklineValues} width={160} height={24} color={sparklineColorMap[accent]} />
+        </div>
+      )}
     </div>
   );
 }

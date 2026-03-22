@@ -41,14 +41,14 @@
   - [x] Verify: npm run build clean + npx playwright test passes
   - [x] Commit
 
-- [ ] **Iteration 4: Dashboard Enhancement**
-  - [ ] Create src/hooks/useTimeSeries.ts (accumulate data points for sparklines)
-  - [ ] Create src/components/Sparkline.tsx (SVG polyline, no chart library)
-  - [ ] Upgrade Dashboard.tsx — sparklines, clickable stat cards, "Last updated Xs ago", "+N more" link
-  - [ ] Upgrade ServiceCard.tsx — response time sparkline history
-  - [ ] Create tests/e2e/dashboard.spec.ts (6 tests)
-  - [ ] Verify: npm run build clean + npx playwright test passes
-  - [ ] Commit
+- [x] **Iteration 4: Dashboard Enhancement**
+  - [x] Create src/hooks/useTimeSeries.ts (accumulate data points for sparklines)
+  - [x] Create src/components/Sparkline.tsx (SVG polyline, no chart library)
+  - [x] Upgrade Dashboard.tsx — sparklines, clickable stat cards, "Last updated Xs ago", "+N more" link
+  - [x] Upgrade ServiceCard.tsx — response time sparkline history
+  - [x] Create tests/e2e/dashboard.spec.ts (6 tests)
+  - [x] Verify: npm run build clean + npx playwright test passes
+  - [x] Commit
 
 - [ ] **Iteration 5: AgentsPanel — Search, Filter, Pagination**
   - [ ] Create src/hooks/usePagination.ts

@@ -1,5 +1,8 @@
+import { useEffect } from 'react';
 import type { ServiceHealth } from '../types';
 import StatusBadge from './StatusBadge';
+import { useTimeSeries } from '../hooks/useTimeSeries';
+import Sparkline from './Sparkline';
 
 interface ServiceCardProps {
   service: ServiceHealth;
@@ -14,6 +17,14 @@ const SERVICE_ICONS: Record<string, string> = {
 };
 
 export default function ServiceCard({ service }: ServiceCardProps) {
+  const rtSeries = useTimeSeries({ maxPoints: 20 });
+
+  useEffect(() => {
+    if (service.responseTime !== null) {
+      rtSeries.push(service.responseTime);
+    }
+  }, [service.responseTime, service.lastChecked]); // Push when check happens
+
   const icon = SERVICE_ICONS[service.name] ?? '⚙';
   const rtText =
     service.responseTime !== null
@@ -32,6 +43,17 @@ export default function ServiceCard({ service }: ServiceCardProps) {
         </div>
         <StatusBadge status={service.status} />
       </div>
+
+      {rtSeries.values.length > 1 && (
+        <div className="w-full">
+          <Sparkline
+            values={rtSeries.values}
+            width={180}
+            height={28}
+            color={service.status === 'healthy' ? '#34d399' : service.status === 'degraded' ? '#fbbf24' : '#f87171'}
+          />
+        </div>
+      )}
 
       <div className="flex flex-col gap-1 text-xs text-[#64748b]">
         <div className="flex justify-between">
