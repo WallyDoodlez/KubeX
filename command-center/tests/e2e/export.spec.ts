@@ -175,15 +175,16 @@ test.describe('Export — Agents Panel', () => {
   });
 
   test('export menu is enabled when agents are loaded', async ({ page }) => {
-    // Wait for mock data to load
+    // Wait for mock data to load — use .first() to avoid strict-mode violation because
+    // the CapabilityMatrix also renders the agent_id, creating 2 matches.
     await expect(page.getByRole('heading', { name: 'Registered Agents' })).toBeVisible();
-    await expect(page.getByText('agent-export-test-01')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('agent-export-test-01').first()).toBeVisible({ timeout: 10_000 });
 
     await expect(page.getByTestId('agents-export-menu')).not.toBeDisabled();
   });
 
   test('agents export dropdown has JSON option only (no CSV)', async ({ page }) => {
-    await expect(page.getByText('agent-export-test-01')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('agent-export-test-01').first()).toBeVisible({ timeout: 10_000 });
 
     await page.getByTestId('agents-export-menu').click();
     await expect(page.getByTestId('agents-export-menu-json')).toBeVisible();
@@ -192,7 +193,7 @@ test.describe('Export — Agents Panel', () => {
   });
 
   test('agents JSON export triggers a download with .json extension', async ({ page }) => {
-    await expect(page.getByText('agent-export-test-01')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('agent-export-test-01').first()).toBeVisible({ timeout: 10_000 });
 
     const downloadPromise = page.waitForEvent('download');
     await page.getByTestId('agents-export-menu').click();
@@ -203,7 +204,7 @@ test.describe('Export — Agents Panel', () => {
   });
 
   test('agents export dropdown closes on Escape', async ({ page }) => {
-    await expect(page.getByText('agent-export-test-01')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('agent-export-test-01').first()).toBeVisible({ timeout: 10_000 });
 
     await page.getByTestId('agents-export-menu').click();
     await expect(page.getByTestId('agents-export-menu-dropdown')).toBeVisible();

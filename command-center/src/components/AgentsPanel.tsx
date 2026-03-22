@@ -14,6 +14,7 @@ import { SkeletonTable } from './SkeletonLoader';
 import EmptyState from './EmptyState';
 import ExportMenu from './ExportMenu';
 import { exportAsJSON } from '../utils/export';
+import CapabilityMatrix from './CapabilityMatrix';
 
 // Stable comparators defined at module level so their references don't change between renders
 const sortComparators = {
@@ -180,6 +181,13 @@ export default function AgentsPanel() {
             onPageSizeChange={pagination.setPageSize}
           />
         </>
+      )}
+
+      {/* Capability Matrix — shown when agents are available */}
+      {agents.length > 0 && (
+        <div className="mt-6">
+          <CapabilityMatrix agents={agents} />
+        </div>
       )}
 
       <ConfirmDialog

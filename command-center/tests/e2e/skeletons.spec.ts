@@ -66,8 +66,10 @@ test.describe('AgentsPanel — skeleton + empty state', () => {
 
     await page.goto('/agents');
 
-    // Wait for skeleton to go away and real content to appear
-    await expect(page.locator('text=agent-skel-001')).toBeVisible({ timeout: 5000 });
+    // Wait for skeleton to go away and real content to appear.
+    // Use .first() to avoid strict-mode violation: the CapabilityMatrix also
+    // renders the agent_id, so the text appears in 2 elements on this page.
+    await expect(page.locator('text=agent-skel-001').first()).toBeVisible({ timeout: 5000 });
     // The skeleton loading table label should not be visible after data loads
     await expect(page.locator('[aria-label="Loading table…"]')).not.toBeVisible();
   });

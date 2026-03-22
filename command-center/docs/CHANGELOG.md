@@ -4,6 +4,19 @@
 
 ---
 
+## Iteration 29: Agent capability matrix
+**Files created:** `src/components/CapabilityMatrix.tsx`, `tests/e2e/capability-matrix.spec.ts`
+**Files modified:** `src/components/AgentsPanel.tsx`, `tests/e2e/export.spec.ts`, `tests/e2e/skeletons.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `CapabilityMatrix.tsx` — a `role="grid"` table component that displays all registered agents as rows and all unique capabilities across the fleet as columns. Filled cells show a green ✓ badge (bg-emerald-500/15); empty cells show a muted dash. Each cell carries an `aria-label` describing whether the agent has or does not have the capability. The coverage row at the top of each column shows a `N/M` fraction indicating how many of the M agents carry that capability, with an `aria-label` for screen readers. Columns are sorted alphabetically via `useMemo`. Agent rows include a colored status dot (running=emerald, idle=blue, busy=amber, stopped=slate, etc.) and truncate long agent IDs with a tooltip. The table wrapper is horizontally scrollable to handle wide capability sets. The agent ID column is sticky (`sticky left-0`) so it remains visible while scrolling.
+- Updated `AgentsPanel.tsx` — imported and mounted `<CapabilityMatrix agents={agents} />` in a `mt-6` `<div>` below the pagination controls, guarded by `agents.length > 0`. The matrix receives the same `agents` array loaded by the panel's `usePolling` hook, so it automatically updates on every 10 s refresh.
+- Created `tests/e2e/capability-matrix.spec.ts` — 17 tests covering: section presence, heading, subtitle format (agent count + capability count), `role="grid"` + `aria-label`, at least one row rendered, at least one column rendered, coverage count format (`N/M`), coverage count `aria-label`, cell count equals rows × columns, cells contain only ✓ or –, filled cell `aria-label` contains "has", empty cell `aria-label` contains "does not have", alphabetical column sort, navigation persistence, and bounding-box visibility.
+- Fixed `tests/e2e/export.spec.ts` — updated 4 Agents Panel export tests that used `page.getByText('agent-export-test-01')` (strict mode) to use `.first()` since the agent ID now appears in both the agents table and the capability matrix row.
+- Fixed `tests/e2e/skeletons.spec.ts` — updated 1 agents skeleton test with `.first()` for the same reason.
+**Tests:** 397 → 414
+
+---
+
 ## Iteration 28: Unified relative timestamps
 **Files created:** `src/components/RelativeTime.tsx`, `tests/e2e/relative-time.spec.ts`
 **Files modified:** `src/components/TrafficLog.tsx`, `src/components/ActivityFeed.tsx`, `src/components/OrchestratorChat.tsx`, `src/components/ApprovalQueue.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

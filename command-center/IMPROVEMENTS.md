@@ -303,6 +303,16 @@
   - [x] Test: npx playwright test — 397/397 passed
   - [x] Update `docs/CHANGELOG.md`
 
+- [x] **Iteration 29: Agent capability matrix**
+  - [x] Create `src/components/CapabilityMatrix.tsx` — grid/table showing agents as rows and all unique capabilities as columns; filled cells (✓) indicate the agent has that capability; empty cells (–) indicate it does not; coverage count per column shows how many agents share each capability; agent status dot in each row; columns sorted alphabetically; horizontal scroll for wide fleets; full `aria-label` accessibility on every cell; `role="grid"` with `aria-label` on the table
+  - [x] Add `<CapabilityMatrix agents={agents}>` to `AgentsPanel.tsx` — rendered below the table + pagination when `agents.length > 0`; updates whenever the polling refresh returns new agent data
+  - [x] Create `tests/e2e/capability-matrix.spec.ts` (17 tests)
+  - [x] Fix `tests/e2e/export.spec.ts` — update 4 agent export tests to use `.first()` to avoid Playwright strict-mode violation caused by the matrix now rendering agent IDs a second time on the same page
+  - [x] Fix `tests/e2e/skeletons.spec.ts` — update 1 test with `.first()` for same reason
+  - [x] Build: npm run build — clean, 96 modules
+  - [x] Test: npx playwright test — 414/414 passed
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays
