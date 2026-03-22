@@ -7,12 +7,12 @@ agent:
     coordination across multiple agents.
   model: "gpt-5.2"
   boundary: "default"
-  harness_mode: "standalone"
+  harness_mode: "mcp-bridge"
+  runtime: "openai-api"
   gateway_url: "http://gateway:8080"
   broker_url: "http://kubex-broker:8060"
 
-  skills:
-    - "task-management"
+  skills: []
 
   capabilities:
     - "task_orchestration"

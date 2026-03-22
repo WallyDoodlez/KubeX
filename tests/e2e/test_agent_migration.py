@@ -108,7 +108,11 @@ class TestOrchestratorBootsFromBase:
     """
 
     def test_orchestrator_boots_from_base(self, docker_client) -> None:
-        """Container from kubexclaw-base loads production orchestrator config with migrated schema."""
+        """Container from kubexclaw-base loads production orchestrator config with migrated schema.
+
+        Phase 8 update: orchestrator now uses harness_mode=mcp-bridge (not standalone).
+        The task-management skill is no longer injected — the MCP bridge replaces it.
+        """
         config_path = _AGENTS_DIR / "orchestrator" / "config.yaml"
         if not config_path.exists():
             pytest.skip(f"Production config not found: {config_path}")
@@ -116,15 +120,18 @@ class TestOrchestratorBootsFromBase:
         volumes = {
             str(config_path): {"bind": "/app/config.yaml", "mode": "ro"},
         }
-        # After migration: config must have skill dir 'task-management' (not action names)
+        # Phase 8: orchestrator uses mcp-bridge mode with openai-api runtime (D-13)
+        # skills list is empty — MCP bridge replaces skill-based tool dispatch
         cmd = (
             'python -c "'
             "from kubex_harness.config_loader import load_agent_config; "
             "c = load_agent_config(); "
             "assert c.agent_id == 'orchestrator', f'bad agent_id: {c.agent_id}'; "
             "assert c.model == 'gpt-5.2', f'bad model: {c.model}'; "
-            "assert 'task-management' in c.skills, "
-            "  f'expected task-management skill dir in skills, got: {c.skills}'; "
+            "assert c.harness_mode == 'mcp-bridge', "
+            "  f'expected harness_mode=mcp-bridge, got: {c.harness_mode}'; "
+            "assert c.runtime == 'openai-api', "
+            "  f'expected runtime=openai-api, got: {c.runtime}'; "
             'print(c.agent_id)"'
         )
         exit_code, logs = _run_container(docker_client, _BASE_IMAGE_TAG, volumes=volumes, command=cmd)
