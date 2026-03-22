@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 08.1-01-PLAN.md
-last_updated: "2026-03-22T05:21:08.531Z"
+stopped_at: Completed 08.1-02-PLAN.md
+last_updated: "2026-03-22T05:28:39.469Z"
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -47,6 +47,7 @@ Plan: 2 of 2
 | Phase 08-mcp-bridge P03 | 3 | 2 tasks | 3 files |
 | Phase 08-mcp-bridge P04 | 35 | 3 tasks | 7 files |
 | Phase 08.1-agent-system-prompts P01 | 2 | 2 tasks | 3 files |
+| Phase 08.1-agent-system-prompts P02 | 8 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,8 @@ Recent decisions affecting current work:
 - [Phase 08.1-agent-system-prompts]: Double-brace escaping used in PREAMBLE.md JSON examples so str.format_map() does not misinterpret JSON curly braces as template variables
 - [Phase 08.1-agent-system-prompts]: worker_list_section renders as empty string for worker agents; only filled when orchestrator passes worker_descriptions list
 - [Phase 08.1-agent-system-prompts]: Policy and budget parse defensively: configs with no policy/budget stanza produce safe defaults, not an error
+- [Phase 08.1-agent-system-prompts]: Sync httpx.get used in _fetch_worker_descriptions — _load_system_prompt runs at startup before asyncio loop, sync call is safe in this one-time path
+- [Phase 08.1-agent-system-prompts]: Orchestrator filters self from worker list by comparing agent_id — prevents self-delegation via worker list section
 
 ### Pending Todos
 
@@ -91,6 +94,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T05:21:08.528Z
-Stopped at: Completed 08.1-01-PLAN.md
+Last session: 2026-03-22T05:28:39.466Z
+Stopped at: Completed 08.1-02-PLAN.md
 Resume file: None

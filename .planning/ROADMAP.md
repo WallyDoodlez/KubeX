@@ -93,11 +93,11 @@ Plans:
 **Goal:** Structured system prompts for all agents with shared preamble, capability-bounded behavior, security directives, and standard output contract
 **Requirements**: PROMPT-01, PROMPT-02, PROMPT-03, PROMPT-04, PROMPT-05, PROMPT-06, PROMPT-07
 **Depends on:** Phase 8
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 08.1-01-PLAN.md — PREAMBLE.md template, prompt_builder.py module, AgentConfig policy/budget extension
-- [ ] 08.1-02-PLAN.md — Wire into standalone + mcp-bridge harness paths, unit tests, regression verification
+- [x] 08.1-02-PLAN.md — Wire into standalone + mcp-bridge harness paths, unit tests, regression verification
 
 ### Phase 9: CLI Runtime — Claude Code
 **Goal**: Any Kubex container can run Claude Code as its LLM via PTY subprocess, with credential management, graceful shutdown, and skills injected as CLAUDE.md
