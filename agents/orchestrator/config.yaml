@@ -29,6 +29,8 @@ agent:
       - "query_knowledge"
       - "store_knowledge"
       - "search_corpus"
+      - "vault_create"
+      - "vault_update"
     blocked_actions:
       - "http_get"
       - "http_post"

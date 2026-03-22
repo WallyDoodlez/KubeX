@@ -244,6 +244,25 @@ async def handle_action(request: Request, body: ActionRequest) -> JSONResponse:
     if body.action == ActionType.SEARCH_CORPUS:
         return await _handle_search_corpus(request, body, gateway)
 
+    if body.action in (ActionType.VAULT_CREATE, ActionType.VAULT_UPDATE):
+        # Vault writes pass through policy evaluation (already done above).
+        # The actual filesystem write is performed by the caller (MCP bridge
+        # or knowledge agent) after receiving this approval.
+        logger.info(
+            "vault_write_approved",
+            agent_id=body.agent_id,
+            action=body.action.value,
+            parameters=body.parameters,
+        )
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "approved",
+                "action": body.action.value,
+                "agent_id": body.agent_id,
+            },
+        )
+
     # For other action types (report_result, progress_update, etc.) — acknowledge
     return JSONResponse(
         status_code=200,

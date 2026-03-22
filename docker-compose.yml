@@ -187,10 +187,12 @@ services:
       - ./agents/orchestrator/config.yaml:/app/config.yaml:ro
       - ./agents/orchestrator/policies:/app/policies:ro
       - ./skills/orchestration/task-management:/app/skills/task-management:ro
+      - knowledge-vault:/app/vault
     environment:
       - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
       - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
       - REGISTRY_URL=http://kubex-registry:8070
+      - VAULT_PATH=/app/vault
     networks:
       - kubex-internal
     depends_on:

@@ -47,6 +47,10 @@ class ActionType(StrEnum):
     STORE_KNOWLEDGE = "store_knowledge"
     SEARCH_CORPUS = "search_corpus"
 
+    # Vault operations (MCP Bridge Phase 8)
+    VAULT_CREATE = "vault_create"
+    VAULT_UPDATE = "vault_update"
+
     # User interaction
     REQUEST_USER_INPUT = "request_user_input"
     NEEDS_CLARIFICATION = "needs_clarification"

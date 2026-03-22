@@ -27,6 +27,7 @@ import asyncio
 import json
 import logging
 import os
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -231,43 +232,57 @@ class MCPBridgeServer:
 
     # Vault write handlers — route through Gateway POST /actions (D-02)
 
+    def _gen_request_id(self) -> str:
+        """Generate a unique request ID for Gateway actions."""
+        return f"ar-{uuid.uuid4().hex[:12]}"
+
     async def _vault_create_note(self, title: str, content: str, folder: str = "") -> dict:
-        """Create note via Gateway POST /actions with action='vault_create' (D-02)."""
+        """Create note: policy check via Gateway (D-02), then write locally."""
         try:
             assert self._http is not None
             resp = await self._http.post(
                 f"{self.config.gateway_url}/actions",
                 json={
+                    "request_id": self._gen_request_id(),
                     "agent_id": self.config.agent_id,
                     "action": "vault_create",
                     "parameters": {"title": title, "content": content, "folder": folder},
                 },
             )
-            if resp.status_code in (200, 201, 202):
-                return {"status": "created", **resp.json()}
             if resp.status_code == 403:
                 return {"status": "escalated", "message": "Vault write flagged for review", **resp.json()}
-            return {"status": "error", "code": resp.status_code, "message": resp.text[:200]}
+            if resp.status_code not in (200, 201, 202):
+                return {"status": "error", "code": resp.status_code, "message": resp.text[:200]}
+
+            # Policy approved — perform the actual write
+            from kubex_harness.vault_ops import create_note  # noqa: PLC0415
+            result = create_note(title=title, content=content, folder=folder or "facts")
+            return result
         except Exception as exc:
             return {"status": "error", "message": str(exc)}
 
     async def _vault_update_note(self, path: str, content: str) -> dict:
-        """Update note via Gateway POST /actions with action='vault_update' (D-02)."""
+        """Update note: policy check via Gateway (D-02), then write locally."""
         try:
             assert self._http is not None
             resp = await self._http.post(
                 f"{self.config.gateway_url}/actions",
                 json={
+                    "request_id": self._gen_request_id(),
                     "agent_id": self.config.agent_id,
                     "action": "vault_update",
                     "parameters": {"path": path, "content": content},
                 },
             )
-            if resp.status_code in (200, 201, 202):
-                return {"status": "updated", **resp.json()}
             if resp.status_code == 403:
                 return {"status": "escalated", "message": "Vault write flagged for review", **resp.json()}
-            return {"status": "error", "code": resp.status_code, "message": resp.text[:200]}
+            if resp.status_code not in (200, 201, 202):
+                return {"status": "error", "code": resp.status_code, "message": resp.text[:200]}
+
+            # Policy approved — perform the actual write
+            from kubex_harness.vault_ops import update_note  # noqa: PLC0415
+            result = update_note(path=path, content=content)
+            return result
         except Exception as exc:
             return {"status": "error", "message": str(exc)}
 
@@ -689,6 +704,7 @@ class MCPBridgeServer:
                 resp = await self._http.post(
                     f"{self.config.gateway_url}/actions",
                     json={
+                        "request_id": self._gen_request_id(),
                         "agent_id": self.config.agent_id,
                         "action": "dispatch_task",
                         "parameters": {
@@ -805,6 +821,7 @@ class MCPBridgeServer:
             resp = await self._http.post(
                 f"{self.config.gateway_url}/actions",
                 json={
+                    "request_id": self._gen_request_id(),
                     "agent_id": self.config.agent_id,
                     "action": "dispatch_task",
                     "parameters": {
