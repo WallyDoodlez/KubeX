@@ -518,6 +518,9 @@ class TestGatewayTaskResultFlow:
             self.fake_redis = fakeredis.FakeAsyncRedis(
                 server=self.fake_server, decode_responses=True
             )
+            # Gateway reads task results from redis_db0 (DB 0 — broker results).
+            # Inject fake redis into both db0 and db1 so the fallback logic works.
+            gateway_app.state.gateway_service.redis_db0 = self.fake_redis
             gateway_app.state.gateway_service.redis_db1 = self.fake_redis
             self.client = TestClient(gateway_app, raise_server_exceptions=False)
 
@@ -548,10 +551,11 @@ class TestGatewayTaskResultFlow:
             "output_path": "/data/nike.json",
         }
 
-        # Simulate worker storing result directly in Redis
+        # Simulate worker storing result directly in Redis.
+        # Gateway reads key "task:result:{task_id}" (DB 0) — see gateway/main.py:775
         asyncio.get_event_loop().run_until_complete(
             self.fake_redis.set(
-                f"task:{TASK_ID}:result", json.dumps(result_data)
+                f"task:result:{TASK_ID}", json.dumps(result_data)
             )
         )
 
@@ -578,8 +582,9 @@ class TestGatewayTaskResultFlow:
             "posts_data": [{"id": "p1", "likes": 15000}],
         }
 
+        # Gateway reads key "task:result:{task_id}" (DB 0) — see gateway/main.py:775
         asyncio.get_event_loop().run_until_complete(
-            self.fake_redis.set(f"task:{task_id}:result", json.dumps(result_data))
+            self.fake_redis.set(f"task:result:{task_id}", json.dumps(result_data))
         )
 
         resp = self.client.get(f"/tasks/{task_id}/result")

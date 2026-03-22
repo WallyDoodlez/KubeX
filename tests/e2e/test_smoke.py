@@ -89,6 +89,9 @@ def make_gateway_client(
     svc = GatewayService()
 
     if redis is not None:
+        # redis_db0 = broker results (task:result:{task_id} keys)
+        # redis_db1 = rate limits + pub/sub
+        svc.redis_db0 = redis
         svc.redis_db1 = redis
         svc.rate_limiter = RateLimiter(redis)
         svc.budget_tracker = BudgetTracker(redis)
@@ -805,7 +808,8 @@ class TestGatewayTaskResultE2E:
         """Store result in Redis, then read via Gateway endpoint."""
         task_id = "gw-result-task"
         result_data = {"status": "success", "items": 5}
-        await self.redis.set(f"task:{task_id}:result", json.dumps(result_data))
+        # Gateway reads key "task:result:{task_id}" (DB 0) — see gateway/main.py:775
+        await self.redis.set(f"task:result:{task_id}", json.dumps(result_data))
 
         resp = self.client.get(f"/tasks/{task_id}/result")
         assert resp.status_code == 200
