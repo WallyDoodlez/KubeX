@@ -19,9 +19,21 @@ const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
 const DEFAULT_DURATION = 4000;
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+/** Optional side-effect called for every toast added — used to mirror toasts into NotificationCenter. */
+export type ToastSideEffect = (message: string, type: ToastType) => void;
+
+export function ToastProvider({
+  children,
+  onToastAdded,
+}: {
+  children: React.ReactNode;
+  onToastAdded?: ToastSideEffect;
+}) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // Keep a stable ref to the side-effect so addToast doesn't need it in its dep array
+  const onToastAddedRef = useRef<ToastSideEffect | undefined>(onToastAdded);
+  onToastAddedRef.current = onToastAdded;
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -39,6 +51,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       setToasts((prev) => [...prev, toast]);
       const timer = setTimeout(() => removeToast(id), duration);
       timersRef.current.set(id, timer);
+      // Mirror into notification history (if provider is wired up)
+      onToastAddedRef.current?.(message, type);
     },
     [removeToast],
   );

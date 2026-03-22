@@ -243,6 +243,16 @@
   - [x] Test: npx playwright test — 248/248 passed
   - [x] Commit
 
+- [x] **Iteration 23: Notification Center with history**
+  - [x] Create `src/context/NotificationContext.tsx` — notification history state, unread count, `addNotification`, `markAllRead`, `clearAll`; capped at 100 entries
+  - [x] Create `src/components/NotificationCenter.tsx` — bell icon button with unread count badge, click opens dropdown with scrollable notification list, each item has type accent bar + timestamp + unread dot, "Mark all read" and "Clear all" actions, empty state, accessible ARIA
+  - [x] Update `src/context/ToastContext.tsx` — add optional `onToastAdded` side-effect prop so every toast is mirrored into notification history
+  - [x] Update `src/App.tsx` — add `NotificationProvider` to provider tree; add `ToastBridge` component that wires `addNotification` into `ToastProvider.onToastAdded`
+  - [x] Update `src/components/Layout.tsx` — import and mount `<NotificationCenter>` in top bar between ThemeToggle and separator
+  - [x] Create `tests/e2e/notification-center.spec.ts` (24 tests: bell presence, aria-label, aria-expanded, badge count, open/close, Escape/outside-click dismiss, empty state, toast mirroring, unread badge, mark-all-read, item read state, clear-all, all-pages presence, keyboard focus, Enter activation, aria-live log region)
+  - [x] Build: npm run build — clean (88 modules, no errors)
+  - [x] Test: npx playwright test — 289/289 passed
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays

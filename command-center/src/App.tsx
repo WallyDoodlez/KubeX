@@ -13,13 +13,14 @@
  *
  * All heavy pages are code-split. The initial bundle loads only Layout + routing shell.
  */
-import { lazy, Suspense } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import type { NavPage } from './types';
 
 const LazyDashboard = lazy(() => import('./components/Dashboard'));
@@ -67,12 +68,26 @@ const LoadingFallback = (
   </div>
 );
 
+/**
+ * ToastBridge — sits inside NotificationProvider so it can access
+ * useNotifications() and pass addNotification to ToastProvider.
+ */
+function ToastBridge({ children }: { children: React.ReactNode }) {
+  const { addNotification } = useNotifications();
+  return (
+    <ToastProvider onToastAdded={addNotification}>
+      {children}
+    </ToastProvider>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
       <AppProvider>
-      <ToastProvider>
+      <NotificationProvider>
+      <ToastBridge>
         <Layout>
           <ErrorBoundary>
             <Suspense fallback={LoadingFallback}>
@@ -88,7 +103,8 @@ export default function App() {
             </Suspense>
           </ErrorBoundary>
         </Layout>
-      </ToastProvider>
+      </ToastBridge>
+      </NotificationProvider>
       </AppProvider>
       </AuthProvider>
     </BrowserRouter>

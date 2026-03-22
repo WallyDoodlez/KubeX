@@ -17,6 +17,7 @@ import ConnectionIndicator from './ConnectionIndicator';
 import { useHealthCheck } from '../hooks/useHealthCheck';
 import ThemeToggle from './ThemeToggle';
 import { useTheme } from '../hooks/useTheme';
+import NotificationCenter from './NotificationCenter';
 
 interface NavItem {
   label: string;
@@ -461,6 +462,9 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* Theme toggle */}
             <ThemeToggle className="hidden sm:flex" />
+
+            {/* Notification center */}
+            <NotificationCenter />
 
             <div aria-hidden="true" className="hidden sm:block w-px h-4 bg-[var(--color-border)]" />
 
