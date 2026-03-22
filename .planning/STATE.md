@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Phase 8.1 context gathered
-last_updated: "2026-03-22T05:00:33.681Z"
+stopped_at: Completed 08.1-01-PLAN.md
+last_updated: "2026-03-22T05:21:08.531Z"
 progress:
   total_phases: 9
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Any Kubex can become any agent — new capabilities are skill files, not Docker builds.
-**Current focus:** Phase 08 — mcp-bridge
+**Current focus:** Phase 08.1 — agent-system-prompts
 
 ## Current Position
 
-Phase: 9
-Plan: Not started
+Phase: 08.1 (agent-system-prompts) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Plan: Not started
 | Phase 08-mcp-bridge P02 | 260 | 3 tasks | 3 files |
 | Phase 08-mcp-bridge P03 | 3 | 2 tasks | 3 files |
 | Phase 08-mcp-bridge P04 | 35 | 3 tasks | 7 files |
+| Phase 08.1-agent-system-prompts P01 | 2 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Recent decisions affecting current work:
 - [Phase 08-mcp-bridge]: D-13 transport selection: openai-api runtime uses inmemory transport (bridge and LLM share same asyncio loop); any CLI runtime uses stdio for CLI MCP client connections
 - [Phase 08-mcp-bridge]: D-12 preserved: standalone.py tool loop methods retained — workers stay on standalone mode; orchestrator config-switched to mcp-bridge without code deletion
 - [Phase 08-mcp-bridge]: kubexclaw-base image rebuild required after any kubex_harness code change — E2E tests run against Docker image, not source tree
+- [Phase 08.1-agent-system-prompts]: Double-brace escaping used in PREAMBLE.md JSON examples so str.format_map() does not misinterpret JSON curly braces as template variables
+- [Phase 08.1-agent-system-prompts]: worker_list_section renders as empty string for worker agents; only filled when orchestrator passes worker_descriptions list
+- [Phase 08.1-agent-system-prompts]: Policy and budget parse defensively: configs with no policy/budget stanza produce safe defaults, not an error
 
 ### Pending Todos
 
@@ -87,6 +91,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T05:00:33.678Z
-Stopped at: Phase 8.1 context gathered
-Resume file: .planning/phases/08.1-agent-system-prompts/08.1-CONTEXT.md
+Last session: 2026-03-22T05:21:08.528Z
+Stopped at: Completed 08.1-01-PLAN.md
+Resume file: None
