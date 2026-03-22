@@ -292,6 +292,17 @@
   - [x] Test: npx playwright test — 382/382 passed
   - [x] Update `docs/CHANGELOG.md`
 
+- [x] **Iteration 28: Unified relative timestamps**
+  - [x] Create `src/components/RelativeTime.tsx` — shows "just now", "30s ago", "5m ago", "2h ago", "1d ago" with a `title` tooltip showing the full ISO date; auto-updates every 30s via a shared interval
+  - [x] Replace timestamp rendering in `TrafficLog.tsx` rows — use `<RelativeTime>` instead of `toLocaleTimeString`
+  - [x] Replace timestamp rendering in `ActivityFeed.tsx` rows — use `<RelativeTime>` instead of local `formatTime` function
+  - [x] Replace timestamp rendering in `OrchestratorChat.tsx` chat bubbles — use `<RelativeTime>` instead of `toLocaleTimeString`
+  - [x] Replace timestamp rendering in `ApprovalQueue.tsx` cards — use `<RelativeTime>` for pending-for timers; remove unused 10 s tick interval
+  - [x] Create `tests/e2e/relative-time.spec.ts` (15 tests)
+  - [x] Build: npm run build — clean, 95 modules
+  - [x] Test: npx playwright test — 397/397 passed
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays

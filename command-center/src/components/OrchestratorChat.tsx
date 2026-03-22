@@ -9,6 +9,7 @@ import type { OutputLine } from './TerminalOutput';
 import HITLPrompt from './HITLPrompt';
 import ExportMenu from './ExportMenu';
 import { exportAsJSON } from '../utils/export';
+import RelativeTime from './RelativeTime';
 
 interface OrchestratorChatProps {
   onTrafficEntry: (entry: TrafficEntry) => void;
@@ -515,9 +516,11 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
           <div className="rounded-2xl rounded-tr-sm bg-emerald-500/15 border border-emerald-500/25 px-4 py-2.5">
             <p className="text-sm text-[var(--color-text)]">{message.content}</p>
           </div>
-          <p className="text-[10px] text-[var(--color-text-muted)] mt-1 text-right font-mono-data">
-            {message.timestamp.toLocaleTimeString()}
-          </p>
+          <RelativeTime
+            date={message.timestamp}
+            className="text-[10px] text-[var(--color-text-muted)] mt-1 text-right font-mono-data block"
+            data-testid="chat-bubble-timestamp"
+          />
         </div>
       </div>
     );
@@ -531,9 +534,11 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
             <p className="text-xs text-red-400 font-medium mb-1">Error</p>
             <p className="text-sm text-[var(--color-text)]">{message.content}</p>
           </div>
-          <p className="text-[10px] text-[var(--color-text-muted)] mt-1 font-mono-data">
-            {message.timestamp.toLocaleTimeString()}
-          </p>
+          <RelativeTime
+            date={message.timestamp}
+            className="text-[10px] text-[var(--color-text-muted)] mt-1 font-mono-data block"
+            data-testid="chat-bubble-timestamp"
+          />
         </div>
       </div>
     );
@@ -556,9 +561,11 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
               {message.content}
             </pre>
           </div>
-          <p className="text-[10px] text-[var(--color-text-muted)] mt-1 font-mono-data">
-            {message.timestamp.toLocaleTimeString()}
-          </p>
+          <RelativeTime
+            date={message.timestamp}
+            className="text-[10px] text-[var(--color-text-muted)] mt-1 font-mono-data block"
+            data-testid="chat-bubble-timestamp"
+          />
         </div>
       </div>
     );

@@ -4,6 +4,20 @@
 
 ---
 
+## Iteration 28: Unified relative timestamps
+**Files created:** `src/components/RelativeTime.tsx`, `tests/e2e/relative-time.spec.ts`
+**Files modified:** `src/components/TrafficLog.tsx`, `src/components/ActivityFeed.tsx`, `src/components/OrchestratorChat.tsx`, `src/components/ApprovalQueue.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `RelativeTime.tsx` — a `<time>` element that renders a human-friendly relative label ("just now", "30s ago", "5m ago", "2h ago", "1d ago") with the full ISO-8601 date as a `title` tooltip and in the `dateTime` attribute for semantic HTML. Uses a shared singleton `setInterval(30 000 ms)` so all mounted instances tick together without each spawning their own timer.
+- Replaced `toLocaleTimeString()` in `TrafficLog.tsx` row timestamps with `<RelativeTime>`, adding `data-testid="traffic-row-timestamp"` for test targeting.
+- Removed the ad-hoc `formatTime()` function from `ActivityFeed.tsx`; replaced the timestamp `<span>` with `<RelativeTime data-testid="activity-row-timestamp">`.
+- Replaced the three `toLocaleTimeString()` calls inside `ChatBubble` variants in `OrchestratorChat.tsx` (user, error, result bubbles) with `<RelativeTime data-testid="chat-bubble-timestamp">`.
+- Replaced the inline `pendingFor` calculation and `setTick` re-render interval (10 s) in `ApprovalQueue.tsx` with `<RelativeTime data-testid="approval-card-timestamp">`, removing the now-unnecessary `useEffect` timer.
+- Created `tests/e2e/relative-time.spec.ts` — 15 tests covering: TrafficLog `<time>` element presence, `dateTime` attribute format, "just now" for recent entries, "Xm ago" for older entries, tooltip content; ActivityFeed `<time>` element, relative label regex, tooltip; OrchestratorChat bubble `<time>` element, label, tooltip; ApprovalQueue page loads cleanly and shows empty state; semantic HTML cross-surface validation including "Xh ago" and "1d ago" ranges.
+**Tests:** 382 → 397
+
+---
+
 ## Iteration 27: 404 catch-all route + favicon + PWA manifest
 **Files created:** `src/components/NotFoundPage.tsx`, `public/favicon.svg`, `public/manifest.json`, `tests/e2e/not-found.spec.ts`
 **Files modified:** `src/App.tsx`, `index.html`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

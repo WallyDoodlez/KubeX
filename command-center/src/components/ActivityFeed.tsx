@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import type { TrafficEntry, ActionStatus } from '../types';
 import StatusBadge from './StatusBadge';
+import RelativeTime from './RelativeTime';
 
 const ACTIVITY_LIMIT = 10;
 
@@ -16,18 +17,6 @@ interface ActivityFeedProps {
   onViewAll: () => void;
 }
 
-function formatTime(date: Date): string {
-  const now = Date.now();
-  const diffMs = now - date.getTime();
-  const diffSec = Math.round(diffMs / 1000);
-  if (diffSec < 5) return 'just now';
-  if (diffSec < 60) return `${diffSec}s ago`;
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffH = Math.floor(diffMin / 60);
-  return `${diffH}h ago`;
-}
-
 const ActivityRow = memo(function ActivityRow({ entry }: { entry: TrafficEntry }) {
   const accent = STATUS_ROW_ACCENT[entry.status] ?? 'border-l-slate-500/30';
   return (
@@ -36,12 +25,11 @@ const ActivityRow = memo(function ActivityRow({ entry }: { entry: TrafficEntry }
       data-testid="activity-feed-row"
     >
       {/* Timestamp */}
-      <span
+      <RelativeTime
+        date={entry.timestamp}
         className="text-[10px] font-mono-data text-[var(--color-text-muted)] shrink-0 w-14 text-right"
-        title={entry.timestamp.toISOString()}
-      >
-        {formatTime(entry.timestamp)}
-      </span>
+        data-testid="activity-row-timestamp"
+      />
 
       {/* Agent */}
       <span className="text-xs font-mono-data text-[var(--color-text-secondary)] truncate max-w-[120px] shrink-0">

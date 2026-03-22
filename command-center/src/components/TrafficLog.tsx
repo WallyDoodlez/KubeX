@@ -5,6 +5,7 @@ import TrafficFilterBar from './TrafficFilterBar';
 import Pagination from './Pagination';
 import ExportMenu from './ExportMenu';
 import { exportAsJSON, exportAsCSV } from '../utils/export';
+import RelativeTime from './RelativeTime';
 
 interface TrafficLogProps {
   entries: TrafficEntry[];
@@ -167,14 +168,11 @@ const TrafficRow = memo(function TrafficRow({ entry }: { entry: TrafficEntry }) 
       `}
     >
       {/* Timestamp */}
-      <span className="font-mono-data text-[var(--color-text-dim)]">
-        {entry.timestamp.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false,
-        })}
-      </span>
+      <RelativeTime
+        date={entry.timestamp}
+        className="font-mono-data text-[var(--color-text-dim)]"
+        data-testid="traffic-row-timestamp"
+      />
 
       {/* Agent ID */}
       <span className="font-mono-data text-[var(--color-text-secondary)] truncate" title={entry.agent_id}>

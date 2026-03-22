@@ -3,6 +3,7 @@ import type { ApprovalRequest, ApprovalDecision } from '../types';
 import ConfirmDialog from './ConfirmDialog';
 import { SkeletonCard } from './SkeletonLoader';
 import EmptyState from './EmptyState';
+import RelativeTime from './RelativeTime';
 
 // Mock data since the Gateway doesn't have a dedicated escalations endpoint yet.
 // In production, this would be fetched via getEscalations().
@@ -11,19 +12,12 @@ const MOCK_ESCALATIONS: ApprovalRequest[] = [];
 export default function ApprovalQueue() {
   const [requests, setRequests] = useState<ApprovalRequest[]>(MOCK_ESCALATIONS);
   const [loading, setLoading] = useState(true);
-  const [, setTick] = useState(0); // force re-render for time ticker
   const [confirmAction, setConfirmAction] = useState<{ id: string; decision: ApprovalDecision } | null>(null);
 
   // Simulate initial load — in production this would call getEscalations()
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 0);
     return () => clearTimeout(t);
-  }, []);
-
-  // Tick every 10s to update "pending for Xs" timers
-  useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
-    return () => clearInterval(timer);
   }, []);
 
   function handleResolve() {
@@ -103,9 +97,8 @@ export default function ApprovalQueue() {
   );
 }
 
-// Wrapped in React.memo — ApprovalQueue ticks every 10s to update pending timers,
-// causing a parent re-render. Resolved cards don't need to re-render on tick.
-// Pending cards still re-render (their pendingFor text changes), which is correct.
+// Wrapped in React.memo — resolved cards don't need to re-render on data changes.
+// Pending timers are handled by the shared RelativeTime interval (no parent tick needed).
 const ApprovalCard = memo(function ApprovalCard({
   request,
   onApprove,
@@ -117,9 +110,6 @@ const ApprovalCard = memo(function ApprovalCard({
   onReject?: () => void;
   resolved?: boolean;
 }) {
-  const pendingFor = Math.round((Date.now() - new Date(request.timestamp).getTime()) / 1000);
-  const pendingText = pendingFor < 60 ? `${pendingFor}s` : `${Math.floor(pendingFor / 60)}m`;
-
   const statusColors = {
     pending: 'border-l-amber-500/60',
     approved: 'border-l-emerald-500/60',
@@ -152,7 +142,11 @@ const ApprovalCard = memo(function ApprovalCard({
         <div className="flex items-center gap-2 flex-shrink-0">
           {!resolved && (
             <>
-              <span className="text-[10px] font-mono-data text-amber-400">{pendingText}</span>
+              <RelativeTime
+                date={new Date(request.timestamp)}
+                className="text-[10px] font-mono-data text-amber-400"
+                data-testid="approval-card-timestamp"
+              />
               <button
                 onClick={onApprove}
                 className="px-2.5 py-1 text-[10px] rounded border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
