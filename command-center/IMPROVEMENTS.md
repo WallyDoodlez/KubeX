@@ -50,16 +50,16 @@
   - [x] Verify: npm run build clean + npx playwright test passes
   - [x] Commit
 
-- [ ] **Iteration 5: AgentsPanel — Search, Filter, Pagination**
-  - [ ] Create src/hooks/usePagination.ts
-  - [ ] Create src/hooks/useSearch.ts
-  - [ ] Create src/hooks/useSort.ts
-  - [ ] Create src/components/SearchInput.tsx (debounced, clear button)
-  - [ ] Create src/components/Pagination.tsx (prev/next, page indicator, page size)
-  - [ ] Upgrade AgentsPanel.tsx — integrate search, sort, pagination, ARIA table roles
-  - [ ] Create tests/e2e/agents.spec.ts (8 tests)
-  - [ ] Verify: npm run build clean + npx playwright test passes
-  - [ ] Commit
+- [x] **Iteration 5: AgentsPanel — Search, Filter, Pagination**
+  - [x] Create src/hooks/usePagination.ts
+  - [x] Create src/hooks/useSearch.ts
+  - [x] Create src/hooks/useSort.ts
+  - [x] Create src/components/SearchInput.tsx (debounced, clear button)
+  - [x] Create src/components/Pagination.tsx (prev/next, page indicator, page size)
+  - [x] Upgrade AgentsPanel.tsx — integrate search, sort, pagination, ARIA table roles
+  - [x] Create tests/e2e/agents.spec.ts (8 tests)
+  - [x] Verify: npm run build clean + npx playwright test passes
+  - [x] Commit
 
 - [ ] **Iteration 6: Traffic Log Upgrade + Persistence**
   - [ ] Create src/hooks/useLocalStorage.ts

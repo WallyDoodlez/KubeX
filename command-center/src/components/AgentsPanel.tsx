@@ -1,9 +1,21 @@
 import { useState, useCallback } from 'react';
 import { usePolling } from '../hooks/usePolling';
+import { useSearch } from '../hooks/useSearch';
+import { useSort } from '../hooks/useSort';
+import { usePagination } from '../hooks/usePagination';
 import type { Agent } from '../types';
 import { getAgents, deregisterAgent } from '../api';
 import StatusBadge from './StatusBadge';
 import ConfirmDialog from './ConfirmDialog';
+import SearchInput from './SearchInput';
+import Pagination from './Pagination';
+
+// Stable comparators defined at module level so their references don't change between renders
+const sortComparators = {
+  agent_id: (a: Agent, b: Agent) => a.agent_id.localeCompare(b.agent_id),
+  status: (a: Agent, b: Agent) => a.status.localeCompare(b.status),
+  boundary: (a: Agent, b: Agent) => a.boundary.localeCompare(b.boundary),
+};
 
 export default function AgentsPanel() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -27,6 +39,22 @@ export default function AgentsPanel() {
 
   const { refresh } = usePolling(load, { interval: 10_000, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
 
+  // Search
+  const { query, setQuery, filteredItems: searchedAgents } = useSearch(agents, {
+    fields: [
+      (a) => a.agent_id,
+      (a) => a.capabilities.join(' '),
+      (a) => a.status,
+      (a) => a.boundary,
+    ],
+  });
+
+  // Sort
+  const { sortedItems, requestSort, getSortIndicator } = useSort(searchedAgents, sortComparators);
+
+  // Paginate
+  const pagination = usePagination(sortedItems, { initialPageSize: 10 });
+
   function requestDeregister(agentId: string) {
     setConfirmTarget(agentId);
   }
@@ -47,7 +75,7 @@ export default function AgentsPanel() {
         <div>
           <h2 className="text-sm font-semibold text-[#e2e8f0]">Registered Agents</h2>
           <p className="text-xs text-[#64748b]">
-            {loading ? 'Loading…' : `${agents.length} agents in registry`}
+            {loading ? 'Loading…' : query ? `${searchedAgents.length} of ${agents.length} agents` : `${agents.length} agents in registry`}
           </p>
         </div>
         <button
@@ -56,6 +84,15 @@ export default function AgentsPanel() {
         >
           ↻ Refresh
         </button>
+      </div>
+
+      {/* Search bar */}
+      <div className="mb-4">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search agents by ID, capability, status…"
+        />
       </div>
 
       {error && (
@@ -73,32 +110,60 @@ export default function AgentsPanel() {
       ) : agents.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="rounded-xl border border-[#2a2f45] overflow-hidden">
-          {/* Table header */}
-          <div className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-[#2a2f45] bg-[#12151f]">
-            {['Agent ID', 'Capabilities', 'Status', 'Boundary', ''].map((h) => (
-              <span key={h} className="text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a]">
-                {h}
-              </span>
+        <>
+          <div className="rounded-xl border border-[#2a2f45] overflow-hidden" role="table">
+            {/* Table header */}
+            <div className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-[#2a2f45] bg-[#12151f]" role="row">
+              {[
+                { label: 'Agent ID', sortKey: 'agent_id' as const },
+                { label: 'Capabilities', sortKey: null },
+                { label: 'Status', sortKey: 'status' as const },
+                { label: 'Boundary', sortKey: 'boundary' as const },
+                { label: '', sortKey: null },
+              ].map(({ label, sortKey }) => (
+                <span
+                  key={label || 'actions'}
+                  className={`text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a] ${sortKey ? 'cursor-pointer hover:text-[#64748b] select-none' : ''}`}
+                  onClick={sortKey ? () => requestSort(sortKey) : undefined}
+                  role="columnheader"
+                >
+                  {label}{sortKey ? getSortIndicator(sortKey) : ''}
+                </span>
+              ))}
+            </div>
+
+            {/* Rows */}
+            {pagination.paginatedItems.map((agent, idx) => (
+              <AgentRow
+                key={agent.agent_id}
+                agent={agent}
+                isLast={idx === pagination.paginatedItems.length - 1}
+                expanded={expandedId === agent.agent_id}
+                onToggle={() =>
+                  setExpandedId((prev) => (prev === agent.agent_id ? null : agent.agent_id))
+                }
+                onDeregister={() => requestDeregister(agent.agent_id)}
+                deregistering={deregistering === agent.agent_id}
+              />
             ))}
           </div>
 
-          {/* Rows */}
-          {agents.map((agent, idx) => (
-            <AgentRow
-              key={agent.agent_id}
-              agent={agent}
-              isLast={idx === agents.length - 1}
-              expanded={expandedId === agent.agent_id}
-              onToggle={() =>
-                setExpandedId((prev) => (prev === agent.agent_id ? null : agent.agent_id))
-              }
-              onDeregister={() => requestDeregister(agent.agent_id)}
-              deregistering={deregistering === agent.agent_id}
-            />
-          ))}
-        </div>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            pageSize={pagination.pageSize}
+            totalItems={sortedItems.length}
+            startIndex={pagination.startIndex}
+            endIndex={pagination.endIndex}
+            hasNext={pagination.hasNext}
+            hasPrev={pagination.hasPrev}
+            onNextPage={pagination.nextPage}
+            onPrevPage={pagination.prevPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </>
       )}
+
       <ConfirmDialog
         open={confirmTarget !== null}
         title="Deregister Agent"
@@ -130,6 +195,7 @@ function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, deregisteri
       <div
         className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center bg-[#1a1d27] hover:bg-[#20243a] cursor-pointer transition-colors"
         onClick={onToggle}
+        role="row"
       >
         {/* Agent ID */}
         <div className="flex items-center gap-2 min-w-0">
