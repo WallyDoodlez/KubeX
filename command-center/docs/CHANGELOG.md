@@ -4,6 +4,20 @@
 
 ---
 
+## Iteration 27: 404 catch-all route + favicon + PWA manifest
+**Files created:** `src/components/NotFoundPage.tsx`, `public/favicon.svg`, `public/manifest.json`, `tests/e2e/not-found.spec.ts`
+**Files modified:** `src/App.tsx`, `index.html`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `NotFoundPage.tsx` — fully themed 404 page with decorative glyph, "Page not found" heading, description, and "← Back to Dashboard" CTA button; uses CSS custom property tokens so it respects dark/light theme
+- Added `<Route path="*" element={<LazyNotFoundPage />} />` as the last route in the catch-all position in `App.tsx` (lazy-loaded, ~0.58 KB gzip)
+- Created `public/favicon.svg` — KubexClaw "K" letterform in emerald-to-cyan gradient on a dark rounded-square background; replaces the placeholder gear emoji inline SVG
+- Created `public/manifest.json` — PWA web app manifest: name, short_name, standalone display, `#10b981` theme, `#0f1117` background, SVG icon
+- Updated `index.html` — proper `/favicon.svg` `<link>`, `apple-touch-icon`, manifest link, `theme-color` meta, `description` meta, `color-scheme` meta, Open Graph title/description/type tags
+- Created `tests/e2e/not-found.spec.ts` — 19 tests covering: 404 page renders for unknown routes, heading text, description, CTA button, navigation back to Dashboard, 404 glyph in DOM, layout sidebar presence, known routes not showing 404, deeply nested unknown route, manifest served with correct JSON, manifest fields (name, colors, display, icons), favicon SVG served, HTML references manifest, theme-color meta tag, description meta tag
+**Tests:** 363 → 382
+
+---
+
 ## Iteration 1: Test Infrastructure + React Router
 **Commit:** `992d503`
 **Files created:** `playwright.config.ts`, `src/context/AppContext.tsx`, `tests/e2e/mocks/handlers.ts`, `tests/e2e/smoke.spec.ts`

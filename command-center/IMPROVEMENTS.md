@@ -281,6 +281,17 @@
   - [x] Build: npm run build — clean, 93 modules
   - [x] Test: npx playwright test — 363/363 passed
 
+- [x] **Iteration 27: 404 catch-all route + favicon + PWA manifest**
+  - [x] Create `src/components/NotFoundPage.tsx` — "Page not found" with 404 glyph, description, "← Back to Dashboard" button; matches dark theme via CSS custom properties
+  - [x] Add catch-all `<Route path="*" element={<LazyNotFoundPage />} />` in `App.tsx`
+  - [x] Create `public/favicon.svg` — KubexClaw "K" logo in emerald/cyan gradient on dark rounded-square background
+  - [x] Update `index.html` — `/favicon.svg` link, `apple-touch-icon`, `/manifest.json` link, `theme-color` meta, `description` meta, `color-scheme` meta, Open Graph tags
+  - [x] Create `public/manifest.json` — PWA manifest with name, short_name, description, start_url, display=standalone, background_color, theme_color, icons
+  - [x] Create `tests/e2e/not-found.spec.ts` (19 tests)
+  - [x] Build: npm run build — clean, 94 modules
+  - [x] Test: npx playwright test — 382/382 passed
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays

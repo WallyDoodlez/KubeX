@@ -32,6 +32,7 @@ const LazyContainersPanel = lazy(() => import('./components/ContainersPanel'));
 const LazyAgentDetailPage = lazy(() => import('./components/AgentDetailPage'));
 const LazyApprovalQueue = lazy(() => import('./components/ApprovalQueue'));
 const LazySettingsPage = lazy(() => import('./components/SettingsPage'));
+const LazyNotFoundPage = lazy(() => import('./components/NotFoundPage'));
 
 const PAGE_TO_PATH: Record<NavPage, string> = {
   dashboard: '/',
@@ -103,6 +104,7 @@ export default function App() {
                 <Route path="/containers" element={<LazyContainersPanel />} />
                 <Route path="/approvals" element={<LazyApprovalQueue />} />
                 <Route path="/settings" element={<LazySettingsPage />} />
+                <Route path="*" element={<LazyNotFoundPage />} />
               </Routes>
             </Suspense>
           </ErrorBoundary>
