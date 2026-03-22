@@ -35,6 +35,7 @@ const LazySettingsPage = lazy(() => import('./components/SettingsPage'));
 const LazyNotFoundPage = lazy(() => import('./components/NotFoundPage'));
 const LazyAuthCallbackPage = lazy(() => import('./components/AuthCallbackPage'));
 const LazyLoginPage = lazy(() => import('./components/LoginPage'));
+const LazyTaskHistoryPage = lazy(() => import('./components/TaskHistoryPage'));
 
 const PAGE_TO_PATH: Record<NavPage, string> = {
   dashboard: '/',
@@ -65,6 +66,11 @@ function ChatPage() {
       setMessages={setChatMessages}
     />
   );
+}
+
+function TasksPage() {
+  const { trafficLog } = useAppContext();
+  return <LazyTaskHistoryPage entries={trafficLog} />;
 }
 
 const LoadingFallback = (
@@ -136,6 +142,7 @@ export default function App() {
                   <Route path="/chat" element={<ChatPage />} />
                   <Route path="/containers" element={<LazyContainersPanel />} />
                   <Route path="/approvals" element={<LazyApprovalQueue />} />
+                  <Route path="/tasks" element={<TasksPage />} />
                   <Route path="/settings" element={<LazySettingsPage />} />
                   <Route path="/auth/callback" element={<LazyAuthCallbackPage />} />
                   <Route path="*" element={<LazyNotFoundPage />} />

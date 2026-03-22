@@ -4,6 +4,19 @@
 
 ---
 
+## Iteration 34: Task History Page
+**Files created:** `src/components/TaskHistoryPage.tsx`, `tests/e2e/task-history.spec.ts`
+**Files modified:** `src/App.tsx`, `src/components/Layout.tsx`, `src/components/CommandPalette.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `src/components/TaskHistoryPage.tsx` — dedicated full-page table view of all dispatched tasks, extracted from the traffic log by filtering `TrafficEntry` records where `action === 'dispatch_task'`. Columns: expand toggle, Task ID, Agent, Capability, Status, Dispatched. Features: status filter bar (All/Allowed/Denied/Escalated/Pending) via pill buttons with `aria-pressed`; debounced search across task_id, agent_id, capability via `useSearch`; sortable columns (task_id, agent_id, capability, status, dispatched_at) via `useSort` with stable module-level comparators; pagination at 20 rows/page via `usePagination`; URL-persisted state (status, search, sort, dir, page) via `useQueryParams`; expandable detail rows showing task metadata (task_id, agent_id, capability, policy_rule, dispatched ISO timestamp) and JSON pretty-print of `entry.details`; `CopyButton` on task_id and agent_id in expanded rows; `RelativeTime` for dispatched timestamps; export to JSON and CSV via `ExportMenu`; `EmptyState` for both "no tasks ever dispatched" and "no tasks match filters" cases. `TaskRow` and `DetailRow` are `React.memo`'d to avoid re-renders.
+- Updated `src/App.tsx` — added `LazyTaskHistoryPage` (lazy-loaded chunk); added `TasksPage` function component that reads `trafficLog` from `AppContext` and renders `LazyTaskHistoryPage`; added `/tasks` route inside the `Routes` block.
+- Updated `src/components/Layout.tsx` — added `{ label: 'Tasks', icon: '✦', description: 'Dispatched tasks', path: '/tasks' }` to `NAV_ITEMS` between Orchestrator and Containers; added `G+h` two-key keyboard shortcut handler (`navigate('/tasks')`) in the `useKeyboardShortcuts` call.
+- Updated `src/components/CommandPalette.tsx` — added built-in "Go to Task History" nav command (id: `nav-tasks`, icon: `✦`, keywords: tasks/history/dispatched/results/status).
+- Created `tests/e2e/task-history.spec.ts` — 14 tests covering: header shows "Tasks", nav item visible in sidebar, sidebar aria-current on active page, Task History heading, empty state when no dispatch_task entries, empty state description text, navigation from sidebar, app shell intact, direct URL navigation, all five status filter buttons present with `exact: true`, search input present, export menu present, All filter button has `aria-pressed=true` by default, command palette search finds the Tasks entry.
+**Tests:** 493 → 507
+
+---
+
 ## Iteration 33: Batch Operations for Agents and Kubexes
 **Files created:** `src/hooks/useSelection.ts`, `src/components/SelectionBar.tsx`, `tests/e2e/batch-operations.spec.ts`
 **Files modified:** `src/components/AgentsPanel.tsx`, `src/components/ContainersPanel.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

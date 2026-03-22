@@ -116,6 +116,15 @@ function CommandPalette({ isOpen, onClose, extraCommands = [] }: CommandPaletteP
       keywords: ['approvals', 'escalated', 'review', 'hitl'],
       action: () => navigate('/approvals'),
     },
+    {
+      id: 'nav-tasks',
+      label: 'Go to Task History',
+      description: 'Dispatched tasks table with status and results',
+      icon: '✦',
+      category: 'Navigation',
+      keywords: ['tasks', 'history', 'dispatched', 'results', 'status'],
+      action: () => navigate('/tasks'),
+    },
   ];
 
   const allCommands = [...builtinCommands, ...extraCommands];

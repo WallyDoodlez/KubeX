@@ -4,6 +4,18 @@
 
 ---
 
+- [x] **Iteration 34: Task History Page**
+  - [x] Create `src/components/TaskHistoryPage.tsx` — dedicated table view of dispatched tasks extracted from traffic log entries where `action === 'dispatch_task'`; columns: task_id, agent_id, capability, status, dispatched_at; expandable rows show full result/error details; uses `useSearch`, `useSort`, `usePagination`, `useQueryParams`; status filter (all/pending/allowed/denied/escalated); search across task_id, agent_id, capability; sort by dispatched_at, agent_id, status; expandable detail row with JSON pretty-print of entry details
+  - [x] Add `Tasks` nav item with `✦` icon to `NAV_ITEMS` in `Layout.tsx`; add `G+h` keyboard shortcut for go-to-tasks
+  - [x] Add `/tasks` route to `App.tsx` (lazy-loaded); add `TasksPage` wrapper that pulls `trafficLog` from `AppContext`
+  - [x] Add "Go to Task History" entry to `CommandPalette.tsx` built-in nav commands
+  - [x] Create `tests/e2e/task-history.spec.ts` (14 tests) — page loads, nav item visible, sidebar highlights active, Task History heading, empty state when no dispatch_task entries, empty state description, navigation from sidebar, app shell intact, direct URL, status filter buttons, search input, export menu, All filter active by default, command palette entry
+  - [x] Build: npm run build — clean (105 modules)
+  - [x] Test: npx playwright test — 507/507 passed
+  - [x] Update `docs/CHANGELOG.md`
+
+---
+
 - [x] **Iteration 1: Test Infrastructure + React Router**
   - [x] Install dependencies (react-router-dom, vitest, @testing-library/react, @playwright/test, msw)
   - [x] Configure Vitest in vite.config.ts

@@ -32,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Agents',       icon: '◎', description: 'Registered agents', path: '/agents'    },
   { label: 'Traffic',      icon: '⇌', description: 'Actions log',       path: '/traffic'   },
   { label: 'Orchestrator', icon: '⌘', description: 'Dispatch tasks',    path: '/chat'      },
+  { label: 'Tasks',        icon: '✦', description: 'Dispatched tasks',  path: '/tasks'     },
   { label: 'Containers',   icon: '⬡', description: 'Docker kubexes',    path: '/containers'},
   { label: 'Approvals',    icon: '⚑', description: 'Escalated actions', path: '/approvals' },
   { label: 'Settings',     icon: '⚙', description: 'Preferences',       path: '/settings'  },
@@ -187,6 +188,13 @@ export default function Layout({ children }: LayoutProps) {
       description: 'Go to Approvals/Pending (after G)',
       handler: () => {
         if (gKeyPending.current) { gKeyPending.current = false; navigate('/approvals'); }
+      },
+    },
+    {
+      key: 'h',
+      description: 'Go to Task History (after G)',
+      handler: () => {
+        if (gKeyPending.current) { gKeyPending.current = false; navigate('/tasks'); }
       },
     },
   ]);
