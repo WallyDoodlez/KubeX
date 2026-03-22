@@ -303,6 +303,20 @@
   - [x] Test: npx playwright test — 397/397 passed
   - [x] Update `docs/CHANGELOG.md`
 
+- [x] **Iteration 31: URL query params for shareable filters**
+  - [x] Create `src/hooks/useQueryParams.ts` — typed wrapper around React Router's `useSearchParams`; reads initial values from URL on mount; omits params that equal their defaults to keep URLs clean; `push=true` for discrete filter changes (navigable back/forward), `push=false` for incremental keystrokes (replaceState)
+  - [x] Update `src/hooks/useSearch.ts` — add optional `initialQuery` param to seed search state from URL on mount
+  - [x] Update `src/hooks/useSort.ts` — accept optional `initialSortConfig` param to restore sort state from URL on mount
+  - [x] Wire `useQueryParams` into `AgentsPanel.tsx` — search, sort key+direction, page persisted in URL; handlers update URL on user action; initial values restored on direct navigation or page refresh
+  - [x] Wire `useQueryParams` into `ContainersPanel.tsx` — search, status filter, sort key+direction, page persisted in URL; status filter uses pushState (discrete); search uses replaceState (incremental)
+  - [x] Wire `useQueryParams` into `TrafficLog.tsx` — status filter, agent filter, search, page persisted in URL; discrete filter changes push history; search keystrokes replace
+  - [x] Fix `tests/e2e/streaming.spec.ts` — replace `waitForTimeout(2000)` with `waitForFunction` polling for the expected element to appear, eliminating pre-existing flakiness in 2 tests
+  - [x] Update `playwright.config.ts` — add `workers: 4` to prevent parallel-execution race conditions against the real backend that caused 6 intermittent failures under 12 workers
+  - [x] Create `tests/e2e/query-params.spec.ts` (25 tests) — covers AgentsPanel URL params (8 tests), ContainersPanel URL params (7 tests), TrafficLog URL params (6 tests), cross-panel isolation (3 tests) + end-to-end shareability test
+  - [x] Build: npm run build — clean, 98 modules
+  - [x] Test: npx playwright test — 450/450 passed
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 30: Click-to-copy for IDs and results**
   - [x] Create `src/components/CopyButton.tsx` — small icon button that copies text to clipboard using `navigator.clipboard.writeText`; shows "Copied!" feedback for 1.5 s then reverts; accessible with `aria-label`, `title`, keyboard-operable
   - [x] Add `<CopyButton>` next to Agent IDs in `AgentsPanel.tsx` rows (expanded detail) and `AgentDetailPage.tsx` Overview tab

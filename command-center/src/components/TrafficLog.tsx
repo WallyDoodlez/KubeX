@@ -1,7 +1,8 @@
-import { useState, useMemo, memo } from 'react';
+import { useMemo, memo } from 'react';
 import CopyButton from './CopyButton';
 import type { TrafficEntry, ActionStatus, TrafficFilter } from '../types';
 import { usePagination } from '../hooks/usePagination';
+import { useQueryParams } from '../hooks/useQueryParams';
 import TrafficFilterBar from './TrafficFilterBar';
 import Pagination from './Pagination';
 import ExportMenu from './ExportMenu';
@@ -27,12 +28,44 @@ const STATUS_ROW_BG: Record<ActionStatus, string> = {
   pending: 'border-l-blue-500/40',
 };
 
+// Valid status filter values
+const VALID_TRAFFIC_STATUSES = ['all', 'allowed', 'denied', 'escalated', 'pending'] as const;
+type TrafficStatusFilter = (typeof VALID_TRAFFIC_STATUSES)[number];
+
+// URL param defaults for TrafficLog
+const TRAFFIC_PARAM_DEFAULTS = {
+  status: 'all',
+  agent: '',
+  search: '',
+  page: '1',
+};
+
 export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
-  const [filter, setFilter] = useState<TrafficFilter>({
-    status: 'all',
-    agentId: '',
-    search: '',
-  });
+  // URL query params — status filter, agent filter, search, page
+  const [qp, setQp] = useQueryParams(TRAFFIC_PARAM_DEFAULTS);
+
+  // Derive typed TrafficFilter from URL params
+  const statusValue: TrafficStatusFilter = (VALID_TRAFFIC_STATUSES as readonly string[]).includes(qp.status)
+    ? (qp.status as TrafficStatusFilter)
+    : 'all';
+
+  const filter: TrafficFilter = {
+    status: statusValue === 'all' ? 'all' : (statusValue as ActionStatus),
+    agentId: qp.agent,
+    search: qp.search,
+  };
+
+  function handleFilterChange(next: TrafficFilter) {
+    const updates: Partial<typeof TRAFFIC_PARAM_DEFAULTS> = {
+      status: next.status,
+      agent: next.agentId,
+      search: next.search,
+      page: '1',
+    };
+    // Use replaceState for search (incremental keystrokes); pushState for status/agent (discrete choices)
+    const isDiscreteChange = next.status !== filter.status || next.agentId !== filter.agentId;
+    setQp(updates, isDiscreteChange);
+  }
 
   // Get unique agent IDs for the filter dropdown.
   // useMemo ensures this only recalculates when entries changes, not on every filter keystroke.
@@ -61,7 +94,22 @@ export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
 
   // Paginate — localStorage is capped at 500 entries in AppContext (addTrafficEntry slices to 500).
   // The paginator slices filteredEntries so only the visible page is rendered.
-  const pagination = usePagination(filteredEntries, { initialPageSize: 20 });
+  const initialPage = Math.max(1, parseInt(qp.page, 10) || 1);
+  const pagination = usePagination(filteredEntries, { initialPageSize: 20, initialPage });
+
+  // Wrap pagination actions to also update URL
+  function handleNextPage() {
+    pagination.nextPage();
+    setQp({ page: String(pagination.page + 1) }, false);
+  }
+  function handlePrevPage() {
+    pagination.prevPage();
+    setQp({ page: String(Math.max(1, pagination.page - 1)) }, false);
+  }
+  function handlePageSizeChange(size: number) {
+    pagination.setPageSize(size);
+    setQp({ page: '1' }, false);
+  }
 
   return (
     <div className="p-6 animate-fade-in">
@@ -112,7 +160,7 @@ export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
       {/* Filter bar */}
       <TrafficFilterBar
         filter={filter}
-        onFilterChange={setFilter}
+        onFilterChange={handleFilterChange}
         agentIds={agentIds}
         totalCount={entries.length}
         filteredCount={filteredEntries.length}
@@ -143,9 +191,9 @@ export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
             endIndex={pagination.endIndex}
             hasNext={pagination.hasNext}
             hasPrev={pagination.hasPrev}
-            onNextPage={pagination.nextPage}
-            onPrevPage={pagination.prevPage}
-            onPageSizeChange={pagination.setPageSize}
+            onNextPage={handleNextPage}
+            onPrevPage={handlePrevPage}
+            onPageSizeChange={handlePageSizeChange}
           />
         </>
       )}

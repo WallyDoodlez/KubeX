@@ -18,9 +18,19 @@ test.describe('Streaming & Live Output', () => {
 
   test('agent detail page has Live Output tab', async ({ page }) => {
     await page.goto('/agents/test-agent');
-    // Wait for page to load
-    await page.waitForTimeout(2000);
-    // Should show either the detail page with tabs or error with back link
+    // Wait for the page to finish loading: either the agent detail tabs appear
+    // (when agent "test-agent" exists) or the "Back to Agents" link appears (when it does not).
+    // Use waitForFunction to poll until one of the two elements is visible.
+    await page.waitForFunction(
+      () => {
+        const hasLiveOutput = document.querySelector('[role="tablist"]') !== null;
+        const hasBackLink = [...document.querySelectorAll('button,a')].some(
+          (el) => el.textContent?.includes('Back to Agents'),
+        );
+        return hasLiveOutput || hasBackLink;
+      },
+      { timeout: 10_000 },
+    );
     const hasLiveOutput = await page.locator('text=Live Output').isVisible();
     const hasBackLink = await page.locator('text=Back to Agents').isVisible();
     expect(hasLiveOutput || hasBackLink).toBe(true);
@@ -28,7 +38,17 @@ test.describe('Streaming & Live Output', () => {
 
   test('agent detail tabs are accessible', async ({ page }) => {
     await page.goto('/agents/test-agent');
-    await page.waitForTimeout(2000);
+    // Wait for the page to finish loading
+    await page.waitForFunction(
+      () => {
+        const hasTablist = document.querySelector('[role="tablist"]') !== null;
+        const hasBackLink = [...document.querySelectorAll('button,a')].some(
+          (el) => el.textContent?.includes('Back to Agents'),
+        );
+        return hasTablist || hasBackLink;
+      },
+      { timeout: 10_000 },
+    );
     // Check for tablist role (from Tabs component)
     const tablist = page.locator('[role="tablist"]');
     const hasTablist = await tablist.isVisible().catch(() => false);

@@ -6,6 +6,7 @@ import { usePolling } from '../hooks/usePolling';
 import { useSearch } from '../hooks/useSearch';
 import { useSort } from '../hooks/useSort';
 import { usePagination } from '../hooks/usePagination';
+import { useQueryParams } from '../hooks/useQueryParams';
 import ConfirmDialog from './ConfirmDialog';
 import SearchInput from './SearchInput';
 import Pagination from './Pagination';
@@ -25,13 +26,38 @@ const sortComparators = {
   status: (a: Kubex, b: Kubex) => a.status.localeCompare(b.status),
 };
 
+type KubexSortKey = keyof typeof sortComparators;
+
+const VALID_STATUS_FILTERS: StatusFilter[] = ['all', 'running', 'created', 'stopped', 'error'];
+
+// URL param defaults for ContainersPanel
+const CONTAINERS_PARAM_DEFAULTS = {
+  search: '',
+  status: 'all',
+  sort: '',
+  dir: '',
+  page: '1',
+};
+
 export default function ContainersPanel() {
   const [kubexes, setKubexes] = useState<Kubex[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionIn, setActionIn] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{ kubexId: string; action: 'kill' } | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  // URL query params — search, status filter, sort key/direction, page
+  const [qp, setQp] = useQueryParams(CONTAINERS_PARAM_DEFAULTS);
+
+  // Derive typed values from URL params
+  const statusFilter: StatusFilter = VALID_STATUS_FILTERS.includes(qp.status as StatusFilter)
+    ? (qp.status as StatusFilter)
+    : 'all';
+
+  const validSortKeys = Object.keys(sortComparators) as KubexSortKey[];
+  const urlSortKey = validSortKeys.includes(qp.sort as KubexSortKey) ? (qp.sort as KubexSortKey) : null;
+  const urlSortDir = qp.dir === 'desc' ? 'desc' as const : (qp.dir === 'asc' ? 'asc' as const : null);
+  const initialSortConfig = urlSortKey && urlSortDir ? { key: urlSortKey, direction: urlSortDir } : null;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,13 +87,60 @@ export default function ContainersPanel() {
       (k) => k.image ?? '',
       (k) => k.status,
     ],
+    initialQuery: qp.search,
   });
 
+  // When search changes, update URL (replaceState)
+  function handleSearchChange(q: string) {
+    setQuery(q);
+    setQp({ search: q, page: '1' }, false);
+  }
+
+  // When status filter changes, update URL (pushState for navigable filter)
+  function handleStatusFilterChange(val: StatusFilter) {
+    setQp({ status: val, page: '1' }, true);
+  }
+
   // Sort — useSort internally uses useMemo
-  const { sortedItems, requestSort, getSortIndicator } = useSort(searchedKubexes, sortComparators);
+  const { sortedItems, sortConfig, requestSort, getSortIndicator } = useSort(
+    searchedKubexes,
+    sortComparators,
+    initialSortConfig,
+  );
+
+  // When sort changes, update URL
+  function handleRequestSort(key: KubexSortKey) {
+    requestSort(key);
+    let newKey = key;
+    let newDir: 'asc' | 'desc' | '' = 'asc';
+    if (sortConfig?.key === key) {
+      if (sortConfig.direction === 'asc') {
+        newDir = 'desc';
+      } else {
+        newKey = '' as KubexSortKey;
+        newDir = '';
+      }
+    }
+    setQp({ sort: newKey, dir: newDir, page: '1' }, false);
+  }
 
   // Paginate — usePagination internally uses useMemo for paginatedItems slice
-  const pagination = usePagination(sortedItems, { initialPageSize: 10 });
+  const initialPage = Math.max(1, parseInt(qp.page, 10) || 1);
+  const pagination = usePagination(sortedItems, { initialPageSize: 10, initialPage });
+
+  // Wrap pagination actions to also update URL
+  function handleNextPage() {
+    pagination.nextPage();
+    setQp({ page: String(pagination.page + 1) }, false);
+  }
+  function handlePrevPage() {
+    pagination.prevPage();
+    setQp({ page: String(Math.max(1, pagination.page - 1)) }, false);
+  }
+  function handlePageSizeChange(size: number) {
+    pagination.setPageSize(size);
+    setQp({ page: '1' }, false);
+  }
 
   function requestKill(kubexId: string) {
     setConfirmTarget({ kubexId, action: 'kill' });
@@ -132,13 +205,13 @@ export default function ContainersPanel() {
         <div className="flex-1">
           <SearchInput
             value={query}
-            onChange={setQuery}
+            onChange={handleSearchChange}
             placeholder="Search kubexes by ID, agent, image, status…"
           />
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          onChange={(e) => handleStatusFilterChange(e.target.value as StatusFilter)}
           aria-label="Filter by status"
           className="px-3 py-2 text-xs rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-dark)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 focus:ring-offset-[var(--color-bg)] transition-colors"
         >
@@ -182,16 +255,16 @@ export default function ContainersPanel() {
               role="row"
             >
               {[
-                { label: 'Kubex ID', sortKey: 'kubex_id' as const },
-                { label: 'Agent', sortKey: 'agent_id' as const },
-                { label: 'Status', sortKey: 'status' as const },
+                { label: 'Kubex ID', sortKey: 'kubex_id' as KubexSortKey },
+                { label: 'Agent', sortKey: 'agent_id' as KubexSortKey },
+                { label: 'Status', sortKey: 'status' as KubexSortKey },
                 { label: 'Image', sortKey: null },
                 { label: 'Actions', sortKey: null },
               ].map(({ label, sortKey }) => (
                 <span
                   key={label}
                   className={`text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] ${sortKey ? 'cursor-pointer hover:text-[var(--color-text-dim)] select-none' : ''}`}
-                  onClick={sortKey ? () => requestSort(sortKey) : undefined}
+                  onClick={sortKey ? () => handleRequestSort(sortKey) : undefined}
                   role="columnheader"
                 >
                   {label}{sortKey ? getSortIndicator(sortKey) : ''}
@@ -220,9 +293,9 @@ export default function ContainersPanel() {
             endIndex={pagination.endIndex}
             hasNext={pagination.hasNext}
             hasPrev={pagination.hasPrev}
-            onNextPage={pagination.nextPage}
-            onPrevPage={pagination.prevPage}
-            onPageSizeChange={pagination.setPageSize}
+            onNextPage={handleNextPage}
+            onPrevPage={handlePrevPage}
+            onPageSizeChange={handlePageSizeChange}
           />
         </>
       )}

@@ -18,8 +18,9 @@ interface UseSortResult<T, K extends string> {
 export function useSort<T, K extends string>(
   items: T[],
   comparators: Record<K, (a: T, b: T) => number>,
+  initialSortConfig?: SortConfig<K> | null,
 ): UseSortResult<T, K> {
-  const [sortConfig, setSortConfig] = useState<SortConfig<K> | null>(null);
+  const [sortConfig, setSortConfig] = useState<SortConfig<K> | null>(initialSortConfig ?? null);
 
   const sortedItems = useMemo(() => {
     if (!sortConfig) return items;

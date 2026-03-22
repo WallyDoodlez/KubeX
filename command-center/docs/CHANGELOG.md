@@ -4,6 +4,23 @@
 
 ---
 
+## Iteration 31: URL query params for shareable filters
+**Files created:** `src/hooks/useQueryParams.ts`, `tests/e2e/query-params.spec.ts`
+**Files modified:** `src/hooks/useSearch.ts`, `src/hooks/useSort.ts`, `src/components/AgentsPanel.tsx`, `src/components/ContainersPanel.tsx`, `src/components/TrafficLog.tsx`, `tests/e2e/streaming.spec.ts`, `playwright.config.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `useQueryParams.ts` — a typed hook wrapping React Router's `useSearchParams`. Accepts a `defaults` record; reads current values from URL (falling back to defaults); writes updates via `setSearchParams` with `replace: !push`. Values equal to their defaults are deleted from the URL to keep shared links clean. Browser back/forward is handled natively by React Router's history integration.
+- Updated `useSearch.ts` — added optional `initialQuery` option to seed the search `useState` from a URL param on mount, avoiding a round-trip effect cycle.
+- Updated `useSort.ts` — added optional `initialSortConfig` parameter to restore sort key+direction from a URL param on mount.
+- Updated `AgentsPanel.tsx` — imports `useQueryParams`; wires `search`, `sort`, `dir`, `page` params; `handleSearchChange` updates URL with `push=false` on keystrokes; `handleRequestSort` updates `sort`/`dir` with `push=false`; page navigation wrappers update `page` param; `initialQuery` and `initialSortConfig` are derived from URL params and passed to `useSearch`/`useSort` so the view restores correctly on direct navigation (e.g. `/agents?search=beta&sort=status&dir=asc`).
+- Updated `ContainersPanel.tsx` — same pattern; additionally wires `status` filter param using `push=true` so switching status filter is browser-navigable; `initialQuery` and `initialSortConfig` restore from URL; status filter derives from URL param with validation against allowed values.
+- Updated `TrafficLog.tsx` — replaces `useState<TrafficFilter>` with URL-driven filter; `status` and `agent` filter changes use `push=true` (discrete choices); `search` keystrokes use `push=false`; `page` param updated by pagination wrappers; all filter state is restored from URL on direct navigation to `/traffic?status=denied&agent=xyz`.
+- Fixed `tests/e2e/streaming.spec.ts` — replaced `waitForTimeout(2000)` with `page.waitForFunction` polling until either `role="tablist"` or "Back to Agents" text appears. This eliminates the pre-existing flakiness where 2 tests reliably failed when the lazy-loaded `AgentDetailPage` wasn't fully rendered within the 2 s hard timeout.
+- Updated `playwright.config.ts` — added `workers: 4` (down from default 12). The test suite hits a real backend; 12 concurrent workers caused intermittent failures in 6 tests (agent-detail, capability-matrix, system-status) due to race conditions on shared backend state. Reducing to 4 workers eliminates these without sacrificing meaningful parallelism.
+- Created `tests/e2e/query-params.spec.ts` — 25 tests: AgentsPanel search → URL, URL search → input restore, filter applies on load, clearing search clears URL, sort → URL, URL sort → indicator, multiple params together, sort toggle, defaults not added; ContainersPanel status → URL, URL status → dropdown, search → URL, URL search → input, sort → URL, URL sort → indicator, default not added; TrafficLog status → URL, URL status → select, search → URL, URL search → input, defaults not added, params persist across navigation; cross-panel: no param leak between pages, end-to-end shareability.
+**Tests:** 425 → 450
+
+---
+
 ## Iteration 30: Click-to-copy for IDs and results
 **Files created:** `src/components/CopyButton.tsx`, `tests/e2e/copy-button.spec.ts`
 **Files modified:** `src/components/AgentsPanel.tsx`, `src/components/AgentDetailPage.tsx`, `src/components/ContainersPanel.tsx`, `src/components/OrchestratorChat.tsx`, `src/components/TrafficLog.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

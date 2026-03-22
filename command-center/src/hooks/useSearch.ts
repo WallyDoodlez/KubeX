@@ -5,6 +5,8 @@ interface UseSearchOptions<T> {
   fields: ((item: T) => string)[];
   /** Case sensitive (default false) */
   caseSensitive?: boolean;
+  /** Initial query value (e.g. read from URL params). Default: '' */
+  initialQuery?: string;
 }
 
 interface UseSearchResult<T> {
@@ -15,8 +17,8 @@ interface UseSearchResult<T> {
 }
 
 export function useSearch<T>(items: T[], options: UseSearchOptions<T>): UseSearchResult<T> {
-  const { fields, caseSensitive = false } = options;
-  const [query, setQuery] = useState('');
+  const { fields, caseSensitive = false, initialQuery = '' } = options;
+  const [query, setQuery] = useState(initialQuery);
 
   const filteredItems = useMemo(() => {
     const trimmed = query.trim();

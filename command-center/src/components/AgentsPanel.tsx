@@ -4,6 +4,7 @@ import { usePolling } from '../hooks/usePolling';
 import { useSearch } from '../hooks/useSearch';
 import { useSort } from '../hooks/useSort';
 import { usePagination } from '../hooks/usePagination';
+import { useQueryParams } from '../hooks/useQueryParams';
 import type { Agent } from '../types';
 import { getAgents, deregisterAgent } from '../api';
 import StatusBadge from './StatusBadge';
@@ -24,6 +25,16 @@ const sortComparators = {
   boundary: (a: Agent, b: Agent) => a.boundary.localeCompare(b.boundary),
 };
 
+type AgentSortKey = keyof typeof sortComparators;
+
+// URL param defaults for AgentsPanel
+const AGENTS_PARAM_DEFAULTS = {
+  search: '',
+  sort: '',
+  dir: '',
+  page: '1',
+};
+
 export default function AgentsPanel() {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -32,6 +43,16 @@ export default function AgentsPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deregistering, setDeregistering] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
+
+  // URL query params — search, sort key/direction, page
+  const [qp, setQp] = useQueryParams(AGENTS_PARAM_DEFAULTS);
+
+  // Derive initial sort config from URL params
+  const validSortKeys = Object.keys(sortComparators) as AgentSortKey[];
+  const urlSortKey = validSortKeys.includes(qp.sort as AgentSortKey) ? (qp.sort as AgentSortKey) : null;
+  const urlSortDir = qp.dir === 'desc' ? 'desc' as const : (qp.dir === 'asc' ? 'asc' as const : null);
+  const initialSortConfig =
+    urlSortKey && urlSortDir ? { key: urlSortKey, direction: urlSortDir } : null;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,6 +70,7 @@ export default function AgentsPanel() {
 
   // Search — useSearch internally uses useMemo, so searchedAgents only recomputes when
   // agents array or query changes (not on every parent render).
+  // initialQuery seeds state from URL on mount; URL-driven page shares/refreshes restore the filter.
   const { query, setQuery, filteredItems: searchedAgents } = useSearch(agents, {
     fields: [
       (a) => a.agent_id,
@@ -56,14 +78,59 @@ export default function AgentsPanel() {
       (a) => a.status,
       (a) => a.boundary,
     ],
+    initialQuery: qp.search,
   });
+
+  // When search changes, update URL (replaceState to avoid polluting history on every keystroke)
+  function handleSearchChange(q: string) {
+    setQuery(q);
+    setQp({ search: q, page: '1' }, false);
+  }
 
   // Sort — useSort internally uses useMemo, sortedItems only recomputes when
   // searchedAgents or sortConfig changes.
-  const { sortedItems, requestSort, getSortIndicator } = useSort(searchedAgents, sortComparators);
+  // initialSortConfig restores sort from URL on mount.
+  const { sortedItems, sortConfig, requestSort, getSortIndicator } = useSort(
+    searchedAgents,
+    sortComparators,
+    initialSortConfig,
+  );
+
+  // When sort changes, update URL
+  function handleRequestSort(key: AgentSortKey) {
+    requestSort(key);
+    // Compute next sort state (mirrors useSort toggle logic)
+    let newKey = key;
+    let newDir: 'asc' | 'desc' | '' = 'asc';
+    if (sortConfig?.key === key) {
+      if (sortConfig.direction === 'asc') {
+        newDir = 'desc';
+      } else {
+        // Clear sort
+        newKey = '' as AgentSortKey;
+        newDir = '';
+      }
+    }
+    setQp({ sort: newKey, dir: newDir, page: '1' }, false);
+  }
 
   // Paginate — usePagination internally uses useMemo for paginatedItems slice.
-  const pagination = usePagination(sortedItems, { initialPageSize: 10 });
+  const initialPage = Math.max(1, parseInt(qp.page, 10) || 1);
+  const pagination = usePagination(sortedItems, { initialPageSize: 10, initialPage });
+
+  // Wrap pagination actions to also update URL
+  function handleNextPage() {
+    pagination.nextPage();
+    setQp({ page: String(pagination.page + 1) }, false);
+  }
+  function handlePrevPage() {
+    pagination.prevPage();
+    setQp({ page: String(Math.max(1, pagination.page - 1)) }, false);
+  }
+  function handlePageSizeChange(size: number) {
+    pagination.setPageSize(size);
+    setQp({ page: '1' }, false);
+  }
 
   function requestDeregister(agentId: string) {
     setConfirmTarget(agentId);
@@ -109,7 +176,7 @@ export default function AgentsPanel() {
       <div className="mb-4">
         <SearchInput
           value={query}
-          onChange={setQuery}
+          onChange={handleSearchChange}
           placeholder="Search agents by ID, capability, status…"
         />
       </div>
@@ -134,16 +201,16 @@ export default function AgentsPanel() {
             {/* Table header */}
             <div className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]" role="row">
               {[
-                { label: 'Agent ID', sortKey: 'agent_id' as const },
+                { label: 'Agent ID', sortKey: 'agent_id' as AgentSortKey },
                 { label: 'Capabilities', sortKey: null },
-                { label: 'Status', sortKey: 'status' as const },
-                { label: 'Boundary', sortKey: 'boundary' as const },
+                { label: 'Status', sortKey: 'status' as AgentSortKey },
+                { label: 'Boundary', sortKey: 'boundary' as AgentSortKey },
                 { label: '', sortKey: null },
               ].map(({ label, sortKey }) => (
                 <span
                   key={label || 'actions'}
                   className={`text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] ${sortKey ? 'cursor-pointer hover:text-[var(--color-text-dim)] select-none' : ''}`}
-                  onClick={sortKey ? () => requestSort(sortKey) : undefined}
+                  onClick={sortKey ? () => handleRequestSort(sortKey) : undefined}
                   role="columnheader"
                 >
                   {label}{sortKey ? getSortIndicator(sortKey) : ''}
@@ -177,9 +244,9 @@ export default function AgentsPanel() {
             endIndex={pagination.endIndex}
             hasNext={pagination.hasNext}
             hasPrev={pagination.hasPrev}
-            onNextPage={pagination.nextPage}
-            onPrevPage={pagination.prevPage}
-            onPageSizeChange={pagination.setPageSize}
+            onNextPage={handleNextPage}
+            onPrevPage={handlePrevPage}
+            onPageSizeChange={handlePageSizeChange}
           />
         </>
       )}
