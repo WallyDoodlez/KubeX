@@ -33,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Orchestrator', icon: '⌘', description: 'Dispatch tasks',    path: '/chat'      },
   { label: 'Containers',   icon: '⬡', description: 'Docker kubexes',    path: '/containers'},
   { label: 'Approvals',    icon: '⚑', description: 'Escalated actions', path: '/approvals' },
+  { label: 'Settings',     icon: '⚙', description: 'Preferences',       path: '/settings'  },
 ];
 
 interface LayoutProps {

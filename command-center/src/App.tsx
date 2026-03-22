@@ -21,6 +21,7 @@ import { AppProvider, useAppContext } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
+import { SettingsProvider } from './hooks/useSettings';
 import type { NavPage } from './types';
 
 const LazyDashboard = lazy(() => import('./components/Dashboard'));
@@ -30,6 +31,7 @@ const LazyOrchestratorChat = lazy(() => import('./components/OrchestratorChat'))
 const LazyContainersPanel = lazy(() => import('./components/ContainersPanel'));
 const LazyAgentDetailPage = lazy(() => import('./components/AgentDetailPage'));
 const LazyApprovalQueue = lazy(() => import('./components/ApprovalQueue'));
+const LazySettingsPage = lazy(() => import('./components/SettingsPage'));
 
 const PAGE_TO_PATH: Record<NavPage, string> = {
   dashboard: '/',
@@ -86,6 +88,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
       <AppProvider>
+      <SettingsProvider>
       <NotificationProvider>
       <ToastBridge>
         <Layout>
@@ -99,12 +102,14 @@ export default function App() {
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/containers" element={<LazyContainersPanel />} />
                 <Route path="/approvals" element={<LazyApprovalQueue />} />
+                <Route path="/settings" element={<LazySettingsPage />} />
               </Routes>
             </Suspense>
           </ErrorBoundary>
         </Layout>
       </ToastBridge>
       </NotificationProvider>
+      </SettingsProvider>
       </AppProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -253,6 +253,15 @@
   - [x] Build: npm run build — clean (88 modules, no errors)
   - [x] Test: npx playwright test — 289/289 passed
 
+- [x] **Iteration 24: Settings and Preferences page**
+  - [x] Create `src/hooks/useSettings.ts` — `SettingsProvider` + `useSettings` hook; persists `pollingInterval`, `defaultPageSize`, `autoRefresh` to localStorage under `kubex-settings`; merges stored values with defaults to handle schema additions
+  - [x] Create `src/components/SettingsPage.tsx` — four sections: Appearance (theme selector), Connection (token management, API endpoint display), Data (auto-refresh toggle, polling interval, page size, clear traffic/chat with confirmation), About (version/build info), Reset (restore defaults with confirmation)
+  - [x] Add `/settings` route in `App.tsx` (lazy-loaded); wrap provider tree with `<SettingsProvider>`
+  - [x] Add "Settings ⚙" nav item to `NAV_ITEMS` in `Layout.tsx`
+  - [x] Create `tests/e2e/settings.spec.ts` (32 tests)
+  - [x] Build: npm run build — clean, 90 modules, SettingsPage 3.03 KB gzipped
+  - [x] Test: npx playwright test — 321/321 passed
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays
