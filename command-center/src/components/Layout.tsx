@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
@@ -8,6 +8,9 @@ import { killAllKubexes, getKubexes } from '../api';
 import KillAllDialog from './KillAllDialog';
 import QuickActionsMenu from './QuickActionsMenu';
 import Toast from './Toast';
+import CommandPalette from './CommandPalette';
+import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
 interface NavItem {
   label: string;
@@ -40,6 +43,97 @@ export default function Layout({ children }: LayoutProps) {
   const [killAllLoading, setKillAllLoading] = useState(false);
   const [kubexCount, setKubexCount] = useState<number | undefined>(undefined);
   const [authBannerDismissed, setAuthBannerDismissed] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+
+  // "G then X" two-key navigation — store first key with a timeout
+  const gKeyPending = useRef(false);
+  const gKeyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function startGSequence() {
+    gKeyPending.current = true;
+    if (gKeyTimer.current) clearTimeout(gKeyTimer.current);
+    gKeyTimer.current = setTimeout(() => {
+      gKeyPending.current = false;
+    }, 1500);
+  }
+
+  // ── Global keyboard shortcuts ──────────────────────────────────────
+  useKeyboardShortcuts([
+    // Ctrl+K — open command palette
+    {
+      key: 'k',
+      ctrl: true,
+      description: 'Open command palette',
+      allowInInput: true,
+      handler: () => setCommandPaletteOpen((o) => !o),
+    },
+    // ? — show shortcuts help (not in input)
+    {
+      key: '?',
+      description: 'Show keyboard shortcuts',
+      handler: () => setShortcutsHelpOpen((o) => !o),
+    },
+    // Escape — close any overlay
+    {
+      key: 'Escape',
+      description: 'Close overlay',
+      allowInInput: true,
+      handler: () => {
+        if (commandPaletteOpen) { setCommandPaletteOpen(false); return; }
+        if (shortcutsHelpOpen) { setShortcutsHelpOpen(false); return; }
+        if (killAllOpen) { setKillAllOpen(false); return; }
+      },
+    },
+    // G then D/A/T/C/K/P — go to page (two-key sequence)
+    {
+      key: 'g',
+      description: 'Start navigation sequence (G + key)',
+      handler: () => startGSequence(),
+    },
+    {
+      key: 'd',
+      description: 'Go to Dashboard (after G)',
+      handler: () => {
+        if (gKeyPending.current) { gKeyPending.current = false; navigate('/'); }
+      },
+    },
+    {
+      key: 'a',
+      description: 'Go to Agents (after G)',
+      handler: () => {
+        if (gKeyPending.current) { gKeyPending.current = false; navigate('/agents'); }
+      },
+    },
+    {
+      key: 't',
+      description: 'Go to Traffic (after G)',
+      handler: () => {
+        if (gKeyPending.current) { gKeyPending.current = false; navigate('/traffic'); }
+      },
+    },
+    {
+      key: 'c',
+      description: 'Go to Chat/Orchestrator (after G)',
+      handler: () => {
+        if (gKeyPending.current) { gKeyPending.current = false; navigate('/chat'); }
+      },
+    },
+    {
+      key: 'k',
+      description: 'Go to Containers/Kubexes (after G)',
+      handler: () => {
+        if (gKeyPending.current) { gKeyPending.current = false; navigate('/containers'); }
+      },
+    },
+    {
+      key: 'p',
+      description: 'Go to Approvals/Pending (after G)',
+      handler: () => {
+        if (gKeyPending.current) { gKeyPending.current = false; navigate('/approvals'); }
+      },
+    },
+  ]);
 
   const currentItem = NAV_ITEMS.find((n) => n.path === location.pathname) ?? NAV_ITEMS[0];
 
@@ -83,6 +177,18 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Toast notifications */}
       <Toast />
+
+      {/* Command palette */}
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+      />
+
+      {/* Keyboard shortcuts help overlay */}
+      <KeyboardShortcutsHelp
+        isOpen={shortcutsHelpOpen}
+        onClose={() => setShortcutsHelpOpen(false)}
+      />
 
       {/* Kill All confirmation dialog */}
       <KillAllDialog
@@ -194,6 +300,32 @@ export default function Layout({ children }: LayoutProps) {
             <span className="text-xs text-[#64748b]">{currentItem.description}</span>
           </div>
           <div className="flex items-center gap-3" role="toolbar" aria-label="Global controls">
+            {/* Command palette trigger */}
+            <button
+              onClick={() => setCommandPaletteOpen(true)}
+              data-testid="command-palette-trigger"
+              aria-label="Open command palette (Ctrl+K)"
+              aria-keyshortcuts="Control+k"
+              className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#64748b] border border-[#2a2f45] rounded-lg hover:border-[#3a4055] hover:text-[#94a3b8] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#12151f]"
+            >
+              <span aria-hidden="true" className="text-sm">⌕</span>
+              <span>Search</span>
+              <kbd aria-hidden="true" className="ml-1 text-[10px] font-mono border border-[#2a2f45] rounded px-1">⌘K</kbd>
+            </button>
+
+            {/* Keyboard shortcuts help */}
+            <button
+              onClick={() => setShortcutsHelpOpen(true)}
+              data-testid="shortcuts-help-trigger"
+              aria-label="Show keyboard shortcuts (?)"
+              aria-keyshortcuts="?"
+              className="hidden sm:flex w-7 h-7 items-center justify-center text-xs font-semibold text-[#64748b] border border-[#2a2f45] rounded-lg hover:border-[#3a4055] hover:text-[#94a3b8] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#12151f]"
+            >
+              ?
+            </button>
+
+            <div aria-hidden="true" className="hidden sm:block w-px h-4 bg-[#2a2f45]" />
+
             {/* Emergency Controls */}
             <QuickActionsMenu />
             <button

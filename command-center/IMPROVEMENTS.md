@@ -162,6 +162,17 @@
   - [x] Create tests/e2e/containers.spec.ts (9 tests: header, refresh, search input, search filters, clear button, status filter, ARIA table role, column headers sortable, route-mocked data tests)
   - [x] Verify: npm run build + npx playwright test passes (163/163)
 
+- [x] **Iteration 16: Keyboard Shortcuts + Command Palette**
+  - [x] Create `src/hooks/useKeyboardShortcuts.ts` — global keyboard shortcut registration with modifier key support, input-awareness, and cleanup on unmount
+  - [x] Create `src/components/CommandPalette.tsx` — VS Code-style Ctrl+K fuzzy command palette with ARIA combobox/listbox roles, category grouping, arrow-key navigation, and Enter-to-execute
+  - [x] Create `src/components/KeyboardShortcutsHelp.tsx` — modal overlay listing all shortcuts, triggered by `?` key
+  - [x] Update `src/components/Layout.tsx` — wire `useKeyboardShortcuts`, render `<CommandPalette>` and `<KeyboardShortcutsHelp>`, add "Search ⌘K" trigger button and "?" help button to top bar
+  - [x] Two-key navigation sequences: G+D (Dashboard), G+A (Agents), G+T (Traffic), G+C (Chat), G+K (Containers), G+P (Approvals)
+  - [x] Escape closes whichever overlay is open (palette → help → kill-all dialog, in priority order)
+  - [x] Create `tests/e2e/command-palette.spec.ts` (21 tests)
+  - [x] Verify: npm run build clean + npx playwright test passes (184/184)
+  - [x] Commit
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays
