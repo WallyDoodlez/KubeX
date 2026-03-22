@@ -117,14 +117,14 @@
   - [x] Verify: npm run build clean + npx playwright test passes
   - [x] Commit
 
-- [ ] **Iteration 11: Polish + Accessibility Audit**
-  - [ ] Create src/components/SkeletonLoader.tsx (reusable SkeletonTable, SkeletonCard, SkeletonText)
-  - [ ] Create src/components/EmptyState.tsx (reusable empty state)
-  - [ ] Upgrade Layout.tsx — skip-to-content, aria-current, responsive sidebar, landmark roles
-  - [ ] Audit all components — focus-visible rings, ARIA labels, semantic HTML
-  - [ ] Update index.css — focus-visible utilities, print stylesheet
-  - [ ] Create tests/e2e/accessibility.spec.ts (axe-core scan, landmarks, tab order)
-  - [ ] Create tests/e2e/responsive.spec.ts (sidebar breakpoints)
-  - [ ] Create tests/e2e/integration.spec.ts (full user flow: dispatch → stream → HITL → traffic → persist)
-  - [ ] Verify: npm run build clean + npx playwright test ALL green
-  - [ ] Commit
+- [x] **Iteration 11: Polish + Accessibility Audit**
+  - [x] Create src/components/SkeletonLoader.tsx (reusable SkeletonTable, SkeletonCard, SkeletonText)
+  - [x] Create src/components/EmptyState.tsx (reusable empty state)
+  - [x] Upgrade Layout.tsx — skip-to-content, aria-current, responsive sidebar, landmark roles
+  - [x] Audit all components — focus-visible rings, ARIA labels, semantic HTML
+  - [x] Update index.css — focus-visible utilities, print stylesheet
+  - [x] Create tests/e2e/accessibility.spec.ts (Playwright-native: landmarks, tab order, aria-current, focus)
+  - [x] Create tests/e2e/responsive.spec.ts (sidebar breakpoints at 375/768/1280/1920px)
+  - [x] Create tests/e2e/integration.spec.ts (full user flow: dispatch → stream → HITL → traffic → persist)
+  - [x] Verify: npm run build clean + npx playwright test ALL green (120/120 passed)
+  - [x] Commit
