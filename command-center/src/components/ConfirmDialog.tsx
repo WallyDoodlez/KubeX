@@ -73,7 +73,7 @@ export default function ConfirmDialog({
       ref={dialogRef}
       onClick={handleDialogClick}
       className="
-        m-auto rounded-xl border border-[#2a2f45] bg-[#1a1d27] p-0 shadow-2xl
+        m-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-0 shadow-2xl
         backdrop:bg-black/60 backdrop:backdrop-blur-sm
         open:flex open:flex-col
         w-full max-w-sm
@@ -102,13 +102,13 @@ export default function ConfirmDialog({
             </div>
           )}
           <div className="flex-1">
-            <h2 className="text-base font-semibold text-[#e2e8f0]">{title}</h2>
-            <p className="mt-1 text-sm text-[#94a3b8] leading-relaxed">{message}</p>
+            <h2 className="text-base font-semibold text-[var(--color-text)]">{title}</h2>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)] leading-relaxed">{message}</p>
           </div>
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-[#2a2f45]" />
+        <div className="h-px bg-[var(--color-border)]" />
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3">
@@ -117,10 +117,10 @@ export default function ConfirmDialog({
             type="button"
             onClick={onCancel}
             className="
-              rounded-lg border border-[#2a2f45] px-4 py-2 text-sm font-medium
-              text-[#94a3b8] transition-colors
-              hover:border-[#3a4055] hover:text-[#e2e8f0]
-              focus:outline-none focus:ring-2 focus:ring-[#2a2f45]
+              rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium
+              text-[var(--color-text-secondary)] transition-colors
+              hover:border-[var(--color-border-hover)] hover:text-[var(--color-text)]
+              focus:outline-none focus:ring-2 focus:ring-[var(--color-border)]
             "
           >
             {cancelLabel}

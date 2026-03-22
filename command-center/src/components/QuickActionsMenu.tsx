@@ -81,8 +81,8 @@ export default function QuickActionsMenu() {
   const statusColor: Record<string, string> = {
     running: 'text-emerald-400',
     created: 'text-blue-400',
-    stopped: 'text-[#64748b]',
-    exited:  'text-[#64748b]',
+    stopped: 'text-[var(--color-text-dim)]',
+    exited:  'text-[var(--color-text-dim)]',
     error:   'text-red-400',
   };
 
@@ -94,7 +94,7 @@ export default function QuickActionsMenu() {
         aria-expanded={open}
         aria-label="Quick Actions"
         data-testid="quick-actions-button"
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[#1a1d27] text-[#94a3b8] border border-[#2a2f45] hover:border-[#3a3f5a] hover:text-[#e2e8f0] transition-all"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-surface)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] transition-all"
       >
         <span>⚡</span>
         <span>Quick Actions</span>
@@ -106,21 +106,21 @@ export default function QuickActionsMenu() {
           role="menu"
           aria-label="Kubex quick actions"
           data-testid="quick-actions-menu"
-          className="absolute right-0 top-full mt-1 w-72 bg-[#12151f] border border-[#2a2f45] rounded-xl shadow-2xl z-40 overflow-hidden"
+          className="absolute right-0 top-full mt-1 w-72 bg-[var(--color-surface-dark)] border border-[var(--color-border)] rounded-xl shadow-2xl z-40 overflow-hidden"
         >
-          <div className="px-3 py-2 border-b border-[#2a2f45]">
-            <p className="text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a]">
+          <div className="px-3 py-2 border-b border-[var(--color-border)]">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)]">
               Kubex Instances
             </p>
           </div>
 
           <div className="max-h-64 overflow-y-auto">
             {loading && (
-              <div className="px-3 py-4 text-center text-xs text-[#3a3f5a]">Loading…</div>
+              <div className="px-3 py-4 text-center text-xs text-[var(--color-text-muted)]">Loading…</div>
             )}
 
             {!loading && kubexes.length === 0 && (
-              <div className="px-3 py-4 text-center text-xs text-[#3a3f5a]">No kubexes found</div>
+              <div className="px-3 py-4 text-center text-xs text-[var(--color-text-muted)]">No kubexes found</div>
             )}
 
             {!loading && kubexes.map((kubex) => {
@@ -132,11 +132,11 @@ export default function QuickActionsMenu() {
                 <div
                   key={kubex.kubex_id}
                   role="menuitem"
-                  className="flex items-center justify-between px-3 py-2 hover:bg-[#1a1d27] transition-colors"
+                  className="flex items-center justify-between px-3 py-2 hover:bg-[var(--color-surface)] transition-colors"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-mono text-[#e2e8f0] truncate">{name}</p>
-                    <p className={`text-[10px] ${statusColor[kubex.status] ?? 'text-[#64748b]'}`}>
+                    <p className="text-xs font-mono text-[var(--color-text)] truncate">{name}</p>
+                    <p className={`text-[10px] ${statusColor[kubex.status] ?? 'text-[var(--color-text-dim)]'}`}>
                       {kubex.status}
                     </p>
                   </div>

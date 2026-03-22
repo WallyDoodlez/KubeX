@@ -51,15 +51,15 @@ function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelpProps) 
         aria-modal="true"
         aria-label="Keyboard shortcuts"
         data-testid="shortcuts-help-panel"
-        className="w-full max-w-md mx-4 rounded-xl border border-[#2a2f45] bg-[#1a1d27] shadow-2xl overflow-hidden"
+        className="w-full max-w-md mx-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2f45]">
-          <h2 className="text-sm font-semibold text-[#e2e8f0]">Keyboard Shortcuts</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">Keyboard Shortcuts</h2>
           <button
             onClick={onClose}
             aria-label="Close keyboard shortcuts"
-            className="text-[#64748b] hover:text-[#e2e8f0] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+            className="text-[var(--color-text-dim)] hover:text-[var(--color-text)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -71,28 +71,28 @@ function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelpProps) 
         <div className="px-5 py-4 space-y-5">
           {SHORTCUT_GROUPS.map((group) => (
             <div key={group.heading}>
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a] mb-2">
+              <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-2">
                 {group.heading}
               </p>
               <table className="w-full text-sm" role="presentation">
                 <tbody>
                   {group.shortcuts.map((row) => (
-                    <tr key={row.description} className="border-b border-[#1e2235] last:border-0">
+                    <tr key={row.description} className="border-b border-[var(--color-border)]/50 last:border-0">
                       <td className="py-2 pr-4 w-40">
                         <span className="flex items-center gap-1">
                           {row.keys.map((k, i) => (
                             <span key={i} className="flex items-center gap-1">
-                              <kbd className="inline-block rounded border border-[#2a2f45] bg-[#12151f] px-1.5 py-0.5 text-[11px] font-mono text-[#94a3b8]">
+                              <kbd className="inline-block rounded border border-[var(--color-border)] bg-[var(--color-surface-dark)] px-1.5 py-0.5 text-[11px] font-mono text-[var(--color-text-secondary)]">
                                 {k}
                               </kbd>
                               {i < row.keys.length - 1 && (
-                                <span className="text-[#3a3f5a] text-[10px]">then</span>
+                                <span className="text-[var(--color-text-muted)] text-[10px]">then</span>
                               )}
                             </span>
                           ))}
                         </span>
                       </td>
-                      <td className="py-2 text-[#94a3b8] text-xs">{row.description}</td>
+                      <td className="py-2 text-[var(--color-text-secondary)] text-xs">{row.description}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -102,7 +102,7 @@ function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelpProps) 
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-[#2a2f45] text-[10px] text-[#3a3f5a]">
+        <div className="px-5 py-3 border-t border-[var(--color-border)] text-[10px] text-[var(--color-text-muted)]">
           Press <kbd className="font-mono">?</kbd> or <kbd className="font-mono">Esc</kbd> to dismiss
         </div>
       </div>

@@ -347,7 +347,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         )}
 
         {sending && (
-          <div className="flex items-center gap-2 text-xs text-[#64748b] pl-2">
+          <div className="flex items-center gap-2 text-xs text-[var(--color-text-dim)] pl-2">
             <span className="animate-pulse">⟳</span>
             <span data-testid="sending-label">{sendingLabel(sseStatus)}</span>
           </div>
@@ -356,11 +356,11 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       </div>
 
       {/* Input area */}
-      <div className="flex-shrink-0 border-t border-[#2a2f45] bg-[#12151f] p-4">
+      <div className="flex-shrink-0 border-t border-[var(--color-border)] bg-[var(--color-surface-dark)] p-4">
         <div className="flex gap-3 items-end">
           {/* Capability input */}
           <div className="w-44 flex-shrink-0">
-            <label className="block text-[10px] uppercase tracking-widest text-[#3a3f5a] mb-1">
+            <label className="block text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
               Capability
             </label>
             <div className="relative">
@@ -378,8 +378,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 disabled={sending}
                 className="
                   w-full px-3 py-2 rounded-lg text-sm font-mono-data
-                  bg-[#1a1d27] border border-[#2a2f45]
-                  text-[#e2e8f0] placeholder-[#3a3f5a]
+                  bg-[var(--color-surface)] border border-[var(--color-border)]
+                  text-[var(--color-text)] placeholder-[var(--color-text-muted)]
                   focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20
                   disabled:opacity-50 transition-colors
                 "
@@ -395,7 +395,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
           {/* Message input */}
           <div className="flex-1">
-            <label className="block text-[10px] uppercase tracking-widest text-[#3a3f5a] mb-1">
+            <label className="block text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
               Message
             </label>
             <textarea
@@ -411,8 +411,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               rows={2}
               className="
                 w-full px-3 py-2 rounded-lg text-sm resize-none
-                bg-[#1a1d27] border border-[#2a2f45]
-                text-[#e2e8f0] placeholder-[#3a3f5a]
+                bg-[var(--color-surface)] border border-[var(--color-border)]
+                text-[var(--color-text)] placeholder-[var(--color-text-muted)]
                 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20
                 disabled:opacity-50 transition-colors
               "
@@ -442,8 +442,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
             title="Clear chat history"
             className="
               flex-shrink-0 px-3 py-2 rounded-lg text-sm
-              border border-[#2a2f45] text-[#64748b]
-              hover:border-[#3a3f5a] hover:text-[#94a3b8]
+              border border-[var(--color-border)] text-[var(--color-text-dim)]
+              hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-secondary)]
               disabled:opacity-40 disabled:cursor-not-allowed
               transition-colors
             "
@@ -454,12 +454,12 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
         {knownCaps.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
-            <span className="text-[10px] text-[#3a3f5a] self-center">Known caps:</span>
+            <span className="text-[10px] text-[var(--color-text-muted)] self-center">Known caps:</span>
             {knownCaps.map((c) => (
               <button
                 key={c}
                 onClick={() => setCapability(c)}
-                className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[#2a2f45] text-[#64748b] hover:text-[#94a3b8] hover:bg-[#3a3f5a] transition-colors border border-[#3a3f5a]"
+                className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-border-strong)] transition-colors border border-[var(--color-border-strong)]"
               >
                 {c}
               </button>
@@ -485,7 +485,7 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
   if (isSystem) {
     return (
       <div className="flex justify-center">
-        <span className="text-xs text-[#3a3f5a] bg-[#1a1d27] border border-[#2a2f45] rounded-full px-3 py-1">
+        <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-3 py-1">
           {message.content}
         </span>
       </div>
@@ -497,9 +497,9 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
       <div className="flex justify-end">
         <div className="max-w-xl">
           <div className="rounded-2xl rounded-tr-sm bg-emerald-500/15 border border-emerald-500/25 px-4 py-2.5">
-            <p className="text-sm text-[#e2e8f0]">{message.content}</p>
+            <p className="text-sm text-[var(--color-text)]">{message.content}</p>
           </div>
-          <p className="text-[10px] text-[#3a3f5a] mt-1 text-right font-mono-data">
+          <p className="text-[10px] text-[var(--color-text-muted)] mt-1 text-right font-mono-data">
             {message.timestamp.toLocaleTimeString()}
           </p>
         </div>
@@ -513,9 +513,9 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
         <div className="max-w-xl">
           <div className="rounded-2xl rounded-tl-sm bg-red-500/10 border border-red-500/25 px-4 py-2.5">
             <p className="text-xs text-red-400 font-medium mb-1">Error</p>
-            <p className="text-sm text-[#e2e8f0]">{message.content}</p>
+            <p className="text-sm text-[var(--color-text)]">{message.content}</p>
           </div>
-          <p className="text-[10px] text-[#3a3f5a] mt-1 font-mono-data">
+          <p className="text-[10px] text-[var(--color-text-muted)] mt-1 font-mono-data">
             {message.timestamp.toLocaleTimeString()}
           </p>
         </div>
@@ -527,20 +527,20 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
     return (
       <div className="flex justify-start">
         <div className="max-w-2xl w-full">
-          <div className="rounded-2xl rounded-tl-sm bg-[#1a1d27] border border-[#2a2f45] px-4 py-3">
+          <div className="rounded-2xl rounded-tl-sm bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-3">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[10px] uppercase tracking-widest font-semibold text-emerald-400">
                 Result
               </span>
               {message.task_id && (
-                <span className="text-[10px] font-mono-data text-[#3a3f5a]">{message.task_id}</span>
+                <span className="text-[10px] font-mono-data text-[var(--color-text-muted)]">{message.task_id}</span>
               )}
             </div>
-            <pre className="text-sm text-[#e2e8f0] whitespace-pre-wrap break-words font-mono-data">
+            <pre className="text-sm text-[var(--color-text)] whitespace-pre-wrap break-words font-mono-data">
               {message.content}
             </pre>
           </div>
-          <p className="text-[10px] text-[#3a3f5a] mt-1 font-mono-data">
+          <p className="text-[10px] text-[var(--color-text-muted)] mt-1 font-mono-data">
             {message.timestamp.toLocaleTimeString()}
           </p>
         </div>

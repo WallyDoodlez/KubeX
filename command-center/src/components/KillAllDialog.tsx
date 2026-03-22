@@ -55,7 +55,7 @@ export default function KillAllDialog({
       />
 
       {/* Dialog panel */}
-      <div className="relative z-10 w-full max-w-md mx-4 bg-[#12151f] border border-red-500/40 rounded-xl shadow-2xl p-6">
+      <div className="relative z-10 w-full max-w-md mx-4 bg-[var(--color-surface-dark)] border border-red-500/40 rounded-xl shadow-2xl p-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center text-lg">
@@ -65,7 +65,7 @@ export default function KillAllDialog({
             <h2 id="kill-all-title" className="text-base font-semibold text-red-400">
               Kill All Kubexes
             </h2>
-            <p className="text-xs text-[#64748b]">
+            <p className="text-xs text-[var(--color-text-dim)]">
               {kubexCount !== undefined
                 ? `This will immediately stop ${kubexCount} running kubex${kubexCount !== 1 ? 'es' : ''}.`
                 : 'This will immediately stop all running kubexes.'}
@@ -83,7 +83,7 @@ export default function KillAllDialog({
 
         {/* Typed confirmation */}
         <div className="mb-5">
-          <label htmlFor="kill-all-input" className="block text-xs text-[#64748b] mb-1.5">
+          <label htmlFor="kill-all-input" className="block text-xs text-[var(--color-text-dim)] mb-1.5">
             Type <span className="font-mono font-bold text-red-400">{CONFIRMATION_PHRASE}</span> to confirm:
           </label>
           <input
@@ -95,7 +95,7 @@ export default function KillAllDialog({
             onKeyDown={(e) => { if (e.key === 'Enter' && confirmed && !isLoading) onConfirm(); }}
             placeholder={CONFIRMATION_PHRASE}
             autoComplete="off"
-            className="w-full px-3 py-2 bg-[#0f1117] border border-[#2a2f45] rounded-lg text-sm font-mono text-[#e2e8f0] placeholder-[#3a3f5a] focus:outline-none focus:border-red-500/60 transition-colors"
+            className="w-full px-3 py-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg text-sm font-mono text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-red-500/60 transition-colors"
           />
         </div>
 
@@ -103,7 +103,7 @@ export default function KillAllDialog({
         <div className="flex items-center justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-[#64748b] hover:text-[#94a3b8] transition-colors"
+            className="px-4 py-2 text-sm text-[var(--color-text-dim)] hover:text-[var(--color-text-secondary)] transition-colors"
           >
             Cancel
           </button>

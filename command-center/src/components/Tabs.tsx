@@ -36,7 +36,7 @@ export default function Tabs({ tabs, activeTab, onTabChange, children }: TabsPro
   return (
     <div>
       {/* Tab list */}
-      <div role="tablist" className="flex border-b border-[#2a2f45] mb-4">
+      <div role="tablist" className="flex border-b border-[var(--color-border)] mb-4">
         {tabs.map((tab, idx) => {
           const isActive = tab.id === activeTab;
           return (
@@ -54,7 +54,7 @@ export default function Tabs({ tabs, activeTab, onTabChange, children }: TabsPro
                 px-4 py-2.5 text-sm font-medium transition-colors relative
                 ${isActive
                   ? 'text-emerald-400'
-                  : 'text-[#64748b] hover:text-[#94a3b8]'
+                  : 'text-[var(--color-text-dim)] hover:text-[var(--color-text-secondary)]'
                 }
               `}
             >

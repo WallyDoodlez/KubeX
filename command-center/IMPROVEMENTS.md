@@ -173,6 +173,14 @@
   - [x] Verify: npm run build clean + npx playwright test passes (184/184)
   - [x] Commit
 
+- [x] **Iteration 17: CSS custom properties for theme tokens**
+  - [x] Define CSS custom properties in index.css under `:root`
+  - [x] Map all recurring hex values to semantic variable names
+  - [x] Update tailwind.config.js to reference CSS variables for kubex color palette
+  - [x] Replace hardcoded hex values across ALL components with `var(--name)` references
+  - [x] Build: npm run build
+  - [x] Test: npx playwright test — 184/184 passed
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays

@@ -187,7 +187,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             {agents.length > AGENT_DISPLAY_LIMIT && (
               <button
                 onClick={() => onNavigate('agents')}
-                className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-4 flex items-center justify-center text-sm text-emerald-400 hover:text-emerald-300 hover:border-[#3a3f5a] transition-colors"
+                className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-4 flex items-center justify-center text-sm text-emerald-400 hover:text-emerald-300 hover:border-[var(--color-border-strong)] transition-colors"
               >
                 +{agents.length - AGENT_DISPLAY_LIMIT} more →
               </button>
@@ -244,11 +244,11 @@ function StatCard({
 
   return (
     <div
-      className={`rounded-xl border border-[#2a2f45] bg-[#1a1d27] p-4 ${onClick ? 'cursor-pointer hover:border-[#3a3f5a] transition-colors' : ''}`}
+      className={`rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 ${onClick ? 'cursor-pointer hover:border-[var(--color-border-strong)] transition-colors' : ''}`}
       onClick={onClick}
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-[#64748b] font-medium uppercase tracking-wide">{label}</span>
+        <span className="text-xs text-[var(--color-text-dim)] font-medium uppercase tracking-wide">{label}</span>
         <span className={`text-xs rounded-full p-1 border ${accentColors[accent]}`}>{icon}</span>
       </div>
       <p className={`text-2xl font-bold font-mono-data ${accentColors[accent].split(' ')[0]}`}>
@@ -275,8 +275,8 @@ function SectionHeader({
   return (
     <div className="flex items-center justify-between mb-3">
       <div>
-        <h2 className="text-sm font-semibold text-[#e2e8f0]">{title}</h2>
-        {subtitle && <p className="text-xs text-[#64748b]">{subtitle}</p>}
+        <h2 className="text-sm font-semibold text-[var(--color-text)]">{title}</h2>
+        {subtitle && <p className="text-xs text-[var(--color-text-dim)]">{subtitle}</p>}
       </div>
       {action && (
         <button
@@ -292,9 +292,9 @@ function SectionHeader({
 
 function AgentCard({ agent }: { agent: Agent }) {
   return (
-    <div className="rounded-xl border border-[#2a2f45] bg-[#1a1d27] p-4 hover:border-[#3a3f5a] transition-colors">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:border-[var(--color-border-strong)] transition-colors">
       <div className="flex items-start justify-between mb-2">
-        <p className="font-mono-data text-sm font-semibold text-[#e2e8f0] truncate mr-2">
+        <p className="font-mono-data text-sm font-semibold text-[var(--color-text)] truncate mr-2">
           {agent.agent_id}
         </p>
         <StatusBadge status={agent.status} />
@@ -303,16 +303,15 @@ function AgentCard({ agent }: { agent: Agent }) {
         {agent.capabilities.map((cap) => (
           <span
             key={cap}
-            className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[#2a2f45] text-[#94a3b8] border border-[#3a3f5a]"
+            className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-secondary)] border border-[var(--color-border-strong)]"
           >
             {cap}
           </span>
         ))}
       </div>
-      <p className="text-[10px] text-[#3a3f5a]">
-        boundary: <span className="text-[#64748b]">{agent.boundary}</span>
+      <p className="text-[10px] text-[var(--color-text-muted)]">
+        boundary: <span className="text-[var(--color-text-dim)]">{agent.boundary}</span>
       </p>
     </div>
   );
 }
-

@@ -44,22 +44,22 @@ export default function EmptyState({
       {icon && (
         <div
           aria-hidden="true"
-          className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[#2a2f45] bg-[#12151f] text-2xl text-[#3a3f5a]"
+          className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-dark)] text-2xl text-[var(--color-text-muted)]"
         >
           {icon}
         </div>
       )}
 
-      <p className="text-sm font-semibold text-[#94a3b8]">{title}</p>
+      <p className="text-sm font-semibold text-[var(--color-text-secondary)]">{title}</p>
 
       {description && (
-        <p className="mt-1.5 max-w-xs text-xs text-[#3a3f5a] leading-relaxed">{description}</p>
+        <p className="mt-1.5 max-w-xs text-xs text-[var(--color-text-muted)] leading-relaxed">{description}</p>
       )}
 
       {action && (
         <button
           onClick={action.onClick}
-          className="mt-4 rounded-lg border border-[#2a2f45] bg-[#1a1d27] px-4 py-2 text-xs font-medium text-[#94a3b8] transition-all hover:border-emerald-500/40 hover:text-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1117]"
+          className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-xs font-medium text-[var(--color-text-secondary)] transition-all hover:border-emerald-500/40 hover:text-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)]"
         >
           {action.label}
         </button>

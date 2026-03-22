@@ -26,7 +26,7 @@ export default function TrafficFilterBar({
       <select
         value={filter.status}
         onChange={(e) => onFilterChange({ ...filter, status: e.target.value as ActionStatus | 'all' })}
-        className="bg-[#1a1d27] border border-[#2a2f45] rounded-lg px-2 py-1.5 text-xs text-[#e2e8f0] focus:outline-none focus:border-emerald-500/50"
+        className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--color-text)] focus:outline-none focus:border-emerald-500/50"
       >
         {STATUS_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -37,7 +37,7 @@ export default function TrafficFilterBar({
       <select
         value={filter.agentId}
         onChange={(e) => onFilterChange({ ...filter, agentId: e.target.value })}
-        className="bg-[#1a1d27] border border-[#2a2f45] rounded-lg px-2 py-1.5 text-xs text-[#e2e8f0] focus:outline-none focus:border-emerald-500/50"
+        className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--color-text)] focus:outline-none focus:border-emerald-500/50"
       >
         <option value="">All agents</option>
         {agentIds.map((id) => (
@@ -51,11 +51,11 @@ export default function TrafficFilterBar({
         value={filter.search}
         onChange={(e) => onFilterChange({ ...filter, search: e.target.value })}
         placeholder="Search actions…"
-        className="flex-1 min-w-[150px] bg-[#1a1d27] border border-[#2a2f45] rounded-lg px-2 py-1.5 text-xs text-[#e2e8f0] placeholder-[#3a3f5a] focus:outline-none focus:border-emerald-500/50"
+        className="flex-1 min-w-[150px] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-emerald-500/50"
       />
 
       {/* Count */}
-      <span className="text-xs font-mono-data text-[#64748b]">
+      <span className="text-xs font-mono-data text-[var(--color-text-dim)]">
         {filteredCount === totalCount ? totalCount : `${filteredCount} / ${totalCount}`}
       </span>
 

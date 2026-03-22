@@ -23,20 +23,20 @@ export default function TerminalOutput({ lines, maxHeight = '400px', title = 'Li
   }, [lines]);
 
   const streamColors = {
-    stdout: 'text-[#e2e8f0]',
+    stdout: 'text-[var(--color-text)]',
     stderr: 'text-red-400',
-    system: 'text-[#64748b] italic',
+    system: 'text-[var(--color-text-dim)] italic',
   };
 
   return (
-    <div className="rounded-xl border border-[#2a2f45] bg-[#0a0c10] overflow-hidden">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-terminal)] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[#12151f] border-b border-[#2a2f45]">
+      <div className="flex items-center justify-between px-3 py-2 bg-[var(--color-surface-dark)] border-b border-[var(--color-border)]">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs text-[#64748b] font-mono-data">{title}</span>
+          <span className="text-xs text-[var(--color-text-dim)] font-mono-data">{title}</span>
         </div>
-        <span className="text-[10px] text-[#3a3f5a] font-mono-data">{lines.length} lines</span>
+        <span className="text-[10px] text-[var(--color-text-muted)] font-mono-data">{lines.length} lines</span>
       </div>
 
       {/* Output area */}
@@ -46,12 +46,12 @@ export default function TerminalOutput({ lines, maxHeight = '400px', title = 'Li
         style={{ maxHeight }}
       >
         {lines.length === 0 ? (
-          <span className="text-[#3a3f5a]">Waiting for output…</span>
+          <span className="text-[var(--color-text-muted)]">Waiting for output…</span>
         ) : (
           lines.map((line, i) => (
             <div key={i} className={`${streamColors[line.stream]} whitespace-pre-wrap break-all`}>
               {line.timestamp && (
-                <span className="text-[#3a3f5a] mr-2">[{line.timestamp}]</span>
+                <span className="text-[var(--color-text-muted)] mr-2">[{line.timestamp}]</span>
               )}
               {line.text}
             </div>

@@ -2,6 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme tokens ──────────────────────────────────────────────────── */
+:root {
+  /* Background layers (darkest → lightest) */
+  --color-bg:           #0f1117;   /* app root background              */
+  --color-bg-terminal:  #0a0c10;   /* terminal / code block background */
+  --color-surface-dark: #12151f;   /* sidebar, top-bar, dialog panels  */
+  --color-surface:      #1a1d27;   /* cards, inputs, content areas     */
+  --color-surface-hover:#20243a;   /* row/card hover state             */
+
+  /* Borders */
+  --color-border:       #2a2f45;   /* default border                   */
+  --color-border-strong:#3a3f5a;   /* stronger / secondary border      */
+  --color-border-hover: #3a4055;   /* border on hover                  */
+
+  /* Scrollbar */
+  --color-scrollbar-thumb:      #3a3f5a;
+  --color-scrollbar-thumb-hover:#4a4f6a;
+  --color-scrollbar-track:      #1a1d27;
+
+  /* Text */
+  --color-text:         #e2e8f0;   /* primary text                     */
+  --color-text-secondary:#94a3b8;  /* secondary / subdued text         */
+  --color-text-dim:     #64748b;   /* dim / placeholder text           */
+  --color-text-muted:   #3a3f5a;   /* very faint labels / separators   */
+
+  /* Focus ring offset reference */
+  --color-focus-offset-bg: #0f1117;
+  --color-focus-offset-surface-dark: #12151f;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -14,8 +44,8 @@
   }
 
   body {
-    background-color: #0f1117;
-    color: #e2e8f0;
+    background-color: var(--color-bg);
+    color: var(--color-text);
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -28,16 +58,16 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #1a1d27;
+    background: var(--color-scrollbar-track);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #3a3f5a;
+    background: var(--color-scrollbar-thumb);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #4a4f6a;
+    background: var(--color-scrollbar-thumb-hover);
   }
 
   /* Global focus-visible ring: applied only when using keyboard navigation */
@@ -63,12 +93,12 @@
 
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #3a3f5a #1a1d27;
+    scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
   }
 
   /* Focus-visible utility classes for inline use */
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1117];
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[--color-bg];
   }
 
   .focus-ring-inset {

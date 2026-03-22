@@ -46,8 +46,8 @@ export default function ApprovalQueue() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-sm font-semibold text-[#e2e8f0]">Approval Queue</h2>
-          <p className="text-xs text-[#64748b]">
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">Approval Queue</h2>
+          <p className="text-xs text-[var(--color-text-dim)]">
             {pending.length} pending · {resolved.length} resolved
           </p>
         </div>
@@ -79,8 +79,8 @@ export default function ApprovalQueue() {
           {resolved.length > 0 && (
             <>
               <div className="flex items-center gap-2 mt-6 mb-2">
-                <span className="text-[10px] uppercase tracking-widest text-[#3a3f5a] font-semibold">Resolved</span>
-                <span className="flex-1 h-px bg-[#2a2f45]" />
+                <span className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] font-semibold">Resolved</span>
+                <span className="flex-1 h-px bg-[var(--color-border)]" />
               </div>
               {resolved.map((req) => (
                 <ApprovalCard key={req.id} request={req} resolved />
@@ -127,24 +127,24 @@ const ApprovalCard = memo(function ApprovalCard({
   };
 
   return (
-    <div className={`rounded-r-xl border border-[#2a2f45] border-l-2 ${statusColors[request.status]} bg-[#1a1d27] p-4 ${resolved ? 'opacity-60' : ''}`}>
+    <div className={`rounded-r-xl border border-[var(--color-border)] border-l-2 ${statusColors[request.status]} bg-[var(--color-surface)] p-4 ${resolved ? 'opacity-60' : ''}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono-data text-sm text-[#e2e8f0] truncate">{request.agent_id}</span>
-            <span className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[#2a2f45] text-[#94a3b8] border border-[#3a3f5a]">
+            <span className="font-mono-data text-sm text-[var(--color-text)] truncate">{request.agent_id}</span>
+            <span className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-secondary)] border border-[var(--color-border-strong)]">
               {request.action}
             </span>
           </div>
-          <p className="text-xs text-[#64748b] mb-1">{request.reason}</p>
+          <p className="text-xs text-[var(--color-text-dim)] mb-1">{request.reason}</p>
           {request.capability && (
-            <p className="text-[10px] text-[#3a3f5a]">
-              capability: <span className="font-mono-data text-[#64748b]">{request.capability}</span>
+            <p className="text-[10px] text-[var(--color-text-muted)]">
+              capability: <span className="font-mono-data text-[var(--color-text-dim)]">{request.capability}</span>
             </p>
           )}
           {request.policy_rule && (
-            <p className="text-[10px] text-[#3a3f5a]">
-              policy: <span className="font-mono-data text-[#64748b]">{request.policy_rule}</span>
+            <p className="text-[10px] text-[var(--color-text-muted)]">
+              policy: <span className="font-mono-data text-[var(--color-text-dim)]">{request.policy_rule}</span>
             </p>
           )}
         </div>

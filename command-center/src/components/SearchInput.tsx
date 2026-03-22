@@ -43,21 +43,21 @@ const SearchInput = memo(function SearchInput({ value, onChange, placeholder = '
         placeholder={placeholder}
         className="
           w-full pl-8 pr-8 py-2 rounded-lg text-sm
-          bg-[#1a1d27] border border-[#2a2f45]
-          text-[#e2e8f0] placeholder-[#3a3f5a]
+          bg-[var(--color-surface)] border border-[var(--color-border)]
+          text-[var(--color-text)] placeholder-[var(--color-text-muted)]
           focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20
           transition-colors
         "
       />
       {/* Search icon */}
-      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#3a3f5a] text-sm pointer-events-none">
+      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] text-sm pointer-events-none">
         ⌕
       </span>
       {/* Clear button */}
       {localValue && (
         <button
           onClick={handleClear}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#e2e8f0] text-sm transition-colors"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-dim)] hover:text-[var(--color-text)] text-sm transition-colors"
           aria-label="Clear search"
         >
           ✕

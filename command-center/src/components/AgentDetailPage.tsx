@@ -74,7 +74,7 @@ export default function AgentDetailPage() {
       </button>
 
       <div className="flex items-center gap-3 mb-6">
-        <h2 className="text-lg font-semibold text-[#e2e8f0] font-mono-data">{agent.agent_id}</h2>
+        <h2 className="text-lg font-semibold text-[var(--color-text)] font-mono-data">{agent.agent_id}</h2>
         <StatusBadge status={agent.status} />
       </div>
 
@@ -103,14 +103,14 @@ function OverviewTab({ agent }: { agent: Agent }) {
       </div>
 
       {/* Capabilities */}
-      <div className="rounded-xl border border-[#2a2f45] bg-[#1a1d27] p-4">
-        <p className="text-[10px] uppercase tracking-widest text-[#3a3f5a] mb-2">Capabilities</p>
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-2">Capabilities</p>
         <div className="flex flex-wrap gap-1.5">
           {agent.capabilities.length === 0 ? (
-            <span className="text-xs text-[#64748b]">No capabilities registered</span>
+            <span className="text-xs text-[var(--color-text-dim)]">No capabilities registered</span>
           ) : (
             agent.capabilities.map((cap) => (
-              <span key={cap} className="text-xs font-mono-data px-2 py-1 rounded-lg bg-[#2a2f45] text-[#94a3b8] border border-[#3a3f5a]">
+              <span key={cap} className="text-xs font-mono-data px-2 py-1 rounded-lg bg-[var(--color-border)] text-[var(--color-text-secondary)] border border-[var(--color-border-strong)]">
                 {cap}
               </span>
             ))
@@ -120,9 +120,9 @@ function OverviewTab({ agent }: { agent: Agent }) {
 
       {/* Metadata */}
       {agent.metadata && Object.keys(agent.metadata).length > 0 && (
-        <div className="rounded-xl border border-[#2a2f45] bg-[#1a1d27] p-4">
-          <p className="text-[10px] uppercase tracking-widest text-[#3a3f5a] mb-2">Metadata</p>
-          <pre className="text-xs font-mono-data text-[#94a3b8] bg-[#0f1117] rounded-lg p-3 overflow-x-auto border border-[#2a2f45]">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-2">Metadata</p>
+          <pre className="text-xs font-mono-data text-[var(--color-text-secondary)] bg-[var(--color-bg)] rounded-lg p-3 overflow-x-auto border border-[var(--color-border)]">
             {JSON.stringify(agent.metadata, null, 2)}
           </pre>
         </div>
@@ -134,11 +134,11 @@ function OverviewTab({ agent }: { agent: Agent }) {
 function LiveOutputTab() {
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-8 text-center">
-        <p className="text-sm text-[#64748b]">
+      <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+        <p className="text-sm text-[var(--color-text-dim)]">
           Live task output will appear here when an agent is actively executing a task.
         </p>
-        <p className="text-xs text-[#3a3f5a] mt-2">
+        <p className="text-xs text-[var(--color-text-muted)] mt-2">
           Dispatch a task to this agent via the Orchestrator to see real-time streaming output.
         </p>
       </div>
@@ -148,9 +148,9 @@ function LiveOutputTab() {
 
 function ActionsTab({ agent }: { agent: Agent }) {
   return (
-    <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-8 text-center">
-      <p className="text-sm text-[#64748b]">
-        Action history for <span className="font-mono-data text-[#94a3b8]">{agent.agent_id}</span> will appear here once task tracking is enabled.
+    <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+      <p className="text-sm text-[var(--color-text-dim)]">
+        Action history for <span className="font-mono-data text-[var(--color-text-secondary)]">{agent.agent_id}</span> will appear here once task tracking is enabled.
       </p>
     </div>
   );
@@ -158,9 +158,9 @@ function ActionsTab({ agent }: { agent: Agent }) {
 
 function ConfigTab({ agent }: { agent: Agent }) {
   return (
-    <div className="rounded-xl border border-[#2a2f45] bg-[#1a1d27] p-4">
-      <p className="text-[10px] uppercase tracking-widest text-[#3a3f5a] mb-2">Agent Configuration</p>
-      <pre className="text-xs font-mono-data text-[#94a3b8] bg-[#0f1117] rounded-lg p-3 overflow-x-auto border border-[#2a2f45]">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-2">Agent Configuration</p>
+      <pre className="text-xs font-mono-data text-[var(--color-text-secondary)] bg-[var(--color-bg)] rounded-lg p-3 overflow-x-auto border border-[var(--color-border)]">
         {JSON.stringify({
           agent_id: agent.agent_id,
           status: agent.status,
@@ -176,9 +176,9 @@ function ConfigTab({ agent }: { agent: Agent }) {
 
 function InfoCard({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="rounded-xl border border-[#2a2f45] bg-[#1a1d27] p-3">
-      <p className="text-[10px] uppercase tracking-widest text-[#3a3f5a] mb-1">{label}</p>
-      <p className={`text-sm text-[#e2e8f0] ${mono ? 'font-mono-data' : ''} break-all`}>{value}</p>
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">{label}</p>
+      <p className={`text-sm text-[var(--color-text)] ${mono ? 'font-mono-data' : ''} break-all`}>{value}</p>
     </div>
   );
 }

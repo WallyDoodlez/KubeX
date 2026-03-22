@@ -102,14 +102,14 @@ export default function ContainersPanel() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-sm font-semibold text-[#e2e8f0]">Docker Containers (Kubexes)</h2>
-          <p className="text-xs text-[#64748b]">
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">Docker Containers (Kubexes)</h2>
+          <p className="text-xs text-[var(--color-text-dim)]">
             Managed by Kubex Manager — {subtitle}
           </p>
         </div>
         <button
           onClick={refresh}
-          className="px-3 py-1.5 text-xs rounded-lg border border-[#2a2f45] text-[#94a3b8] hover:border-[#3a3f5a] hover:text-[#e2e8f0] transition-colors"
+          className="px-3 py-1.5 text-xs rounded-lg border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] transition-colors"
         >
           ↻ Refresh
         </button>
@@ -128,7 +128,7 @@ export default function ContainersPanel() {
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           aria-label="Filter by status"
-          className="px-3 py-2 text-xs rounded-lg border border-[#2a2f45] bg-[#12151f] text-[#94a3b8] hover:border-[#3a3f5a] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 focus:ring-offset-[#0f1117] transition-colors"
+          className="px-3 py-2 text-xs rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-dark)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 focus:ring-offset-[var(--color-bg)] transition-colors"
         >
           <option value="all">All statuses</option>
           <option value="running">Running</option>
@@ -163,10 +163,10 @@ export default function ContainersPanel() {
         />
       ) : (
         <>
-          <div className="rounded-xl border border-[#2a2f45] overflow-hidden" role="table">
+          <div className="rounded-xl border border-[var(--color-border)] overflow-hidden" role="table">
             {/* Table header */}
             <div
-              className="grid grid-cols-[2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-2.5 border-b border-[#2a2f45] bg-[#12151f]"
+              className="grid grid-cols-[2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]"
               role="row"
             >
               {[
@@ -178,7 +178,7 @@ export default function ContainersPanel() {
               ].map(({ label, sortKey }) => (
                 <span
                   key={label}
-                  className={`text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a] ${sortKey ? 'cursor-pointer hover:text-[#64748b] select-none' : ''}`}
+                  className={`text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] ${sortKey ? 'cursor-pointer hover:text-[var(--color-text-dim)] select-none' : ''}`}
                   onClick={sortKey ? () => requestSort(sortKey) : undefined}
                   role="columnheader"
                 >
@@ -227,7 +227,7 @@ export default function ContainersPanel() {
 
       {/* Summary footer */}
       {kubexes.length > 0 && (
-        <div className="mt-4 flex items-center gap-4 text-xs text-[#64748b]">
+        <div className="mt-4 flex items-center gap-4 text-xs text-[var(--color-text-dim)]">
           <span className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             {running} running
@@ -266,19 +266,19 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, onKill, onSta
     <div
       className={`
         grid grid-cols-[2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-3 items-center
-        bg-[#1a1d27] hover:bg-[#20243a] transition-colors
-        ${!isLast ? 'border-b border-[#2a2f45]' : ''}
+        bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)] transition-colors
+        ${!isLast ? 'border-b border-[var(--color-border)]' : ''}
       `}
       role="row"
     >
       {/* Kubex ID */}
-      <span className="font-mono-data text-sm text-[#e2e8f0] truncate" title={kubex.kubex_id} role="cell">
+      <span className="font-mono-data text-sm text-[var(--color-text)] truncate" title={kubex.kubex_id} role="cell">
         {kubex.kubex_id}
       </span>
 
       {/* Agent ID */}
-      <span className="font-mono-data text-sm text-[#94a3b8] truncate" title={kubex.agent_id ?? '—'} role="cell">
-        {kubex.agent_id ?? <span className="text-[#3a3f5a]">—</span>}
+      <span className="font-mono-data text-sm text-[var(--color-text-secondary)] truncate" title={kubex.agent_id ?? '—'} role="cell">
+        {kubex.agent_id ?? <span className="text-[var(--color-text-muted)]">—</span>}
       </span>
 
       {/* Status */}
@@ -287,7 +287,7 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, onKill, onSta
       </span>
 
       {/* Image */}
-      <span className="font-mono-data text-xs text-[#64748b] truncate" title={kubex.image ?? '—'} role="cell">
+      <span className="font-mono-data text-xs text-[var(--color-text-dim)] truncate" title={kubex.image ?? '—'} role="cell">
         {kubex.image ?? '—'}
       </span>
 

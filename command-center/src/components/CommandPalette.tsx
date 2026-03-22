@@ -200,11 +200,11 @@ function CommandPalette({ isOpen, onClose, extraCommands = [] }: CommandPaletteP
         aria-modal="true"
         aria-label="Command palette"
         data-testid="command-palette"
-        className="w-full max-w-lg mx-4 rounded-xl border border-[#2a2f45] bg-[#1a1d27] shadow-2xl overflow-hidden"
+        className="w-full max-w-lg mx-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl overflow-hidden"
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2a2f45]">
-          <span aria-hidden="true" className="text-[#64748b] text-sm flex-shrink-0">⌕</span>
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--color-border)]">
+          <span aria-hidden="true" className="text-[var(--color-text-dim)] text-sm flex-shrink-0">⌕</span>
           <input
             ref={inputRef}
             type="text"
@@ -220,11 +220,11 @@ function CommandPalette({ isOpen, onClose, extraCommands = [] }: CommandPaletteP
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             data-testid="command-palette-input"
-            className="flex-1 bg-transparent text-sm text-[#e2e8f0] placeholder-[#3a3f5a] outline-none"
+            className="flex-1 bg-transparent text-sm text-[var(--color-text)] placeholder-[var(--color-text-muted)] outline-none"
           />
           <kbd
             aria-hidden="true"
-            className="flex-shrink-0 text-[10px] font-mono text-[#3a3f5a] border border-[#2a2f45] rounded px-1.5 py-0.5"
+            className="flex-shrink-0 text-[10px] font-mono text-[var(--color-text-muted)] border border-[var(--color-border)] rounded px-1.5 py-0.5"
           >
             esc
           </kbd>
@@ -240,14 +240,14 @@ function CommandPalette({ isOpen, onClose, extraCommands = [] }: CommandPaletteP
           className="max-h-80 overflow-y-auto py-1"
         >
           {filtered.length === 0 ? (
-            <li className="px-4 py-8 text-center text-sm text-[#3a3f5a]" role="option" aria-selected="false">
-              No commands match <strong className="text-[#64748b]">"{query}"</strong>
+            <li className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)]" role="option" aria-selected="false">
+              No commands match <strong className="text-[var(--color-text-dim)]">"{query}"</strong>
             </li>
           ) : (
             Object.entries(grouped).map(([category, items]) => (
               <li key={category} role="presentation">
                 <p
-                  className="px-4 pt-2 pb-1 text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a]"
+                  className="px-4 pt-2 pb-1 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)]"
                   aria-hidden="true"
                 >
                   {category}
@@ -267,7 +267,7 @@ function CommandPalette({ isOpen, onClose, extraCommands = [] }: CommandPaletteP
                           flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors
                           ${isSelected
                             ? 'bg-emerald-500/15 text-emerald-300'
-                            : 'text-[#94a3b8] hover:bg-[#12151f] hover:text-[#e2e8f0]'
+                            : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-dark)] hover:text-[var(--color-text)]'
                           }
                         `}
                         onMouseEnter={() => setSelectedIndex(flatIdx)}
@@ -279,17 +279,17 @@ function CommandPalette({ isOpen, onClose, extraCommands = [] }: CommandPaletteP
                         {item.icon && (
                           <span
                             aria-hidden="true"
-                            className={`text-base w-5 text-center flex-shrink-0 ${isSelected ? 'text-emerald-400' : 'text-[#64748b]'}`}
+                            className={`text-base w-5 text-center flex-shrink-0 ${isSelected ? 'text-emerald-400' : 'text-[var(--color-text-dim)]'}`}
                           >
                             {item.icon}
                           </span>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium leading-none ${isSelected ? 'text-emerald-300' : 'text-[#e2e8f0]'}`}>
+                          <p className={`text-sm font-medium leading-none ${isSelected ? 'text-emerald-300' : 'text-[var(--color-text)]'}`}>
                             {item.label}
                           </p>
                           {item.description && (
-                            <p className="text-xs text-[#64748b] leading-none mt-0.5 truncate">
+                            <p className="text-xs text-[var(--color-text-dim)] leading-none mt-0.5 truncate">
                               {item.description}
                             </p>
                           )}
@@ -297,7 +297,7 @@ function CommandPalette({ isOpen, onClose, extraCommands = [] }: CommandPaletteP
                         {isSelected && (
                           <kbd
                             aria-hidden="true"
-                            className="flex-shrink-0 text-[10px] font-mono text-[#3a3f5a] border border-[#2a2f45] rounded px-1.5 py-0.5"
+                            className="flex-shrink-0 text-[10px] font-mono text-[var(--color-text-muted)] border border-[var(--color-border)] rounded px-1.5 py-0.5"
                           >
                             ↵
                           </kbd>
@@ -314,7 +314,7 @@ function CommandPalette({ isOpen, onClose, extraCommands = [] }: CommandPaletteP
         {/* Footer hint */}
         <div
           aria-hidden="true"
-          className="flex items-center gap-4 px-4 py-2 border-t border-[#2a2f45] text-[10px] text-[#3a3f5a]"
+          className="flex items-center gap-4 px-4 py-2 border-t border-[var(--color-border)] text-[10px] text-[var(--color-text-muted)]"
         >
           <span><kbd className="font-mono">↑↓</kbd> navigate</span>
           <span><kbd className="font-mono">↵</kbd> select</span>

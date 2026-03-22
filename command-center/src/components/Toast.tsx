@@ -31,7 +31,7 @@ function ToastItem({ toast }: { toast: ToastMessage }) {
       role="alert"
       aria-live="polite"
       data-testid="toast"
-      className={`relative flex items-start gap-3 px-4 py-3 rounded-lg border bg-[#12151f] ${styles.border} shadow-xl min-w-[280px] max-w-[380px] overflow-hidden`}
+      className={`relative flex items-start gap-3 px-4 py-3 rounded-lg border bg-[var(--color-surface-dark)] ${styles.border} shadow-xl min-w-[280px] max-w-[380px] overflow-hidden`}
     >
       {/* Progress bar */}
       <div
@@ -43,13 +43,13 @@ function ToastItem({ toast }: { toast: ToastMessage }) {
       <span className={`flex-shrink-0 font-bold text-sm mt-0.5 ${styles.text}`}>{styles.icon}</span>
 
       {/* Message */}
-      <p className="flex-1 text-sm text-[#e2e8f0] leading-snug pr-2">{toast.message}</p>
+      <p className="flex-1 text-sm text-[var(--color-text)] leading-snug pr-2">{toast.message}</p>
 
       {/* Dismiss */}
       <button
         onClick={() => removeToast(toast.id)}
         aria-label="Dismiss notification"
-        className="flex-shrink-0 text-[#3a3f5a] hover:text-[#94a3b8] transition-colors text-xs mt-0.5 leading-none"
+        className="flex-shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors text-xs mt-0.5 leading-none"
       >
         ✕
       </button>

@@ -72,8 +72,8 @@ export default function AuthGate({ children, mode = 'banner' }: AuthGateProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f1117] flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-xl border border-[#2a2f45] bg-[#1a1d27] p-8 shadow-lg">
+    <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-lg">
 
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
@@ -93,17 +93,17 @@ export default function AuthGate({ children, mode = 'banner' }: AuthGateProps) {
             </svg>
           </div>
           <div>
-            <h1 className="text-base font-semibold text-[#e2e8f0]">Manager Token Required</h1>
-            <p className="text-xs text-[#64748b]">KubexClaw Command Center</p>
+            <h1 className="text-base font-semibold text-[var(--color-text)]">Manager Token Required</h1>
+            <p className="text-xs text-[var(--color-text-dim)]">KubexClaw Command Center</p>
           </div>
         </div>
 
         {/* Divider */}
-        <div className="mb-6 h-px bg-[#2a2f45]" />
+        <div className="mb-6 h-px bg-[var(--color-border)]" />
 
         {/* Info message */}
-        <div className="mb-6 rounded-lg border border-[#2a2f45] bg-[#0f1117] px-4 py-3">
-          <p className="text-xs text-[#94a3b8] leading-relaxed">
+        <div className="mb-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+          <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
             A Manager token is required to authenticate with the Kubex Manager API.
             Set <code className="text-emerald-400 font-mono">VITE_MANAGER_TOKEN</code> in your{' '}
             <code className="text-emerald-400 font-mono">.env</code> file to skip this prompt,
@@ -116,7 +116,7 @@ export default function AuthGate({ children, mode = 'banner' }: AuthGateProps) {
           <div className="mb-4">
             <label
               htmlFor="manager-token"
-              className="mb-1.5 block text-[10px] uppercase tracking-widest text-[#3a3f5a]"
+              className="mb-1.5 block text-[10px] uppercase tracking-widest text-[var(--color-text-muted)]"
             >
               Manager Token
             </label>
@@ -133,10 +133,10 @@ export default function AuthGate({ children, mode = 'banner' }: AuthGateProps) {
               autoFocus
               className="
                 w-full rounded-lg border px-3 py-2.5 text-sm font-mono
-                bg-[#0f1117] text-[#e2e8f0] placeholder-[#3a3f5a]
+                bg-[var(--color-bg)] text-[var(--color-text)] placeholder-[var(--color-text-muted)]
                 transition-colors focus:outline-none focus:ring-1
                 focus:ring-emerald-500/20
-                border-[#2a2f45] focus:border-emerald-500/50
+                border-[var(--color-border)] focus:border-emerald-500/50
               "
             />
             {error && (

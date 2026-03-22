@@ -26,7 +26,7 @@ export function SkeletonText({ lines = 1, className = '' }: SkeletonTextProps) {
       {Array.from({ length: lines }).map((_, i) => (
         <div
           key={i}
-          className={`h-3 rounded bg-[#2a2f45] animate-pulse ${
+          className={`h-3 rounded bg-[var(--color-border)] animate-pulse ${
             i === lines - 1 && lines > 1 ? 'w-3/4' : 'w-full'
           }`}
         />
@@ -47,26 +47,26 @@ export function SkeletonCard({ className = '' }: SkeletonCardProps) {
       role="status"
       aria-label="Loading card…"
       aria-busy="true"
-      className={`rounded-xl border border-[#2a2f45] bg-[#12151f] p-4 space-y-3 ${className}`}
+      className={`rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-dark)] p-4 space-y-3 ${className}`}
     >
       {/* Header row */}
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-[#2a2f45] animate-pulse flex-shrink-0" />
+        <div className="w-8 h-8 rounded-lg bg-[var(--color-border)] animate-pulse flex-shrink-0" />
         <div className="flex-1 space-y-1.5">
-          <div className="h-3 bg-[#2a2f45] rounded animate-pulse w-2/5" />
-          <div className="h-2.5 bg-[#2a2f45] rounded animate-pulse w-1/4" />
+          <div className="h-3 bg-[var(--color-border)] rounded animate-pulse w-2/5" />
+          <div className="h-2.5 bg-[var(--color-border)] rounded animate-pulse w-1/4" />
         </div>
       </div>
       {/* Body lines */}
       <div className="space-y-2">
-        <div className="h-2.5 bg-[#2a2f45] rounded animate-pulse w-full" />
-        <div className="h-2.5 bg-[#2a2f45] rounded animate-pulse w-5/6" />
-        <div className="h-2.5 bg-[#2a2f45] rounded animate-pulse w-3/4" />
+        <div className="h-2.5 bg-[var(--color-border)] rounded animate-pulse w-full" />
+        <div className="h-2.5 bg-[var(--color-border)] rounded animate-pulse w-5/6" />
+        <div className="h-2.5 bg-[var(--color-border)] rounded animate-pulse w-3/4" />
       </div>
       {/* Footer */}
       <div className="flex items-center gap-2 pt-1">
-        <div className="h-5 w-16 bg-[#2a2f45] rounded-full animate-pulse" />
-        <div className="h-5 w-20 bg-[#2a2f45] rounded-full animate-pulse" />
+        <div className="h-5 w-16 bg-[var(--color-border)] rounded-full animate-pulse" />
+        <div className="h-5 w-20 bg-[var(--color-border)] rounded-full animate-pulse" />
       </div>
       <span className="sr-only">Loading card…</span>
     </div>
@@ -88,14 +88,14 @@ export function SkeletonTable({ rows = 5, cols = 4, className = '' }: SkeletonTa
       role="status"
       aria-label="Loading table…"
       aria-busy="true"
-      className={`w-full overflow-hidden rounded-xl border border-[#2a2f45] ${className}`}
+      className={`w-full overflow-hidden rounded-xl border border-[var(--color-border)] ${className}`}
     >
       {/* Header row */}
-      <div className="flex items-center gap-4 px-4 py-2.5 border-b border-[#2a2f45] bg-[#12151f]">
+      <div className="flex items-center gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]">
         {Array.from({ length: cols }).map((_, i) => (
           <div
             key={i}
-            className={`h-2.5 bg-[#2a2f45] rounded animate-pulse ${
+            className={`h-2.5 bg-[var(--color-border)] rounded animate-pulse ${
               i === 0 ? 'w-1/4' : i === cols - 1 ? 'w-1/6 ml-auto' : 'w-1/5'
             }`}
           />
@@ -105,13 +105,13 @@ export function SkeletonTable({ rows = 5, cols = 4, className = '' }: SkeletonTa
       {Array.from({ length: rows }).map((_, row) => (
         <div
           key={row}
-          className="flex items-center gap-4 px-4 py-3 border-b border-[#2a2f45]/50 last:border-0"
+          className="flex items-center gap-4 px-4 py-3 border-b border-[var(--color-border)]/50 last:border-0"
         >
           {Array.from({ length: cols }).map((_, col) => (
             <div
               key={col}
               style={{ animationDelay: `${(row * cols + col) * 40}ms` }}
-              className={`h-3 bg-[#2a2f45] rounded animate-pulse ${
+              className={`h-3 bg-[var(--color-border)] rounded animate-pulse ${
                 col === 0 ? 'w-1/4' : col === cols - 1 ? 'w-1/6 ml-auto' : 'w-1/5'
               }`}
             />

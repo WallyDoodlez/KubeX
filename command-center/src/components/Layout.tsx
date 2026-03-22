@@ -161,7 +161,7 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#0f1117' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-bg)' }}>
       {/* ── Skip-to-content link (visible on focus) ─────────────────── */}
       <a
         href="#main-content"
@@ -202,10 +202,10 @@ export default function Layout({ children }: LayoutProps) {
       {/* ── Sidebar ─────────────────────────────────────────────────── */}
       <aside
         aria-label="Application navigation"
-        className="w-56 flex-shrink-0 flex flex-col border-r border-[#2a2f45] bg-[#12151f]"
+        className="w-56 flex-shrink-0 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface-dark)]"
       >
         {/* Brand */}
-        <div className="px-4 py-5 border-b border-[#2a2f45]">
+        <div className="px-4 py-5 border-b border-[var(--color-border)]">
           <div className="flex items-center gap-2.5">
             <div
               aria-hidden="true"
@@ -214,8 +214,8 @@ export default function Layout({ children }: LayoutProps) {
               K
             </div>
             <div>
-              <p className="text-sm font-bold text-[#e2e8f0] leading-none">KubexClaw</p>
-              <p className="text-xs text-[#64748b] leading-none mt-0.5">Command Center</p>
+              <p className="text-sm font-bold text-[var(--color-text)] leading-none">KubexClaw</p>
+              <p className="text-xs text-[var(--color-text-dim)] leading-none mt-0.5">Command Center</p>
             </div>
           </div>
         </div>
@@ -224,7 +224,7 @@ export default function Layout({ children }: LayoutProps) {
         <nav aria-label="Main navigation" className="flex-1 px-2 py-3 overflow-y-auto">
           <p
             id="nav-heading"
-            className="px-2 mb-2 text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a]"
+            className="px-2 mb-2 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)]"
             aria-hidden="true"
           >
             Navigation
@@ -241,10 +241,10 @@ export default function Layout({ children }: LayoutProps) {
                     className={`
                       w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
-                      focus-visible:ring-offset-1 focus-visible:ring-offset-[#12151f]
+                      focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)]
                       ${active
                         ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
-                        : 'text-[#64748b] hover:bg-[#1a1d27] hover:text-[#94a3b8] border border-transparent'
+                        : 'text-[var(--color-text-dim)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-secondary)] border border-transparent'
                       }
                     `}
                   >
@@ -258,7 +258,7 @@ export default function Layout({ children }: LayoutProps) {
                       <p className={`text-sm font-medium leading-none ${active ? 'text-emerald-300' : ''}`}>
                         {item.label}
                       </p>
-                      <p className="text-[10px] text-[#3a3f5a] leading-none mt-0.5 truncate">
+                      <p className="text-[10px] text-[var(--color-text-muted)] leading-none mt-0.5 truncate">
                         {item.description}
                       </p>
                     </div>
@@ -281,8 +281,8 @@ export default function Layout({ children }: LayoutProps) {
         </nav>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-[#2a2f45]">
-          <p className="text-[10px] text-[#3a3f5a] font-mono-data">v1.1 · stem cell kubex</p>
+        <div className="px-4 py-3 border-t border-[var(--color-border)]">
+          <p className="text-[10px] text-[var(--color-text-muted)] font-mono-data">v1.1 · stem cell kubex</p>
         </div>
       </aside>
 
@@ -291,13 +291,13 @@ export default function Layout({ children }: LayoutProps) {
         {/* Top bar */}
         <header
           role="banner"
-          className="flex-shrink-0 h-12 border-b border-[#2a2f45] bg-[#12151f] flex items-center justify-between px-6"
+          className="flex-shrink-0 h-12 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)] flex items-center justify-between px-6"
         >
           <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="text-[#64748b] text-sm">{currentItem.icon}</span>
-            <h1 className="text-sm font-semibold text-[#e2e8f0]">{currentItem.label}</h1>
-            <span aria-hidden="true" className="text-[#3a3f5a] text-sm">/</span>
-            <span className="text-xs text-[#64748b]">{currentItem.description}</span>
+            <span aria-hidden="true" className="text-[var(--color-text-dim)] text-sm">{currentItem.icon}</span>
+            <h1 className="text-sm font-semibold text-[var(--color-text)]">{currentItem.label}</h1>
+            <span aria-hidden="true" className="text-[var(--color-text-muted)] text-sm">/</span>
+            <span className="text-xs text-[var(--color-text-dim)]">{currentItem.description}</span>
           </div>
           <div className="flex items-center gap-3" role="toolbar" aria-label="Global controls">
             {/* Command palette trigger */}
@@ -306,11 +306,11 @@ export default function Layout({ children }: LayoutProps) {
               data-testid="command-palette-trigger"
               aria-label="Open command palette (Ctrl+K)"
               aria-keyshortcuts="Control+k"
-              className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#64748b] border border-[#2a2f45] rounded-lg hover:border-[#3a4055] hover:text-[#94a3b8] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#12151f]"
+              className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 text-xs text-[var(--color-text-dim)] border border-[var(--color-border)] rounded-lg hover:border-[var(--color-border-hover)] hover:text-[var(--color-text-secondary)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)]"
             >
               <span aria-hidden="true" className="text-sm">⌕</span>
               <span>Search</span>
-              <kbd aria-hidden="true" className="ml-1 text-[10px] font-mono border border-[#2a2f45] rounded px-1">⌘K</kbd>
+              <kbd aria-hidden="true" className="ml-1 text-[10px] font-mono border border-[var(--color-border)] rounded px-1">⌘K</kbd>
             </button>
 
             {/* Keyboard shortcuts help */}
@@ -319,12 +319,12 @@ export default function Layout({ children }: LayoutProps) {
               data-testid="shortcuts-help-trigger"
               aria-label="Show keyboard shortcuts (?)"
               aria-keyshortcuts="?"
-              className="hidden sm:flex w-7 h-7 items-center justify-center text-xs font-semibold text-[#64748b] border border-[#2a2f45] rounded-lg hover:border-[#3a4055] hover:text-[#94a3b8] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#12151f]"
+              className="hidden sm:flex w-7 h-7 items-center justify-center text-xs font-semibold text-[var(--color-text-dim)] border border-[var(--color-border)] rounded-lg hover:border-[var(--color-border-hover)] hover:text-[var(--color-text-secondary)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)]"
             >
               ?
             </button>
 
-            <div aria-hidden="true" className="hidden sm:block w-px h-4 bg-[#2a2f45]" />
+            <div aria-hidden="true" className="hidden sm:block w-px h-4 bg-[var(--color-border)]" />
 
             {/* Emergency Controls */}
             <QuickActionsMenu />
@@ -332,17 +332,17 @@ export default function Layout({ children }: LayoutProps) {
               onClick={openKillAllDialog}
               data-testid="kill-all-button"
               aria-label="Kill all kubexes"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 hover:border-red-500/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#12151f]"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 hover:border-red-500/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)]"
             >
               <span aria-hidden="true">⏹</span>
               <span>Kill All</span>
             </button>
 
-            <div aria-hidden="true" className="w-px h-4 bg-[#2a2f45]" />
+            <div aria-hidden="true" className="w-px h-4 bg-[var(--color-border)]" />
 
             <time
               dateTime={new Date().toISOString().split('T')[0]}
-              className="text-xs text-[#3a3f5a] font-mono-data"
+              className="text-xs text-[var(--color-text-muted)] font-mono-data"
             >
               {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </time>

@@ -64,12 +64,12 @@ export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-sm font-semibold text-[#e2e8f0]">Traffic / Actions Log</h2>
-          <p className="text-xs text-[#64748b]">
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">Traffic / Actions Log</h2>
+          <p className="text-xs text-[var(--color-text-dim)]">
             Actions dispatched through the Gateway — {entries.length} entries
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-[#64748b]">
+        <div className="flex items-center gap-2 text-xs text-[var(--color-text-dim)]">
           <LegendDot color="emerald" label="allowed" />
           <LegendDot color="red" label="denied" />
           <LegendDot color="amber" label="escalated" />
@@ -90,8 +90,8 @@ export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
       {/* Content */}
       {filteredEntries.length === 0 ? (
         entries.length === 0 ? <EmptyTraffic /> : (
-          <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-8 text-center">
-            <p className="text-sm text-[#64748b]">No entries match the current filters.</p>
+          <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+            <p className="text-sm text-[var(--color-text-dim)]">No entries match the current filters.</p>
           </div>
         )
       ) : (
@@ -130,14 +130,14 @@ const TrafficRow = memo(function TrafficRow({ entry }: { entry: TrafficEntry }) 
   return (
     <div
       className={`
-        rounded-r-xl border border-[#2a2f45] border-l-2 ${rowBorder}
-        bg-[#1a1d27] px-4 py-3
+        rounded-r-xl border border-[var(--color-border)] border-l-2 ${rowBorder}
+        bg-[var(--color-surface)] px-4 py-3
         grid grid-cols-[160px_140px_120px_1fr_120px_140px] gap-3 items-center
-        hover:bg-[#20243a] transition-colors text-xs
+        hover:bg-[var(--color-surface-hover)] transition-colors text-xs
       `}
     >
       {/* Timestamp */}
-      <span className="font-mono-data text-[#64748b]">
+      <span className="font-mono-data text-[var(--color-text-dim)]">
         {entry.timestamp.toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit',
@@ -147,17 +147,17 @@ const TrafficRow = memo(function TrafficRow({ entry }: { entry: TrafficEntry }) 
       </span>
 
       {/* Agent ID */}
-      <span className="font-mono-data text-[#94a3b8] truncate" title={entry.agent_id}>
+      <span className="font-mono-data text-[var(--color-text-secondary)] truncate" title={entry.agent_id}>
         {entry.agent_id}
       </span>
 
       {/* Action */}
-      <span className="font-mono-data text-[#e2e8f0] truncate" title={entry.action}>
+      <span className="font-mono-data text-[var(--color-text)] truncate" title={entry.action}>
         {entry.action}
       </span>
 
       {/* Capability / target */}
-      <span className="text-[#64748b] truncate" title={entry.capability ?? entry.target ?? '—'}>
+      <span className="text-[var(--color-text-dim)] truncate" title={entry.capability ?? entry.target ?? '—'}>
         {entry.capability ?? entry.target ?? '—'}
       </span>
 
@@ -170,7 +170,7 @@ const TrafficRow = memo(function TrafficRow({ entry }: { entry: TrafficEntry }) 
 
       {/* Task ID / policy */}
       <span
-        className="font-mono-data text-[#3a3f5a] truncate"
+        className="font-mono-data text-[var(--color-text-muted)] truncate"
         title={entry.task_id ?? entry.policy_rule ?? '—'}
       >
         {entry.task_id ?? entry.policy_rule ?? '—'}
@@ -196,10 +196,10 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 
 function EmptyTraffic() {
   return (
-    <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-12 text-center">
+    <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-12 text-center">
       <p className="text-3xl mb-3">⇌</p>
-      <p className="text-sm font-medium text-[#94a3b8]">No traffic yet</p>
-      <p className="text-xs text-[#64748b] mt-1">
+      <p className="text-sm font-medium text-[var(--color-text-secondary)]">No traffic yet</p>
+      <p className="text-xs text-[var(--color-text-dim)] mt-1">
         Dispatch tasks via the Orchestrator tab to see entries here.
       </p>
     </div>

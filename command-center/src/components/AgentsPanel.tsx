@@ -79,14 +79,14 @@ export default function AgentsPanel() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-sm font-semibold text-[#e2e8f0]">Registered Agents</h2>
-          <p className="text-xs text-[#64748b]">
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">Registered Agents</h2>
+          <p className="text-xs text-[var(--color-text-dim)]">
             {loading ? 'Loading…' : query ? `${searchedAgents.length} of ${agents.length} agents` : `${agents.length} agents in registry`}
           </p>
         </div>
         <button
           onClick={refresh}
-          className="px-3 py-1.5 text-xs rounded-lg border border-[#2a2f45] text-[#94a3b8] hover:border-[#3a3f5a] hover:text-[#e2e8f0] transition-colors"
+          className="px-3 py-1.5 text-xs rounded-lg border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] transition-colors"
         >
           ↻ Refresh
         </button>
@@ -117,9 +117,9 @@ export default function AgentsPanel() {
         />
       ) : (
         <>
-          <div className="rounded-xl border border-[#2a2f45] overflow-hidden" role="table">
+          <div className="rounded-xl border border-[var(--color-border)] overflow-hidden" role="table">
             {/* Table header */}
-            <div className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-[#2a2f45] bg-[#12151f]" role="row">
+            <div className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]" role="row">
               {[
                 { label: 'Agent ID', sortKey: 'agent_id' as const },
                 { label: 'Capabilities', sortKey: null },
@@ -129,7 +129,7 @@ export default function AgentsPanel() {
               ].map(({ label, sortKey }) => (
                 <span
                   key={label || 'actions'}
-                  className={`text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a] ${sortKey ? 'cursor-pointer hover:text-[#64748b] select-none' : ''}`}
+                  className={`text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] ${sortKey ? 'cursor-pointer hover:text-[var(--color-text-dim)] select-none' : ''}`}
                   onClick={sortKey ? () => requestSort(sortKey) : undefined}
                   role="columnheader"
                 >
@@ -203,10 +203,10 @@ interface AgentRowProps {
 // rows that are not in the "active" slot (e.g., expanded row changes, others stay stable).
 const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, onNavigateToDetail, deregistering }: AgentRowProps) {
   return (
-    <div className={`${!isLast ? 'border-b border-[#2a2f45]' : ''}`}>
+    <div className={`${!isLast ? 'border-b border-[var(--color-border)]' : ''}`}>
       {/* Main row */}
       <div
-        className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center bg-[#1a1d27] hover:bg-[#20243a] cursor-pointer transition-colors"
+        className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors"
         onClick={onToggle}
         role="row"
       >
@@ -214,7 +214,7 @@ const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onD
         <div className="flex items-center gap-2 min-w-0">
           <span className={`text-xs transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
           <span
-            className="font-mono-data text-sm text-[#e2e8f0] truncate hover:text-emerald-400 transition-colors"
+            className="font-mono-data text-sm text-[var(--color-text)] truncate hover:text-emerald-400 transition-colors"
             onClick={(e) => { e.stopPropagation(); onNavigateToDetail(); }}
             role="link"
             tabIndex={0}
@@ -228,7 +228,7 @@ const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onD
           {agent.capabilities.map((cap) => (
             <span
               key={cap}
-              className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[#2a2f45] text-[#94a3b8] border border-[#3a3f5a]"
+              className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-secondary)] border border-[var(--color-border-strong)]"
             >
               {cap}
             </span>
@@ -239,7 +239,7 @@ const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onD
         <StatusBadge status={agent.status} />
 
         {/* Boundary */}
-        <span className="text-xs font-mono-data text-[#64748b]">{agent.boundary}</span>
+        <span className="text-xs font-mono-data text-[var(--color-text-dim)]">{agent.boundary}</span>
 
         {/* Actions */}
         <button
@@ -256,7 +256,7 @@ const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onD
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="bg-[#12151f] border-t border-[#2a2f45] px-6 py-4">
+        <div className="bg-[var(--color-surface-dark)] border-t border-[var(--color-border)] px-6 py-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
             <DetailField label="agent_id" value={agent.agent_id} mono />
             <DetailField label="status" value={agent.status} />
@@ -273,8 +273,8 @@ const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onD
 
           {agent.metadata && Object.keys(agent.metadata).length > 0 && (
             <div className="mt-4">
-              <p className="text-[10px] uppercase tracking-widest text-[#3a3f5a] mb-2">Metadata</p>
-              <pre className="text-xs font-mono-data text-[#94a3b8] bg-[#0f1117] rounded-lg p-3 overflow-x-auto border border-[#2a2f45]">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-2">Metadata</p>
+              <pre className="text-xs font-mono-data text-[var(--color-text-secondary)] bg-[var(--color-bg)] rounded-lg p-3 overflow-x-auto border border-[var(--color-border)]">
                 {JSON.stringify(agent.metadata, null, 2)}
               </pre>
             </div>
@@ -288,8 +288,8 @@ const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onD
 function DetailField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-widest text-[#3a3f5a] mb-0.5">{label}</p>
-      <p className={`text-[#94a3b8] ${mono ? 'font-mono-data' : ''} break-all`}>{value}</p>
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-0.5">{label}</p>
+      <p className={`text-[var(--color-text-secondary)] ${mono ? 'font-mono-data' : ''} break-all`}>{value}</p>
     </div>
   );
 }

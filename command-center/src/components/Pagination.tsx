@@ -25,7 +25,7 @@ const Pagination = memo(function Pagination({
   if (totalItems === 0) return null;
 
   return (
-    <div className="flex items-center justify-between mt-4 text-xs text-[#64748b]">
+    <div className="flex items-center justify-between mt-4 text-xs text-[var(--color-text-dim)]">
       {/* Item range */}
       <span className="font-mono-data">
         {startIndex + 1}–{endIndex} of {totalItems}
@@ -39,7 +39,7 @@ const Pagination = memo(function Pagination({
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="bg-[#1a1d27] border border-[#2a2f45] rounded px-1.5 py-0.5 text-[#e2e8f0] text-xs focus:outline-none focus:border-emerald-500/50"
+            className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-0.5 text-[var(--color-text)] text-xs focus:outline-none focus:border-emerald-500/50"
           >
             {PAGE_SIZES.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -57,7 +57,7 @@ const Pagination = memo(function Pagination({
           <button
             onClick={onPrevPage}
             disabled={!hasPrev}
-            className="px-2 py-1 rounded border border-[#2a2f45] text-[#94a3b8] hover:border-[#3a3f5a] hover:text-[#e2e8f0] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             aria-label="Previous page"
           >
             ←
@@ -65,7 +65,7 @@ const Pagination = memo(function Pagination({
           <button
             onClick={onNextPage}
             disabled={!hasNext}
-            className="px-2 py-1 rounded border border-[#2a2f45] text-[#94a3b8] hover:border-[#3a3f5a] hover:text-[#e2e8f0] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             aria-label="Next page"
           >
             →
