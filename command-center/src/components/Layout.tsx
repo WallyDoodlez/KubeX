@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
@@ -34,12 +34,52 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+/** Returns true when the viewport matches the given min-width media query. */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia(query).matches;
+  });
+
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    setMatches(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [query]);
+
+  return matches;
+}
+
 export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { pendingApprovalCount } = useAppContext();
   const { addToast } = useToast();
   const { isConfigured, setToken } = useAuth();
+
+  // ── Responsive sidebar state ────────────────────────────────────────
+  const isMd = useMediaQuery('(min-width: 768px)');
+  // On mobile: sidebar starts closed. On ≥ md: sidebar always open.
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Close mobile sidebar when viewport grows to ≥ 768px
+  useEffect(() => {
+    if (isMd) setMobileSidebarOpen(false);
+  }, [isMd]);
+
+  // Close mobile sidebar when route changes (user tapped a nav link)
+  const prevPath = useRef(location.pathname);
+  useEffect(() => {
+    if (location.pathname !== prevPath.current) {
+      prevPath.current = location.pathname;
+      setMobileSidebarOpen(false);
+    }
+  }, [location.pathname]);
+
+  const closeMobileSidebar = useCallback(() => setMobileSidebarOpen(false), []);
+  const toggleMobileSidebar = useCallback(() => setMobileSidebarOpen((o) => !o), []);
 
   const [killAllOpen, setKillAllOpen] = useState(false);
   const [killAllLoading, setKillAllLoading] = useState(false);
@@ -85,6 +125,7 @@ export default function Layout({ children }: LayoutProps) {
         if (commandPaletteOpen) { setCommandPaletteOpen(false); return; }
         if (shortcutsHelpOpen) { setShortcutsHelpOpen(false); return; }
         if (killAllOpen) { setKillAllOpen(false); return; }
+        if (mobileSidebarOpen) { setMobileSidebarOpen(false); return; }
       },
     },
     // G then D/A/T/C/K/P — go to page (two-key sequence)
@@ -175,6 +216,101 @@ export default function Layout({ children }: LayoutProps) {
     }
   }
 
+  // ── Sidebar content (shared between mobile/desktop renders) ─────────
+  const sidebarContent = (
+    <>
+      {/* Brand */}
+      <div className="px-4 py-5 border-b border-[var(--color-border)] flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div
+            aria-hidden="true"
+            className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+          >
+            K
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[var(--color-text)] leading-none">KubexClaw</p>
+            <p className="text-xs text-[var(--color-text-dim)] leading-none mt-0.5">Command Center</p>
+          </div>
+        </div>
+        {/* Close button — mobile only */}
+        <button
+          onClick={closeMobileSidebar}
+          data-testid="sidebar-close"
+          aria-label="Close navigation"
+          className="md:hidden flex items-center justify-center w-7 h-7 text-[var(--color-text-dim)] hover:text-[var(--color-text)] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+        >
+          <span aria-hidden="true" className="text-base">✕</span>
+        </button>
+      </div>
+
+      {/* Nav */}
+      <nav aria-label="Main navigation" className="flex-1 px-2 py-3 overflow-y-auto">
+        <p
+          id="nav-heading"
+          className="px-2 mb-2 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)]"
+          aria-hidden="true"
+        >
+          Navigation
+        </p>
+        <ul role="list" aria-labelledby="nav-heading" className="space-y-0.5">
+          {NAV_ITEMS.map((item) => {
+            const active = location.pathname === item.path;
+            return (
+              <li key={item.path}>
+                <button
+                  onClick={() => navigate(item.path)}
+                  aria-label={`${item.label} — ${item.description}`}
+                  aria-current={active ? 'page' : undefined}
+                  className={`
+                    w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
+                    focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)]
+                    ${active
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                      : 'text-[var(--color-text-dim)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-secondary)] border border-transparent'
+                    }
+                  `}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`text-base w-5 text-center flex-shrink-0 ${active ? 'text-emerald-400' : ''}`}
+                  >
+                    {item.icon}
+                  </span>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-medium leading-none ${active ? 'text-emerald-300' : ''}`}>
+                      {item.label}
+                    </p>
+                    <p className="text-[10px] text-[var(--color-text-muted)] leading-none mt-0.5 truncate">
+                      {item.description}
+                    </p>
+                  </div>
+                  {item.label === 'Approvals' && pendingApprovalCount > 0 && !active && (
+                    <span
+                      aria-label={`${pendingApprovalCount} pending approvals`}
+                      className="ml-auto text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-1.5 py-0.5 flex-shrink-0"
+                    >
+                      {pendingApprovalCount}
+                    </span>
+                  )}
+                  {active && (
+                    <span aria-hidden="true" className="ml-auto w-1 h-4 rounded-full bg-emerald-400 flex-shrink-0" />
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-[var(--color-border)]">
+        <p className="text-[10px] text-[var(--color-text-muted)] font-mono-data">v1.1 · stem cell kubex</p>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-bg)' }}>
       {/* ── Skip-to-content link (visible on focus) ─────────────────── */}
@@ -214,101 +350,65 @@ export default function Layout({ children }: LayoutProps) {
         isLoading={killAllLoading}
       />
 
-      {/* ── Sidebar ─────────────────────────────────────────────────── */}
+      {/* ── Mobile: overlay backdrop ─────────────────────────────────── */}
+      {mobileSidebarOpen && (
+        <div
+          data-testid="sidebar-backdrop"
+          aria-hidden="true"
+          onClick={closeMobileSidebar}
+          className="fixed inset-0 z-30 bg-black/60 md:hidden"
+          style={{ backdropFilter: 'blur(2px)' }}
+        />
+      )}
+
+      {/* ── Sidebar (desktop: static; mobile: slide-over) ────────────── */}
       <aside
         aria-label="Application navigation"
-        className="w-56 flex-shrink-0 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface-dark)]"
+        data-testid="sidebar"
+        data-sidebar-open={mobileSidebarOpen ? 'true' : 'false'}
+        className={[
+          // Layout & sizing
+          'w-56 flex-shrink-0 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface-dark)]',
+          // Desktop (≥ md): always in flow, no z-index needed
+          'md:relative md:translate-x-0 md:z-auto',
+          // Mobile (< md): fixed slide-over panel
+          'fixed inset-y-0 left-0 z-40',
+          // Smooth slide animation
+          'transition-transform duration-300 ease-in-out',
+          // Mobile visibility: translate off-screen when closed
+          !isMd && !mobileSidebarOpen ? '-translate-x-full' : 'translate-x-0',
+        ].join(' ')}
       >
-        {/* Brand */}
-        <div className="px-4 py-5 border-b border-[var(--color-border)]">
-          <div className="flex items-center gap-2.5">
-            <div
-              aria-hidden="true"
-              className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-sm font-bold text-white"
-            >
-              K
-            </div>
-            <div>
-              <p className="text-sm font-bold text-[var(--color-text)] leading-none">KubexClaw</p>
-              <p className="text-xs text-[var(--color-text-dim)] leading-none mt-0.5">Command Center</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Nav */}
-        <nav aria-label="Main navigation" className="flex-1 px-2 py-3 overflow-y-auto">
-          <p
-            id="nav-heading"
-            className="px-2 mb-2 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)]"
-            aria-hidden="true"
-          >
-            Navigation
-          </p>
-          <ul role="list" aria-labelledby="nav-heading" className="space-y-0.5">
-            {NAV_ITEMS.map((item) => {
-              const active = location.pathname === item.path;
-              return (
-                <li key={item.path}>
-                  <button
-                    onClick={() => navigate(item.path)}
-                    aria-label={`${item.label} — ${item.description}`}
-                    aria-current={active ? 'page' : undefined}
-                    className={`
-                      w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all
-                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
-                      focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)]
-                      ${active
-                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
-                        : 'text-[var(--color-text-dim)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-secondary)] border border-transparent'
-                      }
-                    `}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`text-base w-5 text-center flex-shrink-0 ${active ? 'text-emerald-400' : ''}`}
-                    >
-                      {item.icon}
-                    </span>
-                    <div className="min-w-0">
-                      <p className={`text-sm font-medium leading-none ${active ? 'text-emerald-300' : ''}`}>
-                        {item.label}
-                      </p>
-                      <p className="text-[10px] text-[var(--color-text-muted)] leading-none mt-0.5 truncate">
-                        {item.description}
-                      </p>
-                    </div>
-                    {item.label === 'Approvals' && pendingApprovalCount > 0 && !active && (
-                      <span
-                        aria-label={`${pendingApprovalCount} pending approvals`}
-                        className="ml-auto text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-1.5 py-0.5 flex-shrink-0"
-                      >
-                        {pendingApprovalCount}
-                      </span>
-                    )}
-                    {active && (
-                      <span aria-hidden="true" className="ml-auto w-1 h-4 rounded-full bg-emerald-400 flex-shrink-0" />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-
-        {/* Footer */}
-        <div className="px-4 py-3 border-t border-[var(--color-border)]">
-          <p className="text-[10px] text-[var(--color-text-muted)] font-mono-data">v1.1 · stem cell kubex</p>
-        </div>
+        {sidebarContent}
       </aside>
 
       {/* ── Main content ─────────────────────────────────────────────── */}
-      <main id="main-content" className="flex-1 flex flex-col overflow-hidden" tabIndex={-1}>
+      <main
+        id="main-content"
+        className="flex-1 flex flex-col overflow-hidden min-w-0"
+        tabIndex={-1}
+      >
         {/* Top bar */}
         <header
           role="banner"
-          className="flex-shrink-0 h-12 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)] flex items-center justify-between px-6"
+          className="flex-shrink-0 h-12 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)] flex items-center justify-between px-4 md:px-6"
         >
           <div className="flex items-center gap-2">
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={toggleMobileSidebar}
+              data-testid="sidebar-hamburger"
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileSidebarOpen}
+              aria-controls="sidebar"
+              className="md:hidden flex items-center justify-center w-8 h-8 mr-1 text-[var(--color-text-dim)] hover:text-[var(--color-text)] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              {/* Animated hamburger / X icon */}
+              <span aria-hidden="true" className="text-base leading-none">
+                {mobileSidebarOpen ? '✕' : '☰'}
+              </span>
+            </button>
+
             <span aria-hidden="true" className="text-[var(--color-text-dim)] text-sm">{currentItem.icon}</span>
             <h1 className="text-sm font-semibold text-[var(--color-text)]">{currentItem.label}</h1>
             {topBarBreadcrumbs ? (
@@ -319,12 +419,12 @@ export default function Layout({ children }: LayoutProps) {
               />
             ) : (
               <>
-                <span aria-hidden="true" className="text-[var(--color-text-muted)] text-sm">/</span>
-                <span className="text-xs text-[var(--color-text-dim)]">{currentItem.description}</span>
+                <span aria-hidden="true" className="hidden sm:inline text-[var(--color-text-muted)] text-sm">/</span>
+                <span className="hidden sm:inline text-xs text-[var(--color-text-dim)]">{currentItem.description}</span>
               </>
             )}
           </div>
-          <div className="flex items-center gap-3" role="toolbar" aria-label="Global controls">
+          <div className="flex items-center gap-2 md:gap-3" role="toolbar" aria-label="Global controls">
             {/* Command palette trigger */}
             <button
               onClick={() => setCommandPaletteOpen(true)}
@@ -357,17 +457,17 @@ export default function Layout({ children }: LayoutProps) {
               onClick={openKillAllDialog}
               data-testid="kill-all-button"
               aria-label="Kill all kubexes"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 hover:border-red-500/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)]"
+              className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 hover:border-red-500/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)]"
             >
               <span aria-hidden="true">⏹</span>
-              <span>Kill All</span>
+              <span className="hidden sm:inline">Kill All</span>
             </button>
 
             <div aria-hidden="true" className="w-px h-4 bg-[var(--color-border)]" />
 
             <time
               dateTime={new Date().toISOString().split('T')[0]}
-              className="text-xs text-[var(--color-text-muted)] font-mono-data"
+              className="hidden md:block text-xs text-[var(--color-text-muted)] font-mono-data"
             >
               {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </time>

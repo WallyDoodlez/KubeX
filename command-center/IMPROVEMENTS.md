@@ -191,6 +191,24 @@
   - [x] Build: npm run build — clean (82 modules, no errors)
   - [x] Test: npx playwright test — 201/201 passed
 
+- [x] **Iteration 19: Responsive collapsible sidebar**
+  - [x] Add `useMediaQuery` hook in Layout.tsx (detects ≥ 768 px breakpoint)
+  - [x] Add `mobileSidebarOpen` state — hidden by default on mobile, auto-close on resize to ≥ md
+  - [x] On `< 768 px`: sidebar uses `fixed` positioning + `translateX(-100%)` when closed, `translateX(0)` when open
+  - [x] On `≥ 768 px`: sidebar stays in normal flex flow (`md:relative md:translate-x-0`)
+  - [x] Smooth `transition-transform duration-300 ease-in-out` slide animation
+  - [x] Hamburger button (`data-testid="sidebar-hamburger"`, `aria-expanded`) in top bar — `md:hidden`
+  - [x] Close button (`data-testid="sidebar-close"`) inside sidebar brand bar — `md:hidden`
+  - [x] Overlay backdrop (`data-testid="sidebar-backdrop"`, `bg-black/60 md:hidden`) — tap-to-close
+  - [x] Auto-close sidebar on route change (mobile)
+  - [x] Auto-close sidebar on Escape key
+  - [x] Hide date and "/ description" text on narrow screens to prevent crowding
+  - [x] Kill All label hidden on small screens (`<span className="hidden sm:inline">Kill All</span>`)
+  - [x] Update `tests/e2e/responsive.spec.ts` — rewritten to test new behaviour: hidden-by-default on mobile, hamburger open/close, backdrop, aria-expanded, nav-after-toggle, mobile fills viewport, all existing desktop tests preserved
+  - [x] Build: npm run build — clean (82 modules, no errors)
+  - [x] Test: npx playwright test — 212/212 passed
+  - [x] Commit
+
 - [x] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [x] **React.memo on pure sub-components** — wrapped `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed
   - [x] **useMemo for derived data** — confirmed `useSearch`, `useSort`, `usePagination` each use internal `useMemo`; added explanatory comments in AgentsPanel; TrafficLog `agentIds` and `filteredEntries` both use `useMemo` with minimal dependency arrays
