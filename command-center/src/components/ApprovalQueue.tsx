@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { ApprovalRequest, ApprovalDecision } from '../types';
 import ConfirmDialog from './ConfirmDialog';
+import { SkeletonCard } from './SkeletonLoader';
+import EmptyState from './EmptyState';
 
 // Mock data since the Gateway doesn't have a dedicated escalations endpoint yet.
 // In production, this would be fetched via getEscalations().
@@ -8,8 +10,15 @@ const MOCK_ESCALATIONS: ApprovalRequest[] = [];
 
 export default function ApprovalQueue() {
   const [requests, setRequests] = useState<ApprovalRequest[]>(MOCK_ESCALATIONS);
+  const [loading, setLoading] = useState(true);
   const [, setTick] = useState(0); // force re-render for time ticker
   const [confirmAction, setConfirmAction] = useState<{ id: string; decision: ApprovalDecision } | null>(null);
+
+  // Simulate initial load — in production this would call getEscalations()
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 0);
+    return () => clearTimeout(t);
+  }, []);
 
   // Tick every 10s to update "pending for Xs" timers
   useEffect(() => {
@@ -45,14 +54,17 @@ export default function ApprovalQueue() {
       </div>
 
       {/* Pending approvals */}
-      {pending.length === 0 && resolved.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-12 text-center">
-          <p className="text-3xl mb-3">✓</p>
-          <p className="text-sm font-medium text-[#94a3b8]">No pending approvals</p>
-          <p className="text-xs text-[#64748b] mt-1">
-            Escalated actions from the policy engine will appear here for human review.
-          </p>
+      {loading ? (
+        <div className="space-y-3">
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
+      ) : pending.length === 0 && resolved.length === 0 ? (
+        <EmptyState
+          icon="✓"
+          title="No pending approvals"
+          description="Escalated actions from the policy engine will appear here."
+        />
       ) : (
         <div className="space-y-3">
           {pending.map((req) => (

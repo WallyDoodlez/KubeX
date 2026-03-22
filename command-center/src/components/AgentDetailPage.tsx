@@ -5,6 +5,8 @@ import type { Agent } from '../types';
 import Tabs from './Tabs';
 import StatusBadge from './StatusBadge';
 import TerminalOutput from './TerminalOutput';
+import { SkeletonCard, SkeletonText } from './SkeletonLoader';
+import EmptyState from './EmptyState';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -44,9 +46,9 @@ export default function AgentDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-6 animate-fade-in">
-        <div className="h-8 w-48 rounded bg-[#1a1d27] border border-[#2a2f45] animate-pulse mb-4" />
-        <div className="h-64 rounded-xl bg-[#1a1d27] border border-[#2a2f45] animate-pulse" />
+      <div className="p-6 animate-fade-in space-y-4">
+        <SkeletonCard />
+        <SkeletonText lines={4} />
       </div>
     );
   }
@@ -54,12 +56,12 @@ export default function AgentDetailPage() {
   if (error || !agent) {
     return (
       <div className="p-6 animate-fade-in">
-        <button onClick={() => navigate('/agents')} className="text-xs text-emerald-400 hover:text-emerald-300 mb-4">
-          ← Back to Agents
-        </button>
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-8 text-center">
-          <p className="text-sm text-red-400">{error ?? 'Agent not found'}</p>
-        </div>
+        <EmptyState
+          icon="⚠"
+          title="Agent not found"
+          description={error ?? 'The requested agent could not be found.'}
+          action={{ label: '← Back to Agents', onClick: () => navigate('/agents') }}
+        />
       </div>
     );
   }

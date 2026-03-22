@@ -13,6 +13,8 @@ import {
 import ServiceCard from './ServiceCard';
 import StatusBadge from './StatusBadge';
 import Sparkline from './Sparkline';
+import { SkeletonCard } from './SkeletonLoader';
+import EmptyState from './EmptyState';
 
 const REFRESH_INTERVAL = 10_000;
 const AGENT_DISPLAY_LIMIT = 6;
@@ -162,11 +164,17 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           action={{ label: 'View all →', onClick: () => onNavigate('agents') }}
         />
         {loadingAgents ? (
-          <div className="flex items-center gap-2 text-sm text-[#64748b] py-4">
-            <span className="animate-pulse">Loading agents…</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
           </div>
         ) : agents.length === 0 ? (
-          <EmptyState message="No agents registered. Start agents with docker compose up." />
+          <EmptyState
+            icon="◎"
+            title="No agents registered"
+            description="No agents registered. Start agents with docker compose up."
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {agents.slice(0, AGENT_DISPLAY_LIMIT).map((agent) => (
@@ -304,10 +312,3 @@ function AgentCard({ agent }: { agent: Agent }) {
   );
 }
 
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-8 text-center">
-      <p className="text-sm text-[#64748b]">{message}</p>
-    </div>
-  );
-}

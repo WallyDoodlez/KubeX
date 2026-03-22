@@ -144,16 +144,16 @@
   - [x] Verify: npm run build clean + npx playwright test passes (128/128)
   - [x] Commit
 
-- [ ] **Iteration 13: Replace ad-hoc loading/empty states with SkeletonLoader + EmptyState**
-  - [ ] **AgentsPanel.tsx** — replace the inline `[1,2,3].map(i => <div animate-pulse>)` skeleton with `<SkeletonTable rows={3} cols={5} />`; replace the local `EmptyState` function component with the shared `<EmptyState icon="◎" title="No agents registered" description="Run docker compose up to start agents." />`
-  - [ ] **ContainersPanel.tsx** — replace the inline `[1,2,3].map(i => <div animate-pulse>)` skeleton with `<SkeletonTable rows={3} cols={5} />`; replace the local `EmptyContainers` function component with the shared `<EmptyState icon="⬡" title="No kubexes found" description="Kubexes appear here when spawned via Manager." />`
-  - [ ] **AgentDetailPage.tsx** — replace the bespoke two-div loading shimmer (lines 47–52) with `<SkeletonCard />` followed by `<SkeletonText lines={4} />`; replace the ad-hoc error/not-found block with `<EmptyState icon="⚠" title="Agent not found" description={error} action={{ label: '← Back', onClick: () => navigate('/agents') }} />`
-  - [ ] **Dashboard.tsx** — replace the inline `<span className="animate-pulse">Loading agents…</span>` block with `<SkeletonCard />` cards matching the agent card grid layout; replace the local `EmptyState` function at the bottom of the file with the shared component
-  - [ ] **ApprovalQueue.tsx** — replace the hardcoded empty-state `<div>` (lines 49–56) with `<EmptyState icon="✓" title="No pending approvals" description="Escalated actions from the policy engine will appear here." />`; the component currently has no loading state at all — add one using `<SkeletonCard rows={2} />` while `getEscalations()` resolves (ApprovalQueue uses mock data today but the skeleton should be in place for when the real API lands)
-  - [ ] Delete all local `EmptyState`/`EmptyContainers` function declarations that were copy-pasted into individual component files — they are now superseded by the shared component
-  - [ ] Create tests/e2e/skeletons.spec.ts — intercept API routes with a delayed MSW handler; assert `aria-busy="true"` skeleton elements appear during load; assert they disappear and real content renders after the response resolves
-  - [ ] Verify: npm run build clean + npx playwright test passes
-  - [ ] Commit
+- [x] **Iteration 13: Replace ad-hoc loading/empty states with SkeletonLoader + EmptyState**
+  - [x] **AgentsPanel.tsx** — replace the inline `[1,2,3].map(i => <div animate-pulse>)` skeleton with `<SkeletonTable rows={3} cols={5} />`; replace the local `EmptyState` function component with the shared `<EmptyState icon="◎" title="No agents registered" description="Run docker compose up to start agents." />`
+  - [x] **ContainersPanel.tsx** — replace the inline `[1,2,3].map(i => <div animate-pulse>)` skeleton with `<SkeletonTable rows={3} cols={5} />`; replace the local `EmptyContainers` function component with the shared `<EmptyState icon="⬡" title="No kubexes found" description="Kubexes appear here when spawned via Manager." />`
+  - [x] **AgentDetailPage.tsx** — replace the bespoke two-div loading shimmer (lines 47–52) with `<SkeletonCard />` followed by `<SkeletonText lines={4} />`; replace the ad-hoc error/not-found block with `<EmptyState icon="⚠" title="Agent not found" description={error} action={{ label: '← Back to Agents', onClick: () => navigate('/agents') }} />`
+  - [x] **Dashboard.tsx** — replace the inline `<span className="animate-pulse">Loading agents…</span>` block with `<SkeletonCard />` cards matching the agent card grid layout; replace the local `EmptyState` function at the bottom of the file with the shared component
+  - [x] **ApprovalQueue.tsx** — replace the hardcoded empty-state `<div>` (lines 49–56) with `<EmptyState icon="✓" title="No pending approvals" description="Escalated actions from the policy engine will appear here." />`; add loading state using `<SkeletonCard />` (2 cards) while initial data resolves
+  - [x] Delete all local `EmptyState`/`EmptyContainers` function declarations that were copy-pasted into individual component files — they are now superseded by the shared component
+  - [x] Create tests/e2e/skeletons.spec.ts — intercept API routes with a delayed handler; assert `aria-busy="true"` skeleton elements appear during load; assert they disappear and real content renders after the response resolves
+  - [x] Verify: npm run build clean + npx playwright test passes (142/142)
+  - [x] Commit
 
 - [ ] **Iteration 14: Performance pass — React.memo, useMemo, virtualized lists**
   - [ ] **React.memo on pure sub-components** — wrap `AgentRow` (AgentsPanel), `KubexRow` (ContainersPanel), `ApprovalCard` (ApprovalQueue), `ChatBubble` (OrchestratorChat), `ServiceCard`, `StatusBadge`, `Sparkline`, `Pagination`, and `SearchInput` with `React.memo`; each of these re-renders on every parent poll tick even when their own props have not changed

@@ -4,6 +4,8 @@ import { getKubexes, killKubex, startKubex } from '../api';
 import StatusBadge from './StatusBadge';
 import { usePolling } from '../hooks/usePolling';
 import ConfirmDialog from './ConfirmDialog';
+import { SkeletonTable } from './SkeletonLoader';
+import EmptyState from './EmptyState';
 
 export default function ContainersPanel() {
   const [kubexes, setKubexes] = useState<Kubex[]>([]);
@@ -78,13 +80,13 @@ export default function ContainersPanel() {
       )}
 
       {loading && kubexes.length === 0 ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 rounded-xl bg-[#1a1d27] border border-[#2a2f45] animate-pulse" />
-          ))}
-        </div>
+        <SkeletonTable rows={3} cols={5} />
       ) : kubexes.length === 0 ? (
-        <EmptyContainers />
+        <EmptyState
+          icon="⬡"
+          title="No kubexes found"
+          description="Kubexes appear here when spawned via Manager."
+        />
       ) : (
         <div className="rounded-xl border border-[#2a2f45] overflow-hidden">
           {/* Table header */}
@@ -204,14 +206,3 @@ function KubexRow({ kubex, isLast, actionIn, onKill, onStart }: KubexRowProps) {
   );
 }
 
-function EmptyContainers() {
-  return (
-    <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-12 text-center">
-      <p className="text-3xl mb-3">⬡</p>
-      <p className="text-sm font-medium text-[#94a3b8]">No kubexes found</p>
-      <p className="text-xs text-[#64748b] mt-1">
-        Kubexes appear here when spawned via Manager.
-      </p>
-    </div>
-  );
-}
