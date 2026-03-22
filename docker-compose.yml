@@ -13,6 +13,11 @@ networks:
 volumes:
   redis-data:
   knowledge-vault:
+  # CLI runtime credential volumes (kubex-creds-{agent_id}) are created
+  # dynamically by kubex-manager lifecycle.py at agent spawn time.
+  # They are NOT declared here because each agent gets its own volume.
+  # To list: docker volume ls --filter name=kubex-creds-
+  # To prune: docker volume rm $(docker volume ls -q --filter name=kubex-creds-)
 
 services:
   # ── Base image (build once, used by all agents) ──────────────────

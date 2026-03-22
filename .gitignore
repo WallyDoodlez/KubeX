@@ -43,3 +43,10 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
+
+# CLI runtime OAuth credentials (never commit)
+.credentials.json
+**/.*credentials*
+.claude/
+.codex/
+.config/gemini/

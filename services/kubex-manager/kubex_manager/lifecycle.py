@@ -44,6 +44,13 @@ HARNESS_ENV_DEFAULTS: dict[str, str] = {
 DEFAULT_MEM_LIMIT = "1g"
 DEFAULT_NANO_CPUS = 500_000_000  # 0.5 CPUs in nano-CPUs
 
+# Credential mount paths per CLI runtime type (CLI-06)
+CLI_CREDENTIAL_MOUNTS: dict[str, str] = {
+    "claude-code": "/root/.claude",
+    "codex-cli": "/root/.codex",
+    "gemini-cli": "/root/.config/gemini",
+}
+
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -371,6 +378,13 @@ class KubexLifecycle:
             if capabilities:
                 env["KUBEX_CAPABILITIES"] = ",".join(capabilities)
 
+            # Boot-time pip deps for CLI runtimes (pexpect for PTY, watchfiles for credential watch)
+            runtime = agent_cfg.get("runtime", "openai-api")
+            if runtime != "openai-api":
+                existing_pip_deps = env.get("KUBEX_PIP_DEPS", "")
+                cli_deps = "pexpect watchfiles"
+                env["KUBEX_PIP_DEPS"] = f"{existing_pip_deps} {cli_deps}".strip()
+
             # Resource limits
             resource_limits = request.resource_limits
             mem_limit = resource_limits.get("memory", DEFAULT_MEM_LIMIT)
@@ -410,6 +424,14 @@ class KubexLifecycle:
                     host_skill_path = os.path.join(skills_base_path, skill_name)
                     container_skill_path = f"/app/skills/{skill_name}"
                     volumes[host_skill_path] = {"bind": container_skill_path, "mode": "ro"}
+
+            # Named Docker volume for CLI runtime credential persistence (CLI-06)
+            # Named volumes use the volume name as key (not a host path).
+            # Docker SDK creates the volume automatically if it doesn't exist.
+            cred_mount = CLI_CREDENTIAL_MOUNTS.get(runtime)
+            if cred_mount is not None:
+                volume_name = f"kubex-creds-{agent_id}"
+                volumes[volume_name] = {"bind": cred_mount, "mode": "rw"}
 
             # Step 6: Create container via Docker SDK
             docker_client = docker.from_env()
