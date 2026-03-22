@@ -4,6 +4,20 @@
 
 ---
 
+## Iteration 36: Keyboard-Navigable Tables
+**Files created:** `src/hooks/useTableKeyboardNav.ts`, `tests/e2e/keyboard-nav.spec.ts`
+**Files modified:** `src/components/AgentsPanel.tsx`, `src/components/ContainersPanel.tsx`, `tests/e2e/agents.spec.ts`, `tests/e2e/containers.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `src/hooks/useTableKeyboardNav.ts` — hook that manages row-level keyboard navigation for flat-list tables. Maintains `focusedIndex` state (starts at -1). Handles `ArrowDown` (move to next row, clamp at last), `ArrowUp` (move to previous row, clamp at first), `Home` (jump to first row), `Enter` (call `onEnter(focusedIndex)`), `Space` (call `onSpace(focusedIndex)`). Returns `handleKeyDown` to attach to the table container and `getRowProps(index, tableId)` which provides `id`, `tabIndex` (0 if focused, -1 otherwise), `aria-rowindex`, `data-nav-index`, and `onFocus` for each row. A stable `ref` ensures the key handler always reads the latest `focusedIndex` without stale closure issues.
+- Updated `src/components/AgentsPanel.tsx` — wired `useTableKeyboardNav` to the agent table. Table container upgraded from `role="table"` to `role="grid"` with `aria-label="Registered agents"`, `aria-activedescendant` (points to `agents-table-row-N` when a row is focused), `tabIndex={0}` (makes the container keyboard-focusable), and `outline-none` to suppress the default focus ring on the container. Each `AgentRow` receives `focused` boolean and `rowProps` spread (id, tabIndex, aria-rowindex, data-nav-index, onFocus). Focused row renders with `ring-2 ring-inset ring-emerald-500/60` focus ring. Enter key toggles row expand; Space key toggles row selection.
+- Updated `src/components/ContainersPanel.tsx` — identical keyboard navigation pattern applied to the kubex table. Table gets `role="grid"`, `aria-label="Docker containers"`, `aria-activedescendant`, `tabIndex={0}`. Each `KubexRow` receives `focused` and `rowProps`. Space key toggles kubex selection. (KubexRow has no expand — Enter not wired for containers since there is no detail expand UX.)
+- Updated `tests/e2e/agents.spec.ts` — changed `[role="table"]` selector to `[data-testid="agents-table"]` with `toHaveAttribute('role', 'grid')` to avoid matching the Capability Matrix grid that also uses `role="grid"`.
+- Updated `tests/e2e/containers.spec.ts` — changed `[role="table"]` selectors to `[role="grid"]` for the two tests that were checking table presence.
+- Created `tests/e2e/keyboard-nav.spec.ts` — 47 tests: Agents table (15 tests): role=grid, aria-label, tabIndex=0, rows have data-nav-index/aria-rowindex/id, ArrowDown to first row, ArrowDown twice to second, ArrowUp back, Home key, three ArrowDown presses reach third row, focused row has ring-2, non-focused row no ring, aria-activedescendant updates, Enter expands row, Space selects row, click syncs focused index. Containers table (15 tests): identical coverage.
+**Tests:** 529 → 559
+
+---
+
 ## Iteration 35: Collapsible Dashboard Sections
 **Files created:** `src/hooks/useCollapsible.ts`, `src/components/CollapsibleSection.tsx`, `tests/e2e/collapsible-sections.spec.ts`
 **Files modified:** `src/components/Dashboard.tsx`, `src/components/ActivityFeed.tsx`, `tests/e2e/activity-feed.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

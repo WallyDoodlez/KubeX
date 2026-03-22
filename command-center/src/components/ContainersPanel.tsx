@@ -8,6 +8,7 @@ import { useSort } from '../hooks/useSort';
 import { usePagination } from '../hooks/usePagination';
 import { useQueryParams } from '../hooks/useQueryParams';
 import { useSelection } from '../hooks/useSelection';
+import { useTableKeyboardNav } from '../hooks/useTableKeyboardNav';
 import ConfirmDialog from './ConfirmDialog';
 import SearchInput from './SearchInput';
 import Pagination from './Pagination';
@@ -147,6 +148,16 @@ export default function ContainersPanel() {
     pagination.setPageSize(size);
     setQp({ page: '1' }, false);
   }
+
+  // Keyboard navigation — scoped to the currently visible (paginated) rows
+  const containersTableId = 'containers-table';
+  const { focusedIndex, handleKeyDown: handleTableKeyDown, getRowProps } = useTableKeyboardNav({
+    rowCount: pagination.paginatedItems.length,
+    onSpace: useCallback((idx: number) => {
+      const kubex = pagination.paginatedItems[idx];
+      if (kubex) toggleOne(kubex.kubex_id);
+    }, [pagination.paginatedItems, toggleOne]),
+  });
 
   function requestKill(kubexId: string) {
     setConfirmTarget({ kubexId, action: 'kill' });
@@ -289,7 +300,16 @@ export default function ContainersPanel() {
 
             return (
               <>
-                <div className="rounded-xl border border-[var(--color-border)] overflow-hidden" role="table">
+                <div
+                  id={containersTableId}
+                  className="rounded-xl border border-[var(--color-border)] overflow-hidden outline-none"
+                  role="grid"
+                  aria-label="Docker containers"
+                  aria-activedescendant={focusedIndex >= 0 ? `${containersTableId}-row-${focusedIndex}` : undefined}
+                  tabIndex={0}
+                  onKeyDown={handleTableKeyDown}
+                  data-testid="containers-table"
+                >
                   {/* Table header */}
                   <div
                     className="grid grid-cols-[auto_2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]"
@@ -332,6 +352,8 @@ export default function ContainersPanel() {
                       isLast={idx === pagination.paginatedItems.length - 1}
                       actionIn={actionIn === kubex.kubex_id}
                       selected={isSelected(kubex.kubex_id)}
+                      focused={focusedIndex === idx}
+                      rowProps={getRowProps(idx, containersTableId)}
                       onSelect={() => toggleOne(kubex.kubex_id)}
                       onKill={() => requestKill(kubex.kubex_id)}
                       onStart={() => handleStart(kubex.kubex_id)}
@@ -439,6 +461,14 @@ interface KubexRowProps {
   isLast: boolean;
   actionIn: boolean;
   selected: boolean;
+  focused: boolean;
+  rowProps: {
+    id: string;
+    tabIndex: number;
+    'aria-rowindex': number;
+    'data-nav-index': number;
+    onFocus: () => void;
+  };
   onSelect: () => void;
   onKill: () => void;
   onStart: () => void;
@@ -446,16 +476,18 @@ interface KubexRowProps {
 
 // Wrapped in React.memo — ContainersPanel re-renders on every 10s poll tick.
 // KubexRow skips re-render when its own props haven't changed.
-const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, onSelect, onKill, onStart }: KubexRowProps) {
+const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, focused, rowProps, onSelect, onKill, onStart }: KubexRowProps) {
   const isRunning = kubex.status === 'running';
 
   return (
     <div
+      {...rowProps}
       className={`
         grid grid-cols-[auto_2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-3 items-center
-        transition-colors
+        transition-colors outline-none
         ${selected ? 'bg-emerald-500/5' : 'bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)]'}
         ${!isLast ? 'border-b border-[var(--color-border)]' : ''}
+        ${focused ? 'ring-2 ring-inset ring-emerald-500/60' : ''}
       `}
       role="row"
     >

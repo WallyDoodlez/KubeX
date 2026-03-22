@@ -6,6 +6,7 @@ import { useSort } from '../hooks/useSort';
 import { usePagination } from '../hooks/usePagination';
 import { useQueryParams } from '../hooks/useQueryParams';
 import { useSelection } from '../hooks/useSelection';
+import { useTableKeyboardNav } from '../hooks/useTableKeyboardNav';
 import type { Agent } from '../types';
 import { getAgents, deregisterAgent } from '../api';
 import StatusBadge from './StatusBadge';
@@ -52,6 +53,9 @@ export default function AgentsPanel() {
 
   // URL query params — search, sort key/direction, page
   const [qp, setQp] = useQueryParams(AGENTS_PARAM_DEFAULTS);
+
+  // Keyboard navigation for the agents table
+  const agentsTableId = 'agents-table';
 
   // Derive initial sort config from URL params
   const validSortKeys = Object.keys(sortComparators) as AgentSortKey[];
@@ -143,6 +147,19 @@ export default function AgentsPanel() {
     setQp({ page: '1' }, false);
   }
 
+  // Keyboard navigation — scoped to the currently visible (paginated) rows
+  const { focusedIndex, handleKeyDown: handleTableKeyDown, getRowProps } = useTableKeyboardNav({
+    rowCount: pagination.paginatedItems.length,
+    onEnter: useCallback((idx: number) => {
+      const agent = pagination.paginatedItems[idx];
+      if (agent) setExpandedId((prev) => (prev === agent.agent_id ? null : agent.agent_id));
+    }, [pagination.paginatedItems]),
+    onSpace: useCallback((idx: number) => {
+      const agent = pagination.paginatedItems[idx];
+      if (agent) toggleOne(agent.agent_id);
+    }, [pagination.paginatedItems, toggleOne]),
+  });
+
   function requestDeregister(agentId: string) {
     setConfirmTarget(agentId);
   }
@@ -225,7 +242,16 @@ export default function AgentsPanel() {
             const someSelected = selectedCount > 0 && !allSelected;
 
             return (
-              <div className="rounded-xl border border-[var(--color-border)] overflow-hidden" role="table">
+              <div
+                id={agentsTableId}
+                className="rounded-xl border border-[var(--color-border)] overflow-hidden outline-none"
+                role="grid"
+                aria-label="Registered agents"
+                aria-activedescendant={focusedIndex >= 0 ? `${agentsTableId}-row-${focusedIndex}` : undefined}
+                tabIndex={0}
+                onKeyDown={handleTableKeyDown}
+                data-testid="agents-table"
+              >
                 {/* Table header */}
                 <div className="grid grid-cols-[auto_2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]" role="row">
                   {/* Select-all checkbox */}
@@ -266,6 +292,8 @@ export default function AgentsPanel() {
                     isLast={idx === pagination.paginatedItems.length - 1}
                     expanded={expandedId === agent.agent_id}
                     selected={isSelected(agent.agent_id)}
+                    focused={focusedIndex === idx}
+                    rowProps={getRowProps(idx, agentsTableId)}
                     onSelect={() => toggleOne(agent.agent_id)}
                     onToggle={() =>
                       setExpandedId((prev) => (prev === agent.agent_id ? null : agent.agent_id))
@@ -349,6 +377,14 @@ interface AgentRowProps {
   isLast: boolean;
   expanded: boolean;
   selected: boolean;
+  focused: boolean;
+  rowProps: {
+    id: string;
+    tabIndex: number;
+    'aria-rowindex': number;
+    'data-nav-index': number;
+    onFocus: () => void;
+  };
   onSelect: () => void;
   onToggle: () => void;
   onDeregister: () => void;
@@ -361,12 +397,13 @@ interface AgentRowProps {
 // Note: onToggle/onDeregister/onNavigateToDetail are new arrow functions on every parent render;
 // for full stability these would need useCallback in the parent. The memo still helps for
 // rows that are not in the "active" slot (e.g., expanded row changes, others stay stable).
-const AgentRow = memo(function AgentRow({ agent, isLast, expanded, selected, onSelect, onToggle, onDeregister, onNavigateToDetail, deregistering }: AgentRowProps) {
+const AgentRow = memo(function AgentRow({ agent, isLast, expanded, selected, focused, rowProps, onSelect, onToggle, onDeregister, onNavigateToDetail, deregistering }: AgentRowProps) {
   return (
     <div className={`${!isLast ? 'border-b border-[var(--color-border)]' : ''} ${selected ? 'bg-emerald-500/5' : ''}`}>
       {/* Main row */}
       <div
-        className="grid grid-cols-[auto_2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center bg-transparent hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors"
+        {...rowProps}
+        className={`grid grid-cols-[auto_2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center bg-transparent hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors outline-none ${focused ? 'ring-2 ring-inset ring-emerald-500/60' : ''}`}
         onClick={onToggle}
         role="row"
       >

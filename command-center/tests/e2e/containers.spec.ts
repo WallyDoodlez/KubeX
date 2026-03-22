@@ -81,16 +81,16 @@ test.describe('Containers Panel', () => {
     // Mock kubexes endpoint before navigation so data loads immediately
     await mockKubexesRoute(page);
     await page.goto('/containers');
-    // Wait for the table to render with data
-    await expect(page.locator('[role="table"]')).toBeVisible({ timeout: 10000 });
+    // Wait for the table to render with data — now role=grid (keyboard-navigable)
+    await expect(page.locator('[role="grid"]')).toBeVisible({ timeout: 10000 });
   });
 
   test('column headers are rendered and sortable', async ({ page }) => {
     // Mock kubexes endpoint before navigation so data loads immediately
     await mockKubexesRoute(page);
     await page.goto('/containers');
-    // Wait for table to render with data from mock
-    await expect(page.locator('[role="table"]')).toBeVisible({ timeout: 10000 });
+    // Wait for table to render with data from mock — now role=grid
+    await expect(page.locator('[role="grid"]')).toBeVisible({ timeout: 10000 });
     // Column headers with role=columnheader should exist
     const headers = page.locator('[role="columnheader"]');
     await expect(headers.first()).toBeVisible();

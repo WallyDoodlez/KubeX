@@ -42,8 +42,8 @@ test.describe('Agents Panel', () => {
   });
 
   test('table has ARIA roles', async ({ page }) => {
-    // The table container should have role=table
-    await expect(page.locator('[role="table"]')).toBeVisible();
+    // The agent table container should have role=grid (keyboard-navigable grid)
+    await expect(page.locator('[data-testid="agents-table"]')).toHaveAttribute('role', 'grid');
   });
 
   test('column headers are clickable for sorting', async ({ page }) => {

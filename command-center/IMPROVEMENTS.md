@@ -4,6 +4,15 @@
 
 ---
 
+- [x] **Iteration 36: Keyboard-Navigable Tables**
+  - [x] Create `src/hooks/useTableKeyboardNav.ts` — manages focused row index within a table; handles ArrowDown/ArrowUp to move focus between rows, Home key for first row, Enter to expand/activate the focused row, Space to toggle selection of the focused row; returns `focusedIndex`, `setFocusedIndex`, `handleKeyDown`, and `getRowProps` (tabIndex + id + aria-rowindex + data-nav-index + onFocus helpers)
+  - [x] Update `AgentsPanel.tsx` — wire `useTableKeyboardNav` to the agent table; table container gets `role="grid"` + `aria-label` + `aria-activedescendant` + `tabIndex={0}`; each row gets stable `id`, `tabIndex`, `aria-rowindex`, `data-nav-index`, `onFocus`; focused row shows emerald focus ring (`ring-2 ring-inset ring-emerald-500/60`); Enter expands row detail; Space toggles selection; updated existing `agents.spec.ts` test to use `role="grid"` selector
+  - [x] Update `ContainersPanel.tsx` — same keyboard nav pattern for kubex table rows; Space to select; updated existing `containers.spec.ts` tests to use `role="grid"` selector
+  - [x] Create `tests/e2e/keyboard-nav.spec.ts` (47 tests) — agents table: role=grid, aria-label, tabIndex=0, data-nav-index/aria-rowindex/id on rows, ArrowDown to row 0, ArrowDown twice to row 1, ArrowUp back to row 0, Home key, ArrowDown 3×, focus ring present, non-focused row no ring, aria-activedescendant update, Enter expands, Space selects, click syncs focus; containers table: identical 15 tests
+  - [x] Build: npm run build — clean (108 modules)
+  - [x] Test: npx playwright test — 559/559 passed
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 35: Collapsible Dashboard Sections**
   - [x] Create `src/hooks/useCollapsible.ts` — manages collapse state for named sections, persisted in localStorage under a caller-supplied key; `isCollapsed(id)` returns current state, `toggle(id)` flips it, `setCollapsed(id, bool)` sets explicitly
   - [x] Create `src/components/CollapsibleSection.tsx` — section wrapper with clickable header button (`aria-expanded`, `aria-controls`, `data-testid`); chevron indicator rotates -90° when collapsed; smooth height transition via `scrollHeight` measurement and `height` CSS transition; `subtitle` and `action` only shown when expanded; `role="region"` + `aria-labelledby` on content panel for accessibility
