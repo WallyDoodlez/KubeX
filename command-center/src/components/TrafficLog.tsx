@@ -1,7 +1,14 @@
-import type { TrafficEntry, ActionStatus } from '../types';
+import { useState, useMemo, memo } from 'react';
+import type { TrafficEntry, ActionStatus, TrafficFilter } from '../types';
+import { usePagination } from '../hooks/usePagination';
+import TrafficFilterBar from './TrafficFilterBar';
+import Pagination from './Pagination';
+import ExportMenu from './ExportMenu';
+import { exportAsJSON, exportAsCSV } from '../utils/export';
 
 interface TrafficLogProps {
   entries: TrafficEntry[];
+  onClear?: () => void;
 }
 
 const STATUS_COLORS: Record<ActionStatus, string> = {
@@ -18,52 +25,149 @@ const STATUS_ROW_BG: Record<ActionStatus, string> = {
   pending: 'border-l-blue-500/40',
 };
 
-export default function TrafficLog({ entries }: TrafficLogProps) {
+export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
+  const [filter, setFilter] = useState<TrafficFilter>({
+    status: 'all',
+    agentId: '',
+    search: '',
+  });
+
+  // Get unique agent IDs for the filter dropdown.
+  // useMemo ensures this only recalculates when entries changes, not on every filter keystroke.
+  const agentIds = useMemo(() => {
+    const ids = new Set(entries.map((e) => e.agent_id));
+    return [...ids].sort();
+  }, [entries]);
+
+  // Apply filters.
+  // Dependency array is minimal: only recalculates when entries or filter changes.
+  const filteredEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      if (filter.status !== 'all' && entry.status !== filter.status) return false;
+      if (filter.agentId && entry.agent_id !== filter.agentId) return false;
+      if (filter.search) {
+        const needle = filter.search.toLowerCase();
+        const haystack = [entry.action, entry.capability, entry.task_id, entry.agent_id, entry.policy_rule]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
+      return true;
+    });
+  }, [entries, filter]);
+
+  // Paginate — localStorage is capped at 500 entries in AppContext (addTrafficEntry slices to 500).
+  // The paginator slices filteredEntries so only the visible page is rendered.
+  const pagination = usePagination(filteredEntries, { initialPageSize: 20 });
+
   return (
     <div className="p-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-sm font-semibold text-[#e2e8f0]">Traffic / Actions Log</h2>
-          <p className="text-xs text-[#64748b]">
-            Actions dispatched through the Gateway — live feed from this session
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">Traffic / Actions Log</h2>
+          <p className="text-xs text-[var(--color-text-dim)]">
+            Actions dispatched through the Gateway — {entries.length} entries
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-[#64748b]">
+        <div className="flex items-center gap-3 text-xs text-[var(--color-text-dim)]">
           <LegendDot color="emerald" label="allowed" />
           <LegendDot color="red" label="denied" />
           <LegendDot color="amber" label="escalated" />
           <LegendDot color="blue" label="pending" />
+          <ExportMenu
+            testId="traffic-export-menu"
+            disabled={filteredEntries.length === 0}
+            onExportJSON={() => {
+              const rows = filteredEntries.map((e) => ({
+                ...e,
+                timestamp: e.timestamp.toISOString(),
+              }));
+              exportAsJSON(rows, `traffic-log-${new Date().toISOString().slice(0, 10)}`);
+            }}
+            onExportCSV={() => {
+              exportAsCSV(
+                filteredEntries,
+                ['timestamp', 'agent_id', 'action', 'capability', 'target', 'status', 'policy_rule', 'task_id'],
+                (e) => [
+                  e.timestamp.toISOString(),
+                  e.agent_id,
+                  e.action,
+                  e.capability ?? '',
+                  e.target ?? '',
+                  e.status,
+                  e.policy_rule ?? '',
+                  e.task_id ?? '',
+                ],
+                `traffic-log-${new Date().toISOString().slice(0, 10)}`,
+              );
+            }}
+          />
         </div>
       </div>
 
-      {entries.length === 0 ? (
-        <EmptyTraffic />
+      {/* Filter bar */}
+      <TrafficFilterBar
+        filter={filter}
+        onFilterChange={setFilter}
+        agentIds={agentIds}
+        totalCount={entries.length}
+        filteredCount={filteredEntries.length}
+        onClear={onClear ?? (() => {})}
+      />
+
+      {/* Content */}
+      {filteredEntries.length === 0 ? (
+        entries.length === 0 ? <EmptyTraffic /> : (
+          <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+            <p className="text-sm text-[var(--color-text-dim)]">No entries match the current filters.</p>
+          </div>
+        )
       ) : (
-        <div className="space-y-1.5">
-          {entries.map((entry) => (
-            <TrafficRow key={entry.id} entry={entry} />
-          ))}
-        </div>
+        <>
+          <div className="space-y-1.5">
+            {pagination.paginatedItems.map((entry) => (
+              <TrafficRow key={entry.id} entry={entry} />
+            ))}
+          </div>
+
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            pageSize={pagination.pageSize}
+            totalItems={filteredEntries.length}
+            startIndex={pagination.startIndex}
+            endIndex={pagination.endIndex}
+            hasNext={pagination.hasNext}
+            hasPrev={pagination.hasPrev}
+            onNextPage={pagination.nextPage}
+            onPrevPage={pagination.prevPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </>
       )}
     </div>
   );
 }
 
-function TrafficRow({ entry }: { entry: TrafficEntry }) {
+// Wrapped in React.memo — TrafficLog re-renders when new entries arrive.
+// TrafficRow memo ensures existing rows don't re-render when only a new entry is added.
+const TrafficRow = memo(function TrafficRow({ entry }: { entry: TrafficEntry }) {
   const statusStyle = STATUS_COLORS[entry.status] ?? 'text-slate-400 bg-slate-500/10 border-slate-500/30';
   const rowBorder = STATUS_ROW_BG[entry.status] ?? 'border-l-slate-500/40';
 
   return (
     <div
       className={`
-        rounded-r-xl border border-[#2a2f45] border-l-2 ${rowBorder}
-        bg-[#1a1d27] px-4 py-3
+        rounded-r-xl border border-[var(--color-border)] border-l-2 ${rowBorder}
+        bg-[var(--color-surface)] px-4 py-3
         grid grid-cols-[160px_140px_120px_1fr_120px_140px] gap-3 items-center
-        hover:bg-[#20243a] transition-colors text-xs
+        hover:bg-[var(--color-surface-hover)] transition-colors text-xs
       `}
     >
       {/* Timestamp */}
-      <span className="font-mono-data text-[#64748b]">
+      <span className="font-mono-data text-[var(--color-text-dim)]">
         {entry.timestamp.toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit',
@@ -73,17 +177,17 @@ function TrafficRow({ entry }: { entry: TrafficEntry }) {
       </span>
 
       {/* Agent ID */}
-      <span className="font-mono-data text-[#94a3b8] truncate" title={entry.agent_id}>
+      <span className="font-mono-data text-[var(--color-text-secondary)] truncate" title={entry.agent_id}>
         {entry.agent_id}
       </span>
 
       {/* Action */}
-      <span className="font-mono-data text-[#e2e8f0] truncate" title={entry.action}>
+      <span className="font-mono-data text-[var(--color-text)] truncate" title={entry.action}>
         {entry.action}
       </span>
 
       {/* Capability / target */}
-      <span className="text-[#64748b] truncate" title={entry.capability ?? entry.target ?? '—'}>
+      <span className="text-[var(--color-text-dim)] truncate" title={entry.capability ?? entry.target ?? '—'}>
         {entry.capability ?? entry.target ?? '—'}
       </span>
 
@@ -96,14 +200,14 @@ function TrafficRow({ entry }: { entry: TrafficEntry }) {
 
       {/* Task ID / policy */}
       <span
-        className="font-mono-data text-[#3a3f5a] truncate"
+        className="font-mono-data text-[var(--color-text-muted)] truncate"
         title={entry.task_id ?? entry.policy_rule ?? '—'}
       >
         {entry.task_id ?? entry.policy_rule ?? '—'}
       </span>
     </div>
   );
-}
+});
 
 function LegendDot({ color, label }: { color: string; label: string }) {
   const dots: Record<string, string> = {
@@ -122,10 +226,10 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 
 function EmptyTraffic() {
   return (
-    <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-12 text-center">
+    <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-12 text-center">
       <p className="text-3xl mb-3">⇌</p>
-      <p className="text-sm font-medium text-[#94a3b8]">No traffic yet</p>
-      <p className="text-xs text-[#64748b] mt-1">
+      <p className="text-sm font-medium text-[var(--color-text-secondary)]">No traffic yet</p>
+      <p className="text-xs text-[var(--color-text-dim)] mt-1">
         Dispatch tasks via the Orchestrator tab to see entries here.
       </p>
     </div>

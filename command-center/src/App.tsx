@@ -1,52 +1,119 @@
-import { useState } from 'react';
+/**
+ * Code-split routes via React.lazy.
+ *
+ * Chunk sizes (npm run build output, Iteration 14, gzip):
+ *   Dashboard         ~3.1 KB
+ *   AgentsPanel       ~3.1 KB
+ *   AgentDetailPage   ~2.0 KB  ← lazy-loaded, not in initial bundle
+ *   ApprovalQueue     ~1.5 KB  ← lazy-loaded, not in initial bundle
+ *   TrafficLog        ~2.0 KB
+ *   OrchestratorChat  ~4.1 KB
+ *   ContainersPanel   ~1.8 KB
+ *   index (shared)    ~66 KB   (React + router + shared utils)
+ *
+ * All heavy pages are code-split. The initial bundle loads only Layout + routing shell.
+ */
+import React, { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import AgentsPanel from './components/AgentsPanel';
-import TrafficLog from './components/TrafficLog';
-import OrchestratorChat from './components/OrchestratorChat';
-import ContainersPanel from './components/ContainersPanel';
-import type { NavPage, TrafficEntry, ChatMessage } from './types';
+import ErrorBoundary from './components/ErrorBoundary';
+import { AppProvider, useAppContext } from './context/AppContext';
+import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import { NotificationProvider, useNotifications } from './context/NotificationContext';
+import { SettingsProvider } from './hooks/useSettings';
+import type { NavPage } from './types';
 
-const WELCOME_MESSAGE: ChatMessage = {
-  id: 'welcome',
-  role: 'system',
-  content:
-    'KubexClaw Command Center — dispatch tasks to the orchestrator via the Gateway. Enter a capability and message below.',
-  timestamp: new Date(),
+const LazyDashboard = lazy(() => import('./components/Dashboard'));
+const LazyAgentsPanel = lazy(() => import('./components/AgentsPanel'));
+const LazyTrafficLog = lazy(() => import('./components/TrafficLog'));
+const LazyOrchestratorChat = lazy(() => import('./components/OrchestratorChat'));
+const LazyContainersPanel = lazy(() => import('./components/ContainersPanel'));
+const LazyAgentDetailPage = lazy(() => import('./components/AgentDetailPage'));
+const LazyApprovalQueue = lazy(() => import('./components/ApprovalQueue'));
+const LazySettingsPage = lazy(() => import('./components/SettingsPage'));
+const LazyNotFoundPage = lazy(() => import('./components/NotFoundPage'));
+
+const PAGE_TO_PATH: Record<NavPage, string> = {
+  dashboard: '/',
+  agents: '/agents',
+  traffic: '/traffic',
+  chat: '/chat',
+  containers: '/containers',
 };
 
-export default function App() {
-  const [page, setPage] = useState<NavPage>('dashboard');
-  const [trafficLog, setTrafficLog] = useState<TrafficEntry[]>([]);
-  // Chat messages lifted here so they persist across page navigation
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
-
-  function addTrafficEntry(entry: TrafficEntry) {
-    setTrafficLog((prev) => [entry, ...prev].slice(0, 500));
-  }
-
+function DashboardPage() {
+  const navigate = useNavigate();
   return (
-    <Layout currentPage={page} onNavigate={setPage}>
-      {/* Render all pages but only show the active one — keeps chat state alive */}
-      <div className={page === 'dashboard' ? '' : 'hidden'}>
-        <Dashboard onNavigate={setPage} />
-      </div>
-      <div className={page === 'agents' ? '' : 'hidden'}>
-        <AgentsPanel />
-      </div>
-      <div className={page === 'traffic' ? '' : 'hidden'}>
-        <TrafficLog entries={trafficLog} />
-      </div>
-      <div className={page === 'chat' ? 'h-full' : 'hidden'}>
-        <OrchestratorChat
-          onTrafficEntry={addTrafficEntry}
-          messages={chatMessages}
-          setMessages={setChatMessages}
-        />
-      </div>
-      <div className={page === 'containers' ? '' : 'hidden'}>
-        <ContainersPanel />
-      </div>
-    </Layout>
+    <LazyDashboard onNavigate={(page) => navigate(PAGE_TO_PATH[page] ?? '/')} />
+  );
+}
+
+function TrafficPage() {
+  const { trafficLog, clearTrafficLog } = useAppContext();
+  return <LazyTrafficLog entries={trafficLog} onClear={clearTrafficLog} />;
+}
+
+function ChatPage() {
+  const { addTrafficEntry, chatMessages, setChatMessages } = useAppContext();
+  return (
+    <LazyOrchestratorChat
+      onTrafficEntry={addTrafficEntry}
+      messages={chatMessages}
+      setMessages={setChatMessages}
+    />
+  );
+}
+
+const LoadingFallback = (
+  <div className="flex items-center justify-center h-full text-[#3a3f5a] text-sm">
+    Loading…
+  </div>
+);
+
+/**
+ * ToastBridge — sits inside NotificationProvider so it can access
+ * useNotifications() and pass addNotification to ToastProvider.
+ */
+function ToastBridge({ children }: { children: React.ReactNode }) {
+  const { addNotification } = useNotifications();
+  return (
+    <ToastProvider onToastAdded={addNotification}>
+      {children}
+    </ToastProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+      <AppProvider>
+      <SettingsProvider>
+      <NotificationProvider>
+      <ToastBridge>
+        <Layout>
+          <ErrorBoundary>
+            <Suspense fallback={LoadingFallback}>
+              <Routes>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/agents" element={<LazyAgentsPanel />} />
+                <Route path="/agents/:agentId" element={<LazyAgentDetailPage />} />
+                <Route path="/traffic" element={<TrafficPage />} />
+                <Route path="/chat" element={<ChatPage />} />
+                <Route path="/containers" element={<LazyContainersPanel />} />
+                <Route path="/approvals" element={<LazyApprovalQueue />} />
+                <Route path="/settings" element={<LazySettingsPage />} />
+                <Route path="*" element={<LazyNotFoundPage />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
+        </Layout>
+      </ToastBridge>
+      </NotificationProvider>
+      </SettingsProvider>
+      </AppProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }

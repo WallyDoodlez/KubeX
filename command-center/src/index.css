@@ -2,6 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme tokens ──────────────────────────────────────────────────── */
+:root {
+  /* Background layers (darkest → lightest) */
+  --color-bg:           #0f1117;   /* app root background              */
+  --color-bg-terminal:  #0a0c10;   /* terminal / code block background */
+  --color-surface-dark: #12151f;   /* sidebar, top-bar, dialog panels  */
+  --color-surface:      #1a1d27;   /* cards, inputs, content areas     */
+  --color-surface-hover:#20243a;   /* row/card hover state             */
+
+  /* Borders */
+  --color-border:       #2a2f45;   /* default border                   */
+  --color-border-strong:#3a3f5a;   /* stronger / secondary border      */
+  --color-border-hover: #3a4055;   /* border on hover                  */
+
+  /* Scrollbar */
+  --color-scrollbar-thumb:      #3a3f5a;
+  --color-scrollbar-thumb-hover:#4a4f6a;
+  --color-scrollbar-track:      #1a1d27;
+
+  /* Text */
+  --color-text:         #e2e8f0;   /* primary text                     */
+  --color-text-secondary:#94a3b8;  /* secondary / subdued text         */
+  --color-text-dim:     #64748b;   /* dim / placeholder text           */
+  --color-text-muted:   #3a3f5a;   /* very faint labels / separators   */
+
+  /* Focus ring offset reference */
+  --color-focus-offset-bg: #0f1117;
+  --color-focus-offset-surface-dark: #12151f;
+}
+
+/* ── Light theme token overrides ──────────────────────────────────── */
+[data-theme="light"] {
+  /* Background layers */
+  --color-bg:           #f0f2f7;
+  --color-bg-terminal:  #e8eaf0;
+  --color-surface-dark: #ffffff;
+  --color-surface:      #f8fafc;
+  --color-surface-hover:#eef2f8;
+
+  /* Borders */
+  --color-border:       #d1d9e6;
+  --color-border-strong:#b0bcd4;
+  --color-border-hover: #9badc7;
+
+  /* Scrollbar */
+  --color-scrollbar-thumb:      #b0bcd4;
+  --color-scrollbar-thumb-hover:#8a9bc0;
+  --color-scrollbar-track:      #e8eaf0;
+
+  /* Text */
+  --color-text:         #1a2035;
+  --color-text-secondary:#4a5568;
+  --color-text-dim:     #6b7a95;
+  --color-text-muted:   #a0aec0;
+
+  /* Focus ring offset reference */
+  --color-focus-offset-bg: #f0f2f7;
+  --color-focus-offset-surface-dark: #ffffff;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -14,8 +74,8 @@
   }
 
   body {
-    background-color: #0f1117;
-    color: #e2e8f0;
+    background-color: var(--color-bg);
+    color: var(--color-text);
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -28,16 +88,27 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #1a1d27;
+    background: var(--color-scrollbar-track);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #3a3f5a;
+    background: var(--color-scrollbar-thumb);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #4a4f6a;
+    background: var(--color-scrollbar-thumb-hover);
+  }
+
+  /* Global focus-visible ring: applied only when using keyboard navigation */
+  :focus-visible {
+    outline: 2px solid #10b981; /* emerald-500 */
+    outline-offset: 2px;
+  }
+
+  /* Remove default focus ring for mouse/pointer interactions */
+  :focus:not(:focus-visible) {
+    outline: none;
   }
 }
 
@@ -52,6 +123,68 @@
 
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #3a3f5a #1a1d27;
+    scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+  }
+
+  /* Focus-visible utility classes for inline use */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[--color-bg];
+  }
+
+  .focus-ring-inset {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500;
+  }
+}
+
+/* ── Print stylesheet ─────────────────────────────────────────────────────── */
+@media print {
+  /* Reset background colors and use high-contrast text for readability */
+  * {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    border-color: #ccc !important;
+  }
+
+  /* Hide interactive / decorative elements */
+  aside,
+  header [role="toolbar"],
+  [data-testid="kill-all-button"],
+  .animate-pulse,
+  button:not([aria-label*="print"]) {
+    display: none !important;
+  }
+
+  /* Ensure main content spans full width */
+  main {
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Page break hints for tables */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* Links: show URL after text */
+  a[href]::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.75em;
+    color: #555 !important;
+  }
+
+  /* Avoid page breaks inside key containers */
+  .card,
+  [class*="rounded-xl"] {
+    page-break-inside: avoid;
   }
 }

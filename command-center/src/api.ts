@@ -21,7 +21,7 @@ function getBase(envKey: string, fallback: string): string {
 export const GATEWAY = getBase('VITE_GATEWAY_URL', 'http://localhost:8080');
 export const REGISTRY = getBase('VITE_REGISTRY_URL', 'http://localhost:8070');
 export const MANAGER = getBase('VITE_MANAGER_URL', 'http://localhost:8090');
-export const MANAGER_TOKEN = getBase('VITE_MANAGER_TOKEN', 'changeme-manager-token');
+export const MANAGER_TOKEN = getBase('VITE_MANAGER_TOKEN', '');
 
 // ── Low-level fetch wrapper ─────────────────────────────────────────
 
@@ -33,7 +33,7 @@ interface FetchResult<T> {
   responseTime: number;
 }
 
-async function apiFetch<T>(
+async function doFetch<T>(
   method: string,
   url: string,
   body?: unknown,
@@ -64,6 +64,10 @@ async function apiFetch<T>(
       data = text as unknown as T;
     }
 
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, status: res.status, data, error: `Authentication failed (${res.status})`, responseTime };
+    }
+
     return { ok: res.ok, status: res.status, data, error: null, responseTime };
   } catch (err) {
     const responseTime = performance.now() - start;
@@ -72,6 +76,27 @@ async function apiFetch<T>(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+// Deduplicates concurrent identical GET requests — if the same URL is already
+// in-flight, callers share the same promise instead of issuing a duplicate request.
+const inflightGets = new Map<string, Promise<FetchResult<unknown>>>();
+
+function apiFetch<T>(
+  method: string,
+  url: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<FetchResult<T>> {
+  if (method === 'GET') {
+    const existing = inflightGets.get(url);
+    if (existing) return existing as Promise<FetchResult<T>>;
+    const promise = doFetch<T>(method, url, body, headers);
+    inflightGets.set(url, promise as Promise<FetchResult<unknown>>);
+    promise.finally(() => inflightGets.delete(url));
+    return promise;
+  }
+  return doFetch<T>(method, url, body, headers);
 }
 
 function managerHeaders(): Record<string, string> {
@@ -143,6 +168,28 @@ export async function startKubex(kubexId: string): Promise<FetchResult<unknown>>
   );
 }
 
+export async function killAllKubexes(): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>('POST', `${MANAGER}/kubexes/kill-all`, undefined, managerHeaders());
+}
+
+export async function pauseKubex(kubexId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>(
+    'POST',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/pause`,
+    undefined,
+    managerHeaders(),
+  );
+}
+
+export async function resumeKubex(kubexId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>(
+    'POST',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/resume`,
+    undefined,
+    managerHeaders(),
+  );
+}
+
 // ── Tasks (Gateway) ──────────────────────────────────────────────────
 
 export async function dispatchTask(
@@ -175,4 +222,36 @@ export async function getTaskResult(taskId: string): Promise<FetchResult<TaskRes
 
 export async function getGatewayAgents(): Promise<FetchResult<Agent[]>> {
   return apiFetch<Agent[]>('GET', `${GATEWAY}/agents`);
+}
+
+// ── SSE streaming ───────────────────────────────────────────────────
+
+export function getTaskStreamUrl(taskId: string): string {
+  return `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/stream`;
+}
+
+// ── HITL (Human-in-the-loop) ────────────────────────────────────────
+
+export async function provideInput(
+  taskId: string,
+  input: string,
+): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>('POST', `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/input`, { input });
+}
+
+// ── Escalations / Approvals ─────────────────────────────────────────
+
+export async function getEscalations(): Promise<FetchResult<unknown[]>> {
+  return apiFetch<unknown[]>('GET', `${GATEWAY}/escalations`);
+}
+
+export async function resolveEscalation(
+  escalationId: string,
+  decision: 'approve' | 'reject',
+  reason?: string,
+): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>('POST', `${GATEWAY}/escalations/${encodeURIComponent(escalationId)}/resolve`, {
+    decision,
+    reason,
+  });
 }

@@ -20,7 +20,7 @@ export interface ServiceHealth {
 export interface Agent {
   agent_id: string;
   capabilities: string[];
-  status: 'running' | 'busy' | 'idle' | 'stopped' | string;
+  status: 'running' | 'busy' | 'idle' | 'stopped' | 'booting' | 'credential_wait' | 'ready' | string;
   boundary: string;
   registered_at?: string;
   metadata?: Record<string, unknown>;
@@ -101,6 +101,58 @@ export interface ChatMessage {
   task_id?: string;
   raw?: unknown;
 }
+
+// ── SSE streaming ───────────────────────────────────────────────────
+
+export interface SSEChunk {
+  type: 'progress' | 'output' | 'awaiting_input' | 'result' | 'cancelled' | 'failed' | string;
+  content?: string;
+  stream?: 'stdout' | 'stderr';
+  prompt?: string;
+  result?: unknown;
+  error?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+}
+
+export interface HITLRequest {
+  task_id: string;
+  prompt: string;
+  timestamp: string;
+}
+
+// ── Traffic filters ─────────────────────────────────────────────────
+
+export interface TrafficFilter {
+  status: ActionStatus | 'all';
+  agentId: string;
+  search: string;
+}
+
+// ── Agent detail ────────────────────────────────────────────────────
+
+export interface AgentDetail extends Agent {
+  tasks_completed?: number;
+  tasks_failed?: number;
+  uptime?: string;
+  last_active?: string;
+}
+
+// ── Approvals (escalated actions) ───────────────────────────────────
+
+export interface ApprovalRequest {
+  id: string;
+  task_id: string;
+  agent_id: string;
+  action: string;
+  capability?: string;
+  reason: string;
+  policy_rule?: string;
+  timestamp: Date;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+export type ApprovalDecision = 'approve' | 'reject';
 
 // ── Navigation ───────────────────────────────────────────────────────
 

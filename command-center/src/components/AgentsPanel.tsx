@@ -1,14 +1,35 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { usePolling } from '../hooks/usePolling';
+import { useSearch } from '../hooks/useSearch';
+import { useSort } from '../hooks/useSort';
+import { usePagination } from '../hooks/usePagination';
 import type { Agent } from '../types';
 import { getAgents, deregisterAgent } from '../api';
 import StatusBadge from './StatusBadge';
+import ConfirmDialog from './ConfirmDialog';
+import SearchInput from './SearchInput';
+import Pagination from './Pagination';
+import { SkeletonTable } from './SkeletonLoader';
+import EmptyState from './EmptyState';
+import ExportMenu from './ExportMenu';
+import { exportAsJSON } from '../utils/export';
+
+// Stable comparators defined at module level so their references don't change between renders
+const sortComparators = {
+  agent_id: (a: Agent, b: Agent) => a.agent_id.localeCompare(b.agent_id),
+  status: (a: Agent, b: Agent) => a.status.localeCompare(b.status),
+  boundary: (a: Agent, b: Agent) => a.boundary.localeCompare(b.boundary),
+};
 
 export default function AgentsPanel() {
+  const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deregistering, setDeregistering] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -22,16 +43,35 @@ export default function AgentsPanel() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 10_000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { refresh } = usePolling(load, { interval: 10_000, immediate: true, pauseOnHidden: true, maxBackoff: 4 });
 
-  async function handleDeregister(agentId: string) {
-    if (!confirm(`Deregister agent "${agentId}"?`)) return;
-    setDeregistering(agentId);
-    await deregisterAgent(agentId);
+  // Search — useSearch internally uses useMemo, so searchedAgents only recomputes when
+  // agents array or query changes (not on every parent render).
+  const { query, setQuery, filteredItems: searchedAgents } = useSearch(agents, {
+    fields: [
+      (a) => a.agent_id,
+      (a) => a.capabilities.join(' '),
+      (a) => a.status,
+      (a) => a.boundary,
+    ],
+  });
+
+  // Sort — useSort internally uses useMemo, sortedItems only recomputes when
+  // searchedAgents or sortConfig changes.
+  const { sortedItems, requestSort, getSortIndicator } = useSort(searchedAgents, sortComparators);
+
+  // Paginate — usePagination internally uses useMemo for paginatedItems slice.
+  const pagination = usePagination(sortedItems, { initialPageSize: 10 });
+
+  function requestDeregister(agentId: string) {
+    setConfirmTarget(agentId);
+  }
+
+  async function handleDeregister() {
+    if (!confirmTarget) return;
+    setConfirmTarget(null);
+    setDeregistering(confirmTarget);
+    await deregisterAgent(confirmTarget);
     setDeregistering(null);
     await load();
   }
@@ -41,17 +81,35 @@ export default function AgentsPanel() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-sm font-semibold text-[#e2e8f0]">Registered Agents</h2>
-          <p className="text-xs text-[#64748b]">
-            {loading ? 'Loading…' : `${agents.length} agents in registry`}
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">Registered Agents</h2>
+          <p className="text-xs text-[var(--color-text-dim)]">
+            {loading ? 'Loading…' : query ? `${searchedAgents.length} of ${agents.length} agents` : `${agents.length} agents in registry`}
           </p>
         </div>
-        <button
-          onClick={load}
-          className="px-3 py-1.5 text-xs rounded-lg border border-[#2a2f45] text-[#94a3b8] hover:border-[#3a3f5a] hover:text-[#e2e8f0] transition-colors"
-        >
-          ↻ Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportMenu
+            testId="agents-export-menu"
+            disabled={agents.length === 0}
+            onExportJSON={() => {
+              exportAsJSON(agents, `agents-${new Date().toISOString().slice(0, 10)}`);
+            }}
+          />
+          <button
+            onClick={refresh}
+            className="px-3 py-1.5 text-xs rounded-lg border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] transition-colors"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="mb-4">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search agents by ID, capability, status…"
+        />
       </div>
 
       {error && (
@@ -61,40 +119,78 @@ export default function AgentsPanel() {
       )}
 
       {loading && agents.length === 0 ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 rounded-xl bg-[#1a1d27] border border-[#2a2f45] animate-pulse" />
-          ))}
-        </div>
+        <SkeletonTable rows={3} cols={5} />
       ) : agents.length === 0 ? (
-        <EmptyState />
+        <EmptyState
+          icon="◎"
+          title="No agents registered"
+          description="Run docker compose up to start agents."
+        />
       ) : (
-        <div className="rounded-xl border border-[#2a2f45] overflow-hidden">
-          {/* Table header */}
-          <div className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-[#2a2f45] bg-[#12151f]">
-            {['Agent ID', 'Capabilities', 'Status', 'Boundary', ''].map((h) => (
-              <span key={h} className="text-[10px] uppercase tracking-widest font-semibold text-[#3a3f5a]">
-                {h}
-              </span>
+        <>
+          <div className="rounded-xl border border-[var(--color-border)] overflow-hidden" role="table">
+            {/* Table header */}
+            <div className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]" role="row">
+              {[
+                { label: 'Agent ID', sortKey: 'agent_id' as const },
+                { label: 'Capabilities', sortKey: null },
+                { label: 'Status', sortKey: 'status' as const },
+                { label: 'Boundary', sortKey: 'boundary' as const },
+                { label: '', sortKey: null },
+              ].map(({ label, sortKey }) => (
+                <span
+                  key={label || 'actions'}
+                  className={`text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] ${sortKey ? 'cursor-pointer hover:text-[var(--color-text-dim)] select-none' : ''}`}
+                  onClick={sortKey ? () => requestSort(sortKey) : undefined}
+                  role="columnheader"
+                >
+                  {label}{sortKey ? getSortIndicator(sortKey) : ''}
+                </span>
+              ))}
+            </div>
+
+            {/* Rows */}
+            {pagination.paginatedItems.map((agent, idx) => (
+              <AgentRow
+                key={agent.agent_id}
+                agent={agent}
+                isLast={idx === pagination.paginatedItems.length - 1}
+                expanded={expandedId === agent.agent_id}
+                onToggle={() =>
+                  setExpandedId((prev) => (prev === agent.agent_id ? null : agent.agent_id))
+                }
+                onDeregister={() => requestDeregister(agent.agent_id)}
+                onNavigateToDetail={() => navigate(`/agents/${agent.agent_id}`)}
+                deregistering={deregistering === agent.agent_id}
+              />
             ))}
           </div>
 
-          {/* Rows */}
-          {agents.map((agent, idx) => (
-            <AgentRow
-              key={agent.agent_id}
-              agent={agent}
-              isLast={idx === agents.length - 1}
-              expanded={expandedId === agent.agent_id}
-              onToggle={() =>
-                setExpandedId((prev) => (prev === agent.agent_id ? null : agent.agent_id))
-              }
-              onDeregister={() => handleDeregister(agent.agent_id)}
-              deregistering={deregistering === agent.agent_id}
-            />
-          ))}
-        </div>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            pageSize={pagination.pageSize}
+            totalItems={sortedItems.length}
+            startIndex={pagination.startIndex}
+            endIndex={pagination.endIndex}
+            hasNext={pagination.hasNext}
+            hasPrev={pagination.hasPrev}
+            onNextPage={pagination.nextPage}
+            onPrevPage={pagination.prevPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </>
       )}
+
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        title="Deregister Agent"
+        message={`Are you sure you want to deregister agent "${confirmTarget}"?`}
+        confirmLabel="Deregister"
+        variant="danger"
+        onConfirm={handleDeregister}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }
@@ -107,21 +203,35 @@ interface AgentRowProps {
   expanded: boolean;
   onToggle: () => void;
   onDeregister: () => void;
+  onNavigateToDetail: () => void;
   deregistering: boolean;
 }
 
-function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, deregistering }: AgentRowProps) {
+// Wrapped in React.memo — AgentsPanel re-renders on every 10s poll tick (setLoading, setAgents).
+// Each AgentRow will skip re-render when its own props haven't changed.
+// Note: onToggle/onDeregister/onNavigateToDetail are new arrow functions on every parent render;
+// for full stability these would need useCallback in the parent. The memo still helps for
+// rows that are not in the "active" slot (e.g., expanded row changes, others stay stable).
+const AgentRow = memo(function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, onNavigateToDetail, deregistering }: AgentRowProps) {
   return (
-    <div className={`${!isLast ? 'border-b border-[#2a2f45]' : ''}`}>
+    <div className={`${!isLast ? 'border-b border-[var(--color-border)]' : ''}`}>
       {/* Main row */}
       <div
-        className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center bg-[#1a1d27] hover:bg-[#20243a] cursor-pointer transition-colors"
+        className="grid grid-cols-[2fr_3fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors"
         onClick={onToggle}
+        role="row"
       >
         {/* Agent ID */}
         <div className="flex items-center gap-2 min-w-0">
           <span className={`text-xs transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
-          <span className="font-mono-data text-sm text-[#e2e8f0] truncate">{agent.agent_id}</span>
+          <span
+            className="font-mono-data text-sm text-[var(--color-text)] truncate hover:text-emerald-400 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onNavigateToDetail(); }}
+            role="link"
+            tabIndex={0}
+          >
+            {agent.agent_id}
+          </span>
         </div>
 
         {/* Capabilities */}
@@ -129,7 +239,7 @@ function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, deregisteri
           {agent.capabilities.map((cap) => (
             <span
               key={cap}
-              className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[#2a2f45] text-[#94a3b8] border border-[#3a3f5a]"
+              className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-secondary)] border border-[var(--color-border-strong)]"
             >
               {cap}
             </span>
@@ -140,7 +250,7 @@ function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, deregisteri
         <StatusBadge status={agent.status} />
 
         {/* Boundary */}
-        <span className="text-xs font-mono-data text-[#64748b]">{agent.boundary}</span>
+        <span className="text-xs font-mono-data text-[var(--color-text-dim)]">{agent.boundary}</span>
 
         {/* Actions */}
         <button
@@ -157,7 +267,7 @@ function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, deregisteri
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="bg-[#12151f] border-t border-[#2a2f45] px-6 py-4">
+        <div className="bg-[var(--color-surface-dark)] border-t border-[var(--color-border)] px-6 py-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
             <DetailField label="agent_id" value={agent.agent_id} mono />
             <DetailField label="status" value={agent.status} />
@@ -174,8 +284,8 @@ function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, deregisteri
 
           {agent.metadata && Object.keys(agent.metadata).length > 0 && (
             <div className="mt-4">
-              <p className="text-[10px] uppercase tracking-widest text-[#3a3f5a] mb-2">Metadata</p>
-              <pre className="text-xs font-mono-data text-[#94a3b8] bg-[#0f1117] rounded-lg p-3 overflow-x-auto border border-[#2a2f45]">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-2">Metadata</p>
+              <pre className="text-xs font-mono-data text-[var(--color-text-secondary)] bg-[var(--color-bg)] rounded-lg p-3 overflow-x-auto border border-[var(--color-border)]">
                 {JSON.stringify(agent.metadata, null, 2)}
               </pre>
             </div>
@@ -184,25 +294,13 @@ function AgentRow({ agent, isLast, expanded, onToggle, onDeregister, deregisteri
       )}
     </div>
   );
-}
+});
 
 function DetailField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-widest text-[#3a3f5a] mb-0.5">{label}</p>
-      <p className={`text-[#94a3b8] ${mono ? 'font-mono-data' : ''} break-all`}>{value}</p>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="rounded-xl border border-dashed border-[#2a2f45] bg-[#1a1d27] p-12 text-center">
-      <p className="text-3xl mb-3">◎</p>
-      <p className="text-sm font-medium text-[#94a3b8]">No agents registered</p>
-      <p className="text-xs text-[#64748b] mt-1">
-        Run <code className="font-mono-data bg-[#2a2f45] px-1 rounded">docker compose up</code> to start agents.
-      </p>
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-0.5">{label}</p>
+      <p className={`text-[var(--color-text-secondary)] ${mono ? 'font-mono-data' : ''} break-all`}>{value}</p>
     </div>
   );
 }

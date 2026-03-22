@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 interface StatusBadgeProps {
   status: string;
   size?: 'sm' | 'md';
@@ -9,6 +11,9 @@ const STATUS_STYLES: Record<string, string> = {
   busy: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   idle: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
   stopped: 'bg-red-500/20 text-red-400 border-red-500/30',
+  booting: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+  credential_wait: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  ready: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
   // Service health
   healthy: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
   degraded: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
@@ -34,6 +39,9 @@ const STATUS_DOT: Record<string, string> = {
   idle: 'bg-slate-400',
   loading: 'bg-slate-400',
   stopped: 'bg-red-400',
+  booting: 'bg-cyan-400',
+  credential_wait: 'bg-amber-400',
+  ready: 'bg-emerald-400',
   down: 'bg-red-400',
   denied: 'bg-red-400',
   error: 'bg-red-400',
@@ -41,7 +49,9 @@ const STATUS_DOT: Record<string, string> = {
   pending: 'bg-blue-400',
 };
 
-export default function StatusBadge({ status, size = 'sm' }: StatusBadgeProps) {
+// Wrapped in React.memo — StatusBadge is used in every row/card and re-renders
+// on every poll tick (every 10s). Memo prevents re-renders when status+size are unchanged.
+const StatusBadge = memo(function StatusBadge({ status, size = 'sm' }: StatusBadgeProps) {
   const key = status.toLowerCase();
   const style = STATUS_STYLES[key] ?? 'bg-slate-500/20 text-slate-400 border-slate-500/30';
   const dot = STATUS_DOT[key] ?? 'bg-slate-400';
@@ -53,4 +63,6 @@ export default function StatusBadge({ status, size = 'sm' }: StatusBadgeProps) {
       {status}
     </span>
   );
-}
+});
+
+export default StatusBadge;
