@@ -15,6 +15,8 @@ import Breadcrumb from './Breadcrumb';
 import type { BreadcrumbItem } from './Breadcrumb';
 import ConnectionIndicator from './ConnectionIndicator';
 import { useHealthCheck } from '../hooks/useHealthCheck';
+import ThemeToggle from './ThemeToggle';
+import { useTheme } from '../hooks/useTheme';
 
 interface NavItem {
   label: string;
@@ -92,6 +94,9 @@ export default function Layout({ children }: LayoutProps) {
 
   // ── Global health checks (runs everywhere, not just Dashboard) ──────
   useHealthCheck();
+
+  // ── Theme (persists to localStorage, applies data-theme to <html>) ──
+  useTheme();
 
   // "G then X" two-key navigation — store first key with a timeout
   const gKeyPending = useRef(false);
@@ -453,6 +458,9 @@ export default function Layout({ children }: LayoutProps) {
             >
               ?
             </button>
+
+            {/* Theme toggle */}
+            <ThemeToggle className="hidden sm:flex" />
 
             <div aria-hidden="true" className="hidden sm:block w-px h-4 bg-[var(--color-border)]" />
 

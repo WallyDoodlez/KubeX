@@ -219,6 +219,16 @@
   - [x] Test: npx playwright test — 224/224 passed
   - [x] Commit
 
+- [x] **Iteration 22: Dark/Light Theme Toggle**
+  - [x] Add `[data-theme="light"]` CSS variable overrides in `index.css` (all 16 tokens)
+  - [x] Create `src/hooks/useTheme.ts` — reads/writes `kubex-theme` localStorage key; applies `data-theme` attr to `<html>`
+  - [x] Create `src/components/ThemeToggle.tsx` — sun/moon SVG icon button, `aria-pressed`, `aria-label`, `data-testid`
+  - [x] Mount `useTheme()` in `Layout.tsx` so preference applies on every page from first render
+  - [x] Add `<ThemeToggle>` to `Layout.tsx` top bar (between `?` shortcuts button and separator)
+  - [x] Create `tests/e2e/theme-toggle.spec.ts` (17 tests)
+  - [x] Build: npm run build — clean (86 modules, no errors)
+  - [x] Test: npx playwright test — 265/265 passed
+
 - [x] **Iteration 21: Global Connection Health Indicator (Top Bar)**
   - [x] Add `services: ServiceHealth[]`, `setServices`, and derived `systemStatus: SystemStatus` to `AppContext`
   - [x] Export `deriveSystemStatus()` helper and `INITIAL_SERVICES` constant from `AppContext`

@@ -32,6 +32,36 @@
   --color-focus-offset-surface-dark: #12151f;
 }
 
+/* ── Light theme token overrides ──────────────────────────────────── */
+[data-theme="light"] {
+  /* Background layers */
+  --color-bg:           #f0f2f7;
+  --color-bg-terminal:  #e8eaf0;
+  --color-surface-dark: #ffffff;
+  --color-surface:      #f8fafc;
+  --color-surface-hover:#eef2f8;
+
+  /* Borders */
+  --color-border:       #d1d9e6;
+  --color-border-strong:#b0bcd4;
+  --color-border-hover: #9badc7;
+
+  /* Scrollbar */
+  --color-scrollbar-thumb:      #b0bcd4;
+  --color-scrollbar-thumb-hover:#8a9bc0;
+  --color-scrollbar-track:      #e8eaf0;
+
+  /* Text */
+  --color-text:         #1a2035;
+  --color-text-secondary:#4a5568;
+  --color-text-dim:     #6b7a95;
+  --color-text-muted:   #a0aec0;
+
+  /* Focus ring offset reference */
+  --color-focus-offset-bg: #f0f2f7;
+  --color-focus-offset-surface-dark: #ffffff;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
