@@ -14,7 +14,7 @@ Requirements for MCP Bridge + CLI Runtime milestone. Each maps to roadmap phases
 - [x] **MCP-03**: Async task_id dispatch pattern — tool call returns task_id immediately, kubex__poll_task checks status
 - [x] **MCP-04**: Vault tools exposed as in-process MCP tools with policy gate enforced (Gateway endpoint or inline injection scan)
 - [x] **MCP-05**: Tool cache invalidated on agent registration/deregistration via Registry pub/sub (registry:agent_changed)
-- [ ] **MCP-06**: Old custom tool loop kept alive until MCP bridge passes full E2E parity against all existing tests
+- [x] **MCP-06**: Old custom tool loop kept alive until MCP bridge passes full E2E parity against all existing tests
 - [x] **MCP-07**: Concurrent worker dispatch via asyncio.gather() for parallel tool calls
 - [x] **MCP-08**: Meta-tools: kubex__list_agents, kubex__agent_status, kubex__cancel_task
 
@@ -80,7 +80,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MCP-03 | Phase 8 | Complete |
 | MCP-04 | Phase 8 | Complete |
 | MCP-05 | Phase 8 | Complete |
-| MCP-06 | Phase 8 | Pending |
+| MCP-06 | Phase 8 | Complete |
 | MCP-07 | Phase 8 | Complete |
 | MCP-08 | Phase 8 | Complete |
 | CLI-01 | Phase 9 | Pending |

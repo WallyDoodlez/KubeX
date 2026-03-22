@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 08-03-PLAN.md
-last_updated: "2026-03-21T23:49:08.616Z"
+stopped_at: Completed 08-04-PLAN.md
+last_updated: "2026-03-22T01:14:37.636Z"
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -45,6 +45,7 @@ Plan: 4 of 4
 | Phase 08-mcp-bridge P01 | 2 | 2 tasks | 9 files |
 | Phase 08-mcp-bridge P02 | 260 | 3 tasks | 3 files |
 | Phase 08-mcp-bridge P03 | 3 | 2 tasks | 3 files |
+| Phase 08-mcp-bridge P04 | 35 | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Recent decisions affecting current work:
 - [Phase 08-mcp-bridge]: MagicMock (not AsyncMock) for redis pubsub fixture -- redis client.pubsub() is synchronous in redis-py
 - [Phase 08-mcp-bridge]: Vault reads call vault_ops in-process (D-01); vault writes route through Gateway POST /actions with action vault_create/vault_update (D-02) enabling Gateway audit logging (D-03)
 - [Phase 08-mcp-bridge]: dispatch_concurrent uses asyncio.gather with return_exceptions=True for partial-failure-safe concurrent worker dispatch (MCP-07)
+- [Phase 08-mcp-bridge]: D-13 transport selection: openai-api runtime uses inmemory transport (bridge and LLM share same asyncio loop); any CLI runtime uses stdio for CLI MCP client connections
+- [Phase 08-mcp-bridge]: D-12 preserved: standalone.py tool loop methods retained — workers stay on standalone mode; orchestrator config-switched to mcp-bridge without code deletion
+- [Phase 08-mcp-bridge]: kubexclaw-base image rebuild required after any kubex_harness code change — E2E tests run against Docker image, not source tree
 
 ### Pending Todos
 
@@ -76,6 +80,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T23:49:08.613Z
-Stopped at: Completed 08-03-PLAN.md
+Last session: 2026-03-22T01:14:37.633Z
+Stopped at: Completed 08-04-PLAN.md
 Resume file: None

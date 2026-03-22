@@ -32,7 +32,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details.
 
 **Milestone Goal:** Replace the orchestrator's custom tool loop with MCP protocol and enable any CLI agent (Claude Code, Codex, Gemini CLI) to run inside Kubex containers via PTY subprocess with hooks-based monitoring and OAuth provisioning.
 
-- [ ] **Phase 8: MCP Bridge** — Orchestrator coordination via MCP protocol, replacing custom 8-tool OpenAI loop
+- [x] **Phase 8: MCP Bridge** — Orchestrator coordination via MCP protocol, replacing custom 8-tool OpenAI loop (completed 2026-03-22)
 - [ ] **Phase 9: CLI Runtime — Claude Code** — PTY supervisor and credential management, Claude Code as first runtime
 - [ ] **Phase 10: Hooks Monitoring** — Zero-token passive observability via Claude Code hooks HTTP endpoint
 - [ ] **Phase 11: Codex + Gemini Runtimes** — Extend CLI runtime to Codex CLI and Gemini CLI via PTY
@@ -50,13 +50,13 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details.
   3. Vault read and write tools are available as MCP tools with Gateway policy gate enforced on writes; in-process vault bypass is not possible
   4. Registering or deregistering a worker agent refreshes the available MCP tool set without restarting the orchestrator
   5. Full 789-test E2E suite passes against the mcp-bridge code path before the old custom tool loop is deleted
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 08-01-PLAN.md — Foundation: AgentConfig extension, Registry pub/sub, worker config descriptions
 - [x] 08-02-PLAN.md — Core MCPBridgeServer with worker delegation, poll tool, pub/sub subscription
 - [x] 08-03-PLAN.md — Vault tools (reads in-process, writes via Gateway), meta-tools, concurrent dispatch
-- [ ] 08-04-PLAN.md — Dual transport, integration tests, parity verification, orchestrator migration
+- [x] 08-04-PLAN.md — Dual transport, integration tests, parity verification, orchestrator migration
 
 ### Phase 9: CLI Runtime — Claude Code
 **Goal**: Any Kubex container can run Claude Code as its LLM via PTY subprocess, with credential management, graceful shutdown, and skills injected as CLAUDE.md
@@ -108,7 +108,7 @@ Plans:
 | 5. Base Image and Skill Schema | v1.1 | 4/4 | Complete | 2026-03-14 |
 | 6. Manager Spawn Logic and Policy Gates | v1.1 | 3/3 | Complete | 2026-03-16 |
 | 7. Agent Migration and Dockerfile Removal | v1.1 | 3/3 | Complete | 2026-03-17 |
-| 8. MCP Bridge | v1.2 | 3/4 | In Progress|  |
+| 8. MCP Bridge | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 9. CLI Runtime — Claude Code | v1.2 | 0/? | Not started | - |
 | 10. Hooks Monitoring | v1.2 | 0/? | Not started | - |
 | 11. Codex + Gemini Runtimes | v1.2 | 0/? | Not started | - |
