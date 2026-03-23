@@ -9,6 +9,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Node.js 20 LTS for Gemini CLI runtime support
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Gemini CLI globally (required for runtime: gemini-cli containers)
+RUN npm install -g @google/gemini-cli@0.34.0
+
+# Verify Node.js and Gemini CLI are available
+RUN node --version && gemini --version
+
 # Install kubex-common
 COPY libs/kubex-common /tmp/kubex-common
 RUN pip install --no-cache-dir /tmp/kubex-common && rm -rf /tmp/kubex-common
