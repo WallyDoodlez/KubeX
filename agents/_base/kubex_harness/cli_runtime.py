@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import httpx
 import redis.asyncio as aioredis
@@ -131,6 +131,9 @@ class CLIRuntime:
         self._http: httpx.AsyncClient | None = None
         # Single-threaded executor for pexpect drain loop (open question 1 mitigation)
         self._executor = ThreadPoolExecutor(max_workers=1)
+        # Hook server state (Phase 10)
+        self._current_task_id: str | None = None
+        self._hook_server: Any | None = None  # uvicorn.Server
 
     # ------------------------------------------------------------------
     # Public API
@@ -154,6 +157,11 @@ class CLIRuntime:
 
             # Gate on credentials before marking READY (D-08)
             await self._credential_gate()
+
+            # Start hook server for CLI runtimes (D-05, D-06)
+            if self.config.runtime != "openai-api":
+                from kubex_harness.hook_server import start_hook_server
+                self._hook_server = await start_hook_server(self)
 
             self._state = CliState.READY
             await self._publish_state(CliState.READY)
@@ -182,6 +190,8 @@ class CLIRuntime:
         """
         self._running = False
         self._stop_event.set()
+        if self._hook_server is not None:
+            self._hook_server.should_exit = True
         if self._child is not None:
             try:
                 asyncio.ensure_future(self._graceful_shutdown())
@@ -428,6 +438,17 @@ class CLIRuntime:
 
         logger.info("Starting task %s", task_id)
 
+        # Set task correlation ID BEFORE any await so hook events arriving early
+        # are correctly correlated (Pitfall 6 — D-18)
+        self._current_task_id = task_id
+
+        try:
+            await self._execute_task_inner(task_id, message)
+        finally:
+            self._current_task_id = None
+
+    async def _execute_task_inner(self, task_id: str, message: str) -> None:
+        """Inner task execution — called from _execute_task with _current_task_id set."""
         # Pre-flight credential check per task (Pitfall 3)
         if not self._credentials_present(self.config.runtime):
             logger.warning("Credentials missing before task %s — credential gate", task_id)
@@ -506,6 +527,67 @@ class CLIRuntime:
                 await self._http.post(url, json=payload)
         except Exception:
             logger.debug("Failed to post failure result for task %s", task_id)
+
+    # ------------------------------------------------------------------
+    # Hook event handlers (Phase 10 — called by hook_server.py)
+    # ------------------------------------------------------------------
+
+    async def _on_post_tool_use(self, event: Any) -> None:
+        """Handle PostToolUse hook — write audit entry (D-14, D-18)."""
+        task_id = self._current_task_id
+        if task_id is None:
+            logger.warning("hook_post_tool_use_no_task_id tool=%s", event.tool_name)
+            return
+        success = event.tool_response.get("success", True)
+        await self._write_audit_entry(task_id, event.tool_name, success)
+        # D-11: structured stdout log for future Fluent Bit pipeline
+        logger.info(
+            "audit_entry task_id=%s tool=%s success=%s",
+            task_id, event.tool_name, success,
+        )
+
+    async def _on_stop(self, event: Any) -> None:
+        """Handle Stop hook — emit task_progress lifecycle event (D-15)."""
+        task_id = self._current_task_id
+        if task_id is None:
+            return
+        await self._post_progress(
+            task_id,
+            content=f"turn_complete: {event.last_assistant_message[:200]}",
+            final=False,
+        )
+
+    async def _on_subagent_stop(self, event: Any) -> None:
+        """Handle SubagentStop hook — audit log only, no pub/sub (D-17)."""
+        logger.info(
+            "subagent_stop session=%s agent_type=%s",
+            event.session_id, event.agent_type,
+        )
+
+    async def _on_session_end(self, event: Any) -> None:
+        """Handle SessionEnd hook — metadata enrichment only (D-16)."""
+        logger.info(
+            "session_end session=%s reason=%s",
+            event.session_id, event.reason,
+        )
+
+    async def _write_audit_entry(
+        self, task_id: str, tool_name: str, success: bool
+    ) -> None:
+        """Write audit entry to Redis sorted set audit:{task_id} (D-11, D-12, D-14).
+
+        Best-effort: never raises. Audit must not block task processing.
+        """
+        if self._redis is None:
+            return
+        ts = time.time()
+        entry = json.dumps({"tool_name": tool_name, "timestamp": ts, "success": success})
+        key = f"audit:{task_id}"
+        try:
+            await self._redis.zadd(key, {entry: ts})
+            await self._redis.expire(key, 86400)  # 24h TTL (D-12)
+        except Exception:
+            logger.warning("audit_write_failed task_id=%s tool=%s", task_id, tool_name)
 
     # ------------------------------------------------------------------
     # CLI process management
