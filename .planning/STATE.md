@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
 stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-03-23T04:32:55.498Z"
+last_updated: "2026-03-23T04:37:06.669Z"
 progress:
   total_phases: 6
   completed_phases: 4
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ## Current Position
 
-Phase: 10 (hooks-monitoring) — EXECUTING
-Plan: 3 of 3
+Phase: 11
+Plan: Not started
 
 ## Performance Metrics
 
@@ -109,7 +109,7 @@ None.
 ### Blockers/Concerns
 
 - [Phase 8]: Vault write policy gate — two options (Gateway endpoint vs inline scan) must be decided before Phase 8 implementation starts
-- [Phase 11]: Codex CLI hooks are "experimental" per OpenAI docs — run /gsd:research-phase before planning Phase 11
+- [Phase 11]: Codex deferred to backlog (999.2) — hooks are "experimental" per OpenAI docs. Phase 11 is now Gemini-only.
 - [Phase 12]: Command Center OAuth web UI is project-specific — run /gsd:research-phase before planning Phase 12
 
 ## Session Continuity

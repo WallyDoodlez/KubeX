@@ -91,7 +91,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLI-06 | Phase 9 | Complete |
 | CLI-07 | Phase 9 | Complete |
 | CLI-08 | Phase 9 | Complete |
-| CLI-09 | Phase 11 | Pending |
+| CLI-09 | Backlog (999.2) | Deferred |
 | CLI-10 | Phase 11 | Pending |
 | HOOK-01 | Phase 10 | Complete |
 | HOOK-02 | Phase 10 | Complete |

@@ -35,7 +35,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details.
 - [x] **Phase 8: MCP Bridge** — Orchestrator coordination via MCP protocol, replacing custom 8-tool OpenAI loop (completed 2026-03-22)
 - [x] **Phase 9: CLI Runtime — Claude Code** — PTY supervisor and credential management, Claude Code as first runtime (completed 2026-03-22)
 - [x] **Phase 10: Hooks Monitoring** — Zero-token passive observability via Claude Code hooks HTTP endpoint (completed 2026-03-23)
-- [ ] **Phase 11: Codex + Gemini Runtimes** — Extend CLI runtime to Codex CLI and Gemini CLI via PTY
+- [ ] **Phase 11: Gemini CLI Runtime** — Extend CLI runtime to Gemini CLI via PTY subprocess
 - [ ] **Phase 12: OAuth Command Center Web Flow** — Web-based OAuth provisioning, replacing docker-exec HITL
 
 ## Phase Details
@@ -103,13 +103,14 @@ Plans:
 - [x] 10-01-PLAN.md — Hook server module, CLIRuntime integration, event handlers, audit write
 - [x] 10-02-PLAN.md — Manager settings.json generation, read-only mount, Gateway audit endpoint
 
-### Phase 11: Codex + Gemini Runtimes
-**Goal**: Codex CLI and Gemini CLI can run as Kubex runtimes via PTY subprocess, with per-CLI credential paths and failure pattern detection
-**Depends on**: Phase 9
-**Requirements**: CLI-09, CLI-10
+### Phase 11: Gemini CLI Runtime
+**Goal**: Gemini CLI can run as a Kubex runtime via PTY subprocess, with credential gate, graceful shutdown, lifecycle state machine, and failure pattern detection matching the Claude Code runtime
+**Depends on**: Phase 9, Phase 10
+**Requirements**: CLI-10
 **Success Criteria** (what must be TRUE):
-  1. A Kubex container configured with `runtime: codex-cli` launches Codex CLI via PTY subprocess, accepts tasks, and returns results with typed failure reasons (subscription_limit, auth_expired, cli_crash) in the task_failed payload
-  2. A Kubex container configured with `runtime: gemini-cli` launches Gemini CLI via PTY subprocess with the same credential gate, graceful shutdown, and lifecycle state machine as the Claude Code runtime
+  1. A Kubex container configured with `runtime: gemini-cli` launches Gemini CLI via PTY subprocess with the same credential gate, graceful shutdown, and lifecycle state machine as the Claude Code runtime
+  2. Gemini CLI failure patterns (auth_expired, cli_crash, quota_exceeded) are detected and reported as typed failure reasons in the task_failed payload
+  3. Skills injected at spawn appear as GEMINI.md inside the container and are picked up by Gemini CLI at session start
 **Plans**: TBD
 
 ### Phase 12: OAuth Command Center Web Flow
@@ -134,7 +135,7 @@ Plans:
 | 8.1 Agent System Prompts | v1.2 | 0/2 | In progress | - |
 | 9. CLI Runtime — Claude Code | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 10. Hooks Monitoring | v1.2 | 3/3 | Complete    | 2026-03-23 |
-| 11. Codex + Gemini Runtimes | v1.2 | 0/? | Not started | - |
+| 11. Gemini CLI Runtime | v1.2 | 0/? | Not started | - |
 | 12. OAuth Command Center Web Flow | v1.2 | 0/? | Not started | - |
 
 ## Backlog
@@ -148,7 +149,16 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
 
-### Phase 999.2: Research ruflo (BACKLOG)
+### Phase 999.2: Codex CLI Runtime (BACKLOG)
+
+**Goal:** Codex CLI runtime via PTY subprocess with per-CLI credential paths and failure pattern detection. Deferred — Codex CLI hooks are "experimental" per OpenAI docs, needs research before planning.
+**Requirements:** CLI-09
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.3: Research ruflo (BACKLOG)
 
 **Goal:** Analyze the ruflo project (github.com/ruvnet/ruflo) — study their agent orchestration architecture, patterns, and design decisions to identify ideas and lessons applicable to KubexClaw. Compare approaches to agent lifecycle, task routing, monitoring, and MCP integration.
 **Requirements:** TBD
