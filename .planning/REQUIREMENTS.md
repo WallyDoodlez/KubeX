@@ -29,7 +29,7 @@ Requirements for MCP Bridge + CLI Runtime milestone. Each maps to roadmap phases
 - [x] **CLI-07**: Container lifecycle state machine: BOOTING → CREDENTIAL_WAIT → READY ↔ BUSY with events via Redis pub/sub
 - [x] **CLI-08**: Claude Code runtime via PTY subprocess
 - [ ] **CLI-09**: Codex CLI runtime via PTY subprocess
-- [ ] **CLI-10**: Gemini CLI runtime via PTY subprocess
+- [x] **CLI-10**: Gemini CLI runtime via PTY subprocess
 
 ### Hooks Monitoring
 
@@ -92,7 +92,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLI-07 | Phase 9 | Complete |
 | CLI-08 | Phase 9 | Complete |
 | CLI-09 | Backlog (999.2) | Deferred |
-| CLI-10 | Phase 11 | Pending |
+| CLI-10 | Phase 11 | Complete |
 | HOOK-01 | Phase 10 | Complete |
 | HOOK-02 | Phase 10 | Complete |
 | HOOK-03 | Phase 10 | Complete |

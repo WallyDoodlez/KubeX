@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-03-23T04:37:06.669Z"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-23T21:16:14.584Z"
 progress:
-  total_phases: 6
-  completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
+  total_phases: 9
+  completed_phases: 5
+  total_plans: 14
+  completed_plans: 14
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Any Kubex can become any agent — new capabilities are skill files, not Docker builds.
-**Current focus:** Phase 10 — hooks-monitoring
+**Current focus:** Phase 11 — gemini-cli-runtime
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
+Phase: 11 (gemini-cli-runtime) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Plan: Not started
 | Phase 10-hooks-monitoring P00 | 4 | 1 tasks | 2 files |
 | Phase 10-hooks-monitoring P01 | 394 | 2 tasks | 3 files |
 | Phase 10-hooks-monitoring P02 | 509 | 2 tasks | 3 files |
+| Phase 11-gemini-cli-runtime P01 | 358 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,9 @@ Recent decisions affecting current work:
 - [Phase 10-hooks-monitoring]: _execute_task refactored into outer+inner pattern for try/finally _current_task_id cleanup while preserving all retry/auth early-return paths
 - [Phase 10-hooks-monitoring]: settings.json bind mount placed AFTER named credential volume to shadow named volume for that specific path (Pitfall 5)
 - [Phase 10-hooks-monitoring]: Gateway audit endpoint returns 200 with empty list for unknown tasks (not 404) — missing Redis key is normal state
+- [Phase 11-gemini-cli-runtime]: CLI_COMMAND_BUILDERS dispatch dict used for multi-runtime command building (D-02)
+- [Phase 11-gemini-cli-runtime]: Hook server gate changed from != openai-api to == claude-code (D-13)
+- [Phase 11-gemini-cli-runtime]: CLI_CREDENTIAL_MOUNTS[gemini-cli] corrected from /root/.config/gemini to /root/.gemini (actual Gemini CLI path)
 
 ### Pending Todos
 
@@ -114,6 +118,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-23T04:32:55.496Z
-Stopped at: Completed 10-02-PLAN.md
+Last session: 2026-03-23T21:16:14.581Z
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None
