@@ -96,10 +96,10 @@ Plans:
   2. The hook config file is mounted read-only; any attempt by a running container process to modify hook scripts is rejected by the filesystem
   3. Each Stop hook event emits a task_progress lifecycle event via Redis pub/sub that the orchestrator or Command Center can observe
   4. An audit trail of CLI tool invocations from PostToolUse events is persisted and queryable per task_id
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 10-00-PLAN.md — Wave 0: test stub scaffolding for Nyquist compliance
+- [x] 10-00-PLAN.md — Wave 0: test stub scaffolding for Nyquist compliance
 - [ ] 10-01-PLAN.md — Hook server module, CLIRuntime integration, event handlers, audit write
 - [ ] 10-02-PLAN.md — Manager settings.json generation, read-only mount, Gateway audit endpoint
 
@@ -133,6 +133,6 @@ Plans:
 | 8. MCP Bridge | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 8.1 Agent System Prompts | v1.2 | 0/2 | In progress | - |
 | 9. CLI Runtime — Claude Code | v1.2 | 4/4 | Complete   | 2026-03-22 |
-| 10. Hooks Monitoring | v1.2 | 0/3 | In progress | - |
+| 10. Hooks Monitoring | v1.2 | 1/3 | In Progress|  |
 | 11. Codex + Gemini Runtimes | v1.2 | 0/? | Not started | - |
 | 12. OAuth Command Center Web Flow | v1.2 | 0/? | Not started | - |

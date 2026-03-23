@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 09-03-PLAN.md
-last_updated: "2026-03-22T19:40:34.610Z"
+stopped_at: Completed 10-00-PLAN.md
+last_updated: "2026-03-23T04:21:37.726Z"
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 13
+  completed_plans: 11
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Any Kubex can become any agent — new capabilities are skill files, not Docker builds.
-**Current focus:** Phase 09 — cli-runtime-claude-code
+**Current focus:** Phase 10 — hooks-monitoring
 
 ## Current Position
 
-Phase: 10
-Plan: Not started
+Phase: 10 (hooks-monitoring) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Plan: Not started
 | Phase 09-cli-runtime-claude-code P01 | 135s | 2 tasks | 5 files |
 | Phase 09 P02 | 429 | 1 tasks | 2 files |
 | Phase 09-cli-runtime-claude-code P03 | 10 | 2 tasks | 2 files |
+| Phase 10-hooks-monitoring P00 | 4 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,8 @@ Recent decisions affecting current work:
 - [Phase 09]: SIGTERM always sent unconditionally in graceful_shutdown (no isalive() pre-check) so shutdown protocol is deterministic
 - [Phase 09]: _execute_task does not publish BUSY — task_loop owns READY/BUSY state transitions; _execute_task handles pre-flight credential check
 - [Phase 09-03]: CLI runtime routing placed BEFORE harness_mode routing in main.py so CLI agents bypass StandaloneAgent even when harness_mode is standalone
+- [Phase 10-hooks-monitoring]: Test stubs use pytest.skip() (not xfail) so they are collected but never count as failures until Plan 01/02 fills them in
+- [Phase 10-hooks-monitoring]: Gateway audit tests placed in separate file (test_gateway_audit.py) since they test a different service boundary from harness-side hook server
 
 ### Pending Todos
 
@@ -105,6 +108,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T18:44:19.206Z
-Stopped at: Completed 09-03-PLAN.md
+Last session: 2026-03-23T04:21:37.723Z
+Stopped at: Completed 10-00-PLAN.md
 Resume file: None

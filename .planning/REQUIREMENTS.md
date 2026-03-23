@@ -33,10 +33,10 @@ Requirements for MCP Bridge + CLI Runtime milestone. Each maps to roadmap phases
 
 ### Hooks Monitoring
 
-- [ ] **HOOK-01**: PostToolUse / Stop / SessionEnd hooks received at harness HTTP endpoint (localhost:8099)
-- [ ] **HOOK-02**: Hook config mounted read-only — no runtime modification possible (security: CVE-2025-59536, CVE-2026-21852)
-- [ ] **HOOK-03**: task_progress lifecycle events emitted from hook data via Redis pub/sub
-- [ ] **HOOK-04**: Audit trail of CLI tool invocations from PostToolUse hooks
+- [x] **HOOK-01**: PostToolUse / Stop / SessionEnd hooks received at harness HTTP endpoint (localhost:8099)
+- [x] **HOOK-02**: Hook config mounted read-only — no runtime modification possible (security: CVE-2025-59536, CVE-2026-21852)
+- [x] **HOOK-03**: task_progress lifecycle events emitted from hook data via Redis pub/sub
+- [x] **HOOK-04**: Audit trail of CLI tool invocations from PostToolUse hooks
 
 ### OAuth Provisioning
 
@@ -93,10 +93,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLI-08 | Phase 9 | Complete |
 | CLI-09 | Phase 11 | Pending |
 | CLI-10 | Phase 11 | Pending |
-| HOOK-01 | Phase 10 | Pending |
-| HOOK-02 | Phase 10 | Pending |
-| HOOK-03 | Phase 10 | Pending |
-| HOOK-04 | Phase 10 | Pending |
+| HOOK-01 | Phase 10 | Complete |
+| HOOK-02 | Phase 10 | Complete |
+| HOOK-03 | Phase 10 | Complete |
+| HOOK-04 | Phase 10 | Complete |
 | AUTH-01 | Phase 12 | Pending |
 | AUTH-02 | Phase 12 | Pending |
 | AUTH-03 | Phase 12 | Pending |
