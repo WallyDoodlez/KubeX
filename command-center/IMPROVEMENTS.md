@@ -4,6 +4,22 @@
 
 ---
 
+- [x] **Iteration 50: Retry failed tasks**
+  - [x] Add `retryCapability?: string` and `retryMessage?: string` to the `ChatMessage` type in `src/types.ts` — carries the original dispatch inputs so error bubbles can offer a retry.
+  - [x] Populate `retryMessage` and `retryCapability` on the dispatch-failure error message in `handleSend` (covers HTTP-level failures from the gateway).
+  - [x] Populate `retryCapability` on task-failed/cancelled SSE events in `handleSSEMessage` — uses the `cap` ref active at the time the task ran.
+  - [x] Populate `retryCapability` on the fallback-poll exhausted error in `handleSSEComplete`.
+  - [x] Add `handleRetry(retryCapability, retryMessage)` function to `OrchestratorChat` — pre-fills the capability input and message input, opens the Advanced panel when a capability was used, so the user can review and re-send. Does nothing when `sending=true`.
+  - [x] Pass `onRetry={handleRetry}` and `disabled={sending}` props to every `<ChatBubble>`.
+  - [x] Update `ChatBubble` component signature to accept `onRetry` and `disabled` props.
+  - [x] Add `data-testid="error-bubble"` to the error bubble outer `<div>`.
+  - [x] Render a **Retry** button (`data-testid="retry-button"`, `aria-label="Retry this task"`) inside the error bubble header row, only when `canRetry` is true (`onRetry` is set AND `message.retryMessage` is non-empty). Styled in red family using `var(--color-*)` tokens. Disabled when `disabled=true` (task in progress).
+  - [x] Use `var(--color-*)` custom properties for all new elements.
+  - [x] Create `tests/e2e/retry-failed-tasks.spec.ts` — 10 tests covering: retry not shown on result bubble, retry shown on dispatch error, clicking retry pre-fills message, retry with capability opens Advanced + pre-fills capability, retry without capability does not open Advanced panel, retry disabled while sending, error-bubble testid, aria-label, input populated after retry, retry button shows "Retry" text.
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 800 passed, 2 skipped, 0 failures
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 49: Chat keyboard shortcuts**
   - [x] Add `sentHistoryRef` (ref, not state — no re-renders) storing last 50 sent `{ content, capability }` entries. Populated on every `handleSend`, prepended at index 0 so most-recent is index 0.
   - [x] Add `historyIndex` state (default `-1`) and `inputBufferRef` to buffer the current draft before entering history navigation.

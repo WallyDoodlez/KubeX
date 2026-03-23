@@ -205,6 +205,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         content: `Task ${data.type}: ${reason}`,
         timestamp: new Date(),
         task_id: taskId ?? undefined,
+        retryCapability: cap !== 'orchestrate' ? cap : undefined,
       });
 
       onTrafficEntry({
@@ -289,6 +290,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               content: `Stream ended without result for task ${taskId}. The task may still be running — check Task History for its status.`,
               timestamp: new Date(),
               task_id: taskId,
+              retryCapability: cap !== 'orchestrate' ? cap : undefined,
             } as ChatMessage,
           ]);
         }
@@ -369,6 +371,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         role: 'error',
         content: `Dispatch failed: ${res.error ?? `HTTP ${res.status}`}`,
         timestamp: new Date(),
+        retryCapability: capRaw || undefined,
+        retryMessage: msg,
       });
 
       onTrafficEntry({
@@ -417,6 +421,16 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       { text: `[You] ${input}`, stream: 'system', timestamp: new Date().toLocaleTimeString() },
     ]);
     await provideInput(taskId, input);
+  }
+
+  // Retry a failed task: pre-fill the capability + message and re-dispatch
+  function handleRetry(retryCapability: string | undefined, retryMessage: string | undefined) {
+    if (!retryMessage || sending) return;
+    setCapability(retryCapability ?? '');
+    setMessage(retryMessage);
+    if (retryCapability) {
+      setAdvancedOpen(true);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -709,7 +723,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           className="h-full overflow-y-auto scrollbar-thin px-6 py-4 space-y-3"
         >
         {filteredMessages.map((msg) => (
-          <ChatBubble key={msg.id} message={msg} />
+          <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} />
         ))}
 
         {/* Welcome empty state — shown when only the system welcome message exists and no filters are active */}
@@ -965,7 +979,15 @@ const COLLAPSE_LINE_THRESHOLD = 8;
 // Wrapped in React.memo — OrchestratorChat re-renders whenever messages array changes
 // (every new message). ChatBubble memo ensures old messages don't re-render when a new
 // message is appended; only the new bubble is mounted/rendered.
-const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage }) {
+const ChatBubble = memo(function ChatBubble({
+  message,
+  onRetry,
+  disabled,
+}: {
+  message: ChatMessage;
+  onRetry?: (retryCapability: string | undefined, retryMessage: string | undefined) => void;
+  disabled?: boolean;
+}) {
   const isUser = message.role === 'user';
   const isResult = message.role === 'result';
   const isError = message.role === 'error';
@@ -1015,11 +1037,34 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
   }
 
   if (isError) {
+    const canRetry = !!onRetry && !!message.retryMessage;
+
     return (
-      <div className="flex justify-start">
+      <div className="flex justify-start" data-testid="error-bubble">
         <div className="max-w-xl">
           <div className="rounded-2xl rounded-tl-sm bg-red-500/10 border border-red-500/25 px-4 py-2.5">
-            <p className="text-xs text-red-400 font-medium mb-1">Error</p>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="text-xs text-red-400 font-medium">Error</p>
+              {canRetry && (
+                <button
+                  data-testid="retry-button"
+                  onClick={() => onRetry!(message.retryCapability, message.retryMessage)}
+                  disabled={disabled}
+                  aria-label="Retry this task"
+                  title="Retry — re-fills the input with the original message so you can send it again"
+                  className="
+                    flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium
+                    border border-red-500/30 bg-red-500/10 text-red-400
+                    hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-300
+                    disabled:opacity-40 disabled:cursor-not-allowed
+                    transition-colors
+                  "
+                >
+                  <span aria-hidden="true">↺</span>
+                  Retry
+                </button>
+              )}
+            </div>
             <p className="text-sm text-[var(--color-text)]">{message.content}</p>
           </div>
           <RelativeTime

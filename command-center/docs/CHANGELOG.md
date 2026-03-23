@@ -4,6 +4,26 @@
 
 ---
 
+## Iteration 50: Retry failed tasks
+
+**Files modified:** `src/types.ts`, `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/retry-failed-tasks.spec.ts`
+
+**Changes:**
+- Added `retryCapability?: string` and `retryMessage?: string` fields to the `ChatMessage` interface in `src/types.ts`. These fields carry the original dispatch inputs (capability name and message text) forward on error messages so the UI can offer a contextual retry.
+- Updated `handleSend` in `OrchestratorChat` — when dispatch fails (gateway returns non-OK or no data), the error message now includes `retryCapability` (the explicit capability entered, if any) and `retryMessage` (the full message text).
+- Updated `handleSSEMessage` — when a task fails or is cancelled via SSE (`type: "failed"` / `"cancelled"`), the error message now stores `retryCapability` from the `activeCapRef` (the capability active at dispatch time), omitting it when it was the default `"orchestrate"` to keep the Advanced panel closed on retry.
+- Updated `handleSSEComplete` fallback poll — when all retries are exhausted without a result, the error message stores `retryCapability` in the same manner.
+- Added `handleRetry(retryCapability, retryMessage)` function — pre-fills `capability` state and `message` state with the stored values; opens the Advanced panel if a non-default capability was used. Guard: no-op when `sending` is true.
+- Updated `ChatBubble` render call to pass `onRetry={handleRetry}` and `disabled={sending}`.
+- Updated `ChatBubble` component signature to accept `onRetry` and `disabled` optional props.
+- Added `data-testid="error-bubble"` to the error bubble outer `<div>` for test targeting.
+- Added a **Retry** button inside the error bubble header row. The button renders only when `canRetry` is true: `onRetry` is provided AND `message.retryMessage` is non-empty. Styled in the red color family with `var(--color-*)` tokens. The button is disabled while another task is sending (`disabled=true`). Accessibility attributes: `data-testid="retry-button"`, `aria-label="Retry this task"`, `title` tooltip.
+
+**Tests:** 800 passed / 2 skipped / 0 failures. Build clean.
+
+---
+
 ## Iteration 49: Chat keyboard shortcuts
 
 **Files modified:** `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

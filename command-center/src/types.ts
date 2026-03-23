@@ -102,6 +102,10 @@ export interface ChatMessage {
   raw?: unknown;
   /** Explicitly chosen capability from the Advanced panel (undefined = default "orchestrate") */
   capability?: string;
+  /** Original capability used when the task was dispatched — enables retry on error bubbles */
+  retryCapability?: string;
+  /** Original message text used when the task was dispatched — enables retry on error bubbles */
+  retryMessage?: string;
 }
 
 // ── SSE streaming ───────────────────────────────────────────────────
