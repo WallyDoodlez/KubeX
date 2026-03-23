@@ -147,3 +147,12 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.2: Research ruflo (BACKLOG)
+
+**Goal:** Analyze the ruflo project (github.com/ruvnet/ruflo) — study their agent orchestration architecture, patterns, and design decisions to identify ideas and lessons applicable to KubexClaw. Compare approaches to agent lifecycle, task routing, monitoring, and MCP integration.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
