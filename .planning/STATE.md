@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-03-23T04:30:33.886Z"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-03-23T04:32:55.498Z"
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 13
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -54,6 +54,7 @@ Plan: 3 of 3
 | Phase 09-cli-runtime-claude-code P03 | 10 | 2 tasks | 2 files |
 | Phase 10-hooks-monitoring P00 | 4 | 1 tasks | 2 files |
 | Phase 10-hooks-monitoring P01 | 394 | 2 tasks | 3 files |
+| Phase 10-hooks-monitoring P02 | 509 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,8 @@ Recent decisions affecting current work:
 - [Phase 10-hooks-monitoring]: Gateway audit tests placed in separate file (test_gateway_audit.py) since they test a different service boundary from harness-side hook server
 - [Phase 10-hooks-monitoring]: Annotated discriminated union validated via TypeAdapter.validate_python() not model_validate() — Annotated types are not BaseModel subclasses in pydantic v2
 - [Phase 10-hooks-monitoring]: _execute_task refactored into outer+inner pattern for try/finally _current_task_id cleanup while preserving all retry/auth early-return paths
+- [Phase 10-hooks-monitoring]: settings.json bind mount placed AFTER named credential volume to shadow named volume for that specific path (Pitfall 5)
+- [Phase 10-hooks-monitoring]: Gateway audit endpoint returns 200 with empty list for unknown tasks (not 404) — missing Redis key is normal state
 
 ### Pending Todos
 
@@ -111,6 +114,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-23T04:30:33.883Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-03-23T04:32:55.496Z
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None

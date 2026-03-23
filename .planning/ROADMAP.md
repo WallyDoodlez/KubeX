@@ -34,7 +34,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details.
 
 - [x] **Phase 8: MCP Bridge** — Orchestrator coordination via MCP protocol, replacing custom 8-tool OpenAI loop (completed 2026-03-22)
 - [x] **Phase 9: CLI Runtime — Claude Code** — PTY supervisor and credential management, Claude Code as first runtime (completed 2026-03-22)
-- [ ] **Phase 10: Hooks Monitoring** — Zero-token passive observability via Claude Code hooks HTTP endpoint
+- [x] **Phase 10: Hooks Monitoring** — Zero-token passive observability via Claude Code hooks HTTP endpoint (completed 2026-03-23)
 - [ ] **Phase 11: Codex + Gemini Runtimes** — Extend CLI runtime to Codex CLI and Gemini CLI via PTY
 - [ ] **Phase 12: OAuth Command Center Web Flow** — Web-based OAuth provisioning, replacing docker-exec HITL
 
@@ -96,12 +96,12 @@ Plans:
   2. The hook config file is mounted read-only; any attempt by a running container process to modify hook scripts is rejected by the filesystem
   3. Each Stop hook event emits a task_progress lifecycle event via Redis pub/sub that the orchestrator or Command Center can observe
   4. An audit trail of CLI tool invocations from PostToolUse events is persisted and queryable per task_id
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 10-00-PLAN.md — Wave 0: test stub scaffolding for Nyquist compliance
 - [x] 10-01-PLAN.md — Hook server module, CLIRuntime integration, event handlers, audit write
-- [ ] 10-02-PLAN.md — Manager settings.json generation, read-only mount, Gateway audit endpoint
+- [x] 10-02-PLAN.md — Manager settings.json generation, read-only mount, Gateway audit endpoint
 
 ### Phase 11: Codex + Gemini Runtimes
 **Goal**: Codex CLI and Gemini CLI can run as Kubex runtimes via PTY subprocess, with per-CLI credential paths and failure pattern detection
@@ -133,6 +133,6 @@ Plans:
 | 8. MCP Bridge | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 8.1 Agent System Prompts | v1.2 | 0/2 | In progress | - |
 | 9. CLI Runtime — Claude Code | v1.2 | 4/4 | Complete   | 2026-03-22 |
-| 10. Hooks Monitoring | v1.2 | 2/3 | In Progress|  |
+| 10. Hooks Monitoring | v1.2 | 3/3 | Complete   | 2026-03-23 |
 | 11. Codex + Gemini Runtimes | v1.2 | 0/? | Not started | - |
 | 12. OAuth Command Center Web Flow | v1.2 | 0/? | Not started | - |
