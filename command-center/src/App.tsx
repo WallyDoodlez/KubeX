@@ -36,6 +36,7 @@ const LazyNotFoundPage = lazy(() => import('./components/NotFoundPage'));
 const LazyAuthCallbackPage = lazy(() => import('./components/AuthCallbackPage'));
 const LazyLoginPage = lazy(() => import('./components/LoginPage'));
 const LazyTaskHistoryPage = lazy(() => import('./components/TaskHistoryPage'));
+const LazySpawnWizard = lazy(() => import('./pages/SpawnWizard'));
 
 const PAGE_TO_PATH: Record<NavPage, string> = {
   dashboard: '/',
@@ -143,6 +144,7 @@ export default function App() {
                   <Route path="/containers" element={<LazyContainersPanel />} />
                   <Route path="/approvals" element={<LazyApprovalQueue />} />
                   <Route path="/tasks" element={<TasksPage />} />
+                  <Route path="/spawn" element={<LazySpawnWizard />} />
                   <Route path="/settings" element={<LazySettingsPage />} />
                   <Route path="/auth/callback" element={<LazyAuthCallbackPage />} />
                   <Route path="*" element={<LazyNotFoundPage />} />

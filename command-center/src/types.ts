@@ -202,3 +202,28 @@ export interface AuditResponse {
 // ── Navigation ───────────────────────────────────────────────────────
 
 export type NavPage = 'dashboard' | 'agents' | 'traffic' | 'chat' | 'containers';
+
+// ── Spawn Wizard (Manager — POST /kubexes) ───────────────────────────
+
+export interface CreateKubexBody {
+  config: {
+    agent: {
+      id: string;
+      boundary?: string;
+      capabilities?: string[];
+      providers?: string[];
+      skills?: string[];
+    };
+    [key: string]: unknown;
+  };
+  resource_limits?: Record<string, string>;
+  image?: string;
+  skill_mounts?: string[];
+}
+
+export interface CreateKubexResponse {
+  kubex_id: string;
+  status?: string;
+  message?: string;
+  [key: string]: unknown;
+}

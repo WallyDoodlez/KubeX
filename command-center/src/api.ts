@@ -1,6 +1,8 @@
 import type {
   Agent,
   AuditResponse,
+  CreateKubexBody,
+  CreateKubexResponse,
   HealthResponse,
   Kubex,
   TaskRequest,
@@ -170,6 +172,10 @@ export async function startKubex(kubexId: string): Promise<FetchResult<unknown>>
     undefined,
     managerHeaders(),
   );
+}
+
+export async function createKubex(body: CreateKubexBody): Promise<FetchResult<CreateKubexResponse>> {
+  return apiFetch<CreateKubexResponse>('POST', `${MANAGER}/kubexes`, body, managerHeaders());
 }
 
 export async function killAllKubexes(): Promise<FetchResult<unknown>> {

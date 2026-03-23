@@ -4,6 +4,29 @@
 
 ---
 
+## Iteration 55: Kubex Spawn Wizard page
+
+**Files modified:** `src/api.ts`, `src/types.ts`, `src/App.tsx`, `src/components/Layout.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `src/pages/SpawnWizard.tsx`, `tests/e2e/spawn-wizard.spec.ts`
+
+**Changes:**
+- Added `CreateKubexBody` and `CreateKubexResponse` types to `src/types.ts` matching the Manager `POST /kubexes` schema.
+- Added `createKubex(body)` to `src/api.ts` — authenticated `POST` to `${MANAGER}/kubexes` via `managerHeaders()`.
+- Created `src/pages/SpawnWizard.tsx`: a 4-step multi-step wizard:
+  - **Step 1 — Identity:** Agent ID (alphanumeric + hyphens, required, validated) + Boundary input (default "default").
+  - **Step 2 — Capabilities:** Fetches unique caps from registry via `getAgents()`, renders as chip toggles. Custom free-text input (Enter key or button). At-least-one validation.
+  - **Step 3 — Resources:** Light (0.25 CPU/256m), Medium (0.5 CPU/512m), Heavy (1.0 CPU/1g) preset cards, plus Custom mode that reveals CPU and memory text inputs.
+  - **Step 4 — Review & Spawn:** Shows full config as formatted JSON. Spawn Kubex button calls `createKubex()`. Success panel shows kubex_id with "View in Containers" and "Spawn Another" actions. Error state for failed spawns.
+- Stepper progress bar at top — each step shows number, label, and done checkmark; connector lines fill as user advances.
+- Back/Next buttons at bottom — per-step validation guards Next; Back is disabled on step 1.
+- All interactive elements carry `data-testid` attributes. All colors use `var(--color-*)` CSS tokens. Layout is responsive for narrow viewports.
+- Added `LazySpawnWizard` code-split import and `/spawn` route in `App.tsx`.
+- Added "Spawn Kubex" nav entry (icon `+`) in `Layout.tsx` sidebar `NAV_ITEMS` array.
+- Created `tests/e2e/spawn-wizard.spec.ts` — 35 tests: page loads, stepper structure, nav sidebar link, step 1 inputs + validation, step 2 chip selection + custom input + Enter key + validation, step 3 all three presets + custom reveal, step 4 JSON preview + spawn button, back navigation across all steps, spawn success/failure/reset flows, step aria-current indicator.
+- **Build:** clean. **Tests:** 35/35 passed.
+
+---
+
 ## Iteration 54: Multi-line auto-grow textarea
 
 **Files modified:** `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

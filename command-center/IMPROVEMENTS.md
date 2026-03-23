@@ -4,6 +4,22 @@
 
 ---
 
+- [x] **Iteration 55: Kubex Spawn Wizard page**
+  - [x] Add `CreateKubexBody` and `CreateKubexResponse` types to `src/types.ts`.
+  - [x] Add `createKubex(body: CreateKubexBody)` to `src/api.ts` — calls `POST ${MANAGER}/kubexes` with Manager auth token.
+  - [x] Create `src/pages/SpawnWizard.tsx` — 4-step wizard: Identity, Capabilities, Resources, Review & Spawn.
+  - [x] Step 1 — Identity: agent ID (validated: alphanumeric + hyphens, required) + boundary (default "default").
+  - [x] Step 2 — Capabilities: fetches known caps from registry via `getAgents()`, chip toggle UI, custom free-text input, at-least-one validation.
+  - [x] Step 3 — Resources: Light/Medium/Heavy preset cards + Custom option that reveals CPU/memory inputs.
+  - [x] Step 4 — Review: JSON preview of full config, Spawn Kubex button, success panel (kubex_id, View in Containers, Spawn Another), error state.
+  - [x] Stepper progress bar at top; Back/Next navigation; per-step validation guards Next.
+  - [x] All interactive elements have `data-testid` attributes; `var(--color-*)` tokens throughout; responsive layout.
+  - [x] Add lazy import for `SpawnWizard` and `/spawn` route in `App.tsx`.
+  - [x] Add "Spawn Kubex" nav item (`+` icon) in `Layout.tsx` sidebar nav.
+  - [x] Create `tests/e2e/spawn-wizard.spec.ts` — 35 tests covering all steps, navigation, validation, spawn success/failure, reset.
+  - [x] Build: npm run build — clean (`SpawnWizard-*.js` chunk in output)
+  - [x] Test: 35/35 new tests passed
+
 - [x] **Iteration 54: Multi-line auto-grow textarea**
   - [x] Remove fixed `rows={2}` from the message textarea in `OrchestratorChat.tsx` (resize-none kept intentionally).
   - [x] Add `textareaRef` (`useRef<HTMLTextAreaElement>`) and `adjustTextareaHeight` callback that sets `height = 'auto'` then clamps scrollHeight between `MIN_HEIGHT_PX` (2 rows) and `MAX_HEIGHT_PX` (8 rows).
