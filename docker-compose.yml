@@ -84,6 +84,7 @@ services:
       - KUBEX_MGMT_TOKEN=${MANAGER_TOKEN}
       - KUBEX_DOCKER_NETWORK=openclaw_kubex-internal
       - SERVICE_NAME=kubex-manager
+      - KUBEX_HOST_PROJECT_DIR=${KUBEX_HOST_PROJECT_DIR:-.}
     networks:
       - kubex-internal
     depends_on:
