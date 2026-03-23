@@ -41,8 +41,8 @@ Requirements for MCP Bridge + CLI Runtime milestone. Each maps to roadmap phases
 ### OAuth Provisioning
 
 - [ ] **AUTH-01**: Command Center web UI triggers OAuth flow for target container
-- [ ] **AUTH-02**: Token forwarded from Command Center to container at spawn via Gateway /oauth/token relay endpoint
-- [ ] **AUTH-03**: Pre-flight expiry check before dispatching tasks to CLI agents
+- [ ] **AUTH-02**: Token forwarded from Command Center to container via Manager POST /kubexes/{id}/credentials endpoint (FE calls Manager directly; corrected credential paths per runtime)
+- [ ] **AUTH-03**: Agent-side pre-flight credential check rejects tasks when credentials are missing or expired, transitioning to CREDENTIAL_WAIT state (implemented in _execute_task_inner, per D-09: one wasted task attempt per expiry is acceptable)
 
 ## Future Requirements
 
@@ -104,8 +104,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 **Coverage:**
 - v1.2 requirements: 25 total
 - Mapped to phases: 25
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 — traceability completed after roadmap creation*
+*Last updated: 2026-03-23 — AUTH-02 and AUTH-03 descriptions aligned with Phase 12 implementation decisions (D-05 through D-09)*

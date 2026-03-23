@@ -117,17 +117,17 @@ Plans:
 - [x] 11-01-PLAN.md — Generalize CLIRuntime for multi-runtime dispatch, add Gemini CLI support, correct Manager credential path
 
 ### Phase 12: OAuth Command Center Web Flow
-**Goal**: Users can provision CLI agent OAuth tokens through the Command Center web UI without docker exec, and tasks dispatched to CLI agents are pre-flight checked for token expiry
+**Goal**: Users can provision CLI agent OAuth tokens through the Command Center web UI without docker exec, and tasks dispatched to CLI agents are pre-flight checked for token expiry at the agent level
 **Depends on**: Phase 9
 **Requirements**: AUTH-01, AUTH-02, AUTH-03
 **Success Criteria** (what must be TRUE):
   1. The Command Center web UI provides an OAuth flow for a target container; completing the flow provisions the token without the user running any CLI commands
   2. A container spawned with a pre-provisioned token from the web flow starts in READY state, bypassing CREDENTIAL_WAIT entirely
-  3. Attempting to dispatch a task to a CLI agent with an expired token is rejected with a clear error before the task enters the broker queue
+  3. A CLI agent with missing or expired credentials rejects the dispatched task at execution time and transitions to CREDENTIAL_WAIT state with a clear error (per D-09: agent-side pre-flight in _execute_task_inner; no Gateway dispatch-time check needed)
 **Plans:** 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Gateway lifecycle SSE endpoint with Bearer auth, Manager credential path fix
+- [ ] 12-01-PLAN.md — Gateway lifecycle SSE endpoint with Bearer auth, Manager credential path fix, AUTH-03 confirmation
 - [ ] 12-02-PLAN.md — FE handoff document with API contracts, sequence diagrams, edge cases
 
 ## Progress
