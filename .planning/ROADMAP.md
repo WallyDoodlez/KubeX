@@ -133,6 +133,17 @@ Plans:
 | 8. MCP Bridge | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 8.1 Agent System Prompts | v1.2 | 0/2 | In progress | - |
 | 9. CLI Runtime — Claude Code | v1.2 | 4/4 | Complete   | 2026-03-22 |
-| 10. Hooks Monitoring | v1.2 | 3/3 | Complete   | 2026-03-23 |
+| 10. Hooks Monitoring | v1.2 | 3/3 | Complete    | 2026-03-23 |
 | 11. Codex + Gemini Runtimes | v1.2 | 0/? | Not started | - |
 | 12. OAuth Command Center Web Flow | v1.2 | 0/? | Not started | - |
+
+## Backlog
+
+### Phase 999.1: MCP Server Gateway (BACKLOG)
+
+**Goal:** Expose the entire Kubex architecture as an MCP server so any LLM harness (Claude Code, Cursor, Windsurf, Cline, etc.) can interact with Kubex directly — without going through the internal orchestrator. Users connect their preferred LLM client via MCP and get access to Kubex capabilities (spawn agents, dispatch tasks, query results, view audit trails). Democratizes access to the agent infrastructure beyond the orchestrator.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
