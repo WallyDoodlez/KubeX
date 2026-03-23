@@ -47,12 +47,23 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   // System message visibility toggle
   const [showSystemMessages, setShowSystemMessages] = useState(false);
 
+  // Keyboard shortcut: Ctrl+Shift+C flash feedback state
+  const [copyResultFlash, setCopyResultFlash] = useState(false);
+
   // SSE state
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [terminalLines, setTerminalLines] = useState<OutputLine[]>([]);
   const [hitlRequest, setHitlRequest] = useState<{ taskId: string; prompt: string } | null>(null);
   const activeTaskIdRef = useRef<string | null>(null);
   const activeCapRef = useRef<string>('');
+
+  // Keyboard shortcut: message history for Up-arrow recall
+  // Each entry stores { content, capability } from a sent user message
+  const sentHistoryRef = useRef<Array<{ content: string; capability: string }>>([]);
+  // Current position in history while navigating (−1 = not navigating)
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  // Buffer to restore when user navigates away from history back to present
+  const inputBufferRef = useRef<string>('');
 
   // Load known capabilities from registry
   const loadCaps = useCallback(async () => {
@@ -333,6 +344,11 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     setTerminalLines([]);
     setHitlRequest(null);
 
+    // Push to sent history (most recent at index 0 after we prepend)
+    sentHistoryRef.current = [{ content: msg, capability: capRaw }, ...sentHistoryRef.current].slice(0, 50);
+    setHistoryIndex(-1);
+    inputBufferRef.current = '';
+
     // Add user bubble — plain message text; capability badge only when non-default
     addMessage({
       role: 'user',
@@ -406,8 +422,87 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       handleSend();
+      return;
+    }
+
+    // Escape — clear the input (only when not sending)
+    if (e.key === 'Escape' && !sending) {
+      e.preventDefault();
+      setMessage('');
+      setMsgError(null);
+      setHistoryIndex(-1);
+      inputBufferRef.current = '';
+      return;
+    }
+
+    // Up arrow — recall previous sent message.
+    // Only intercept when: already in history-navigation mode (historyIndex >= 0)
+    // OR the message textarea cursor is at position 0 (top of input).
+    if (e.key === 'ArrowUp' && !sending) {
+      const history = sentHistoryRef.current;
+      if (history.length === 0) return;
+
+      const target = e.currentTarget as HTMLTextAreaElement;
+      const atStart = target.selectionStart === 0 && target.selectionEnd === 0;
+      if (!atStart && historyIndex === -1) return; // let textarea handle normal cursor movement
+
+      // Save the current draft before starting history navigation
+      if (historyIndex === -1) {
+        inputBufferRef.current = message;
+      }
+
+      const nextIndex = Math.min(historyIndex + 1, history.length - 1);
+      if (nextIndex !== historyIndex) {
+        e.preventDefault();
+        setHistoryIndex(nextIndex);
+        const entry = history[nextIndex];
+        setMessage(entry.content);
+        if (entry.capability) {
+          setCapability(entry.capability);
+          setAdvancedOpen(true);
+        }
+      }
+      return;
+    }
+
+    // Down arrow — navigate forward in history (back toward the draft)
+    if (e.key === 'ArrowDown' && !sending && historyIndex >= 0) {
+      e.preventDefault();
+      const nextIndex = historyIndex - 1;
+      if (nextIndex < 0) {
+        // Restore the buffered draft
+        setHistoryIndex(-1);
+        setMessage(inputBufferRef.current);
+        inputBufferRef.current = '';
+      } else {
+        const entry = sentHistoryRef.current[nextIndex];
+        setHistoryIndex(nextIndex);
+        setMessage(entry.content);
+        if (entry.capability) {
+          setCapability(entry.capability);
+          setAdvancedOpen(true);
+        }
+      }
+      return;
     }
   }
+
+  // Ctrl+Shift+C — copy last result to clipboard (global keydown listener)
+  useEffect(() => {
+    function handleGlobalKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        const lastResult = [...messages].reverse().find((m) => m.role === 'result');
+        if (lastResult) {
+          navigator.clipboard.writeText(lastResult.content).catch(() => {/* ignore */});
+          setCopyResultFlash(true);
+          setTimeout(() => setCopyResultFlash(false), 1500);
+        }
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [messages]);
 
   // Filtered messages for search / role filter
   // Count of toggleable system messages (excludes the pinned welcome message with id='welcome')
@@ -542,6 +637,27 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               {systemMessageCount}
             </span>
           )}
+        </button>
+
+        {/* Ctrl+Shift+C copy-result flash indicator */}
+        {copyResultFlash && (
+          <span
+            data-testid="copy-result-flash"
+            aria-live="polite"
+            className="text-[10px] text-emerald-400 font-mono-data animate-fade-in"
+          >
+            Copied!
+          </span>
+        )}
+
+        {/* Keyboard shortcuts hint */}
+        <button
+          data-testid="keyboard-shortcuts-hint"
+          title={"Keyboard shortcuts:\nEsc — clear input\n↑ / ↓ — recall sent messages\nCtrl+Shift+C — copy last result\nCtrl+Enter — send"}
+          aria-label="Keyboard shortcuts"
+          className="flex-shrink-0 px-2 py-1.5 rounded-lg text-[11px] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+        >
+          <span aria-hidden="true">⌨</span>
         </button>
 
         {/* Match count / clear filters */}
@@ -746,8 +862,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           />
         </div>
 
-        {/* Advanced toggle */}
-        <div className="mt-2">
+        {/* Advanced toggle + keyboard shortcut hints row */}
+        <div className="mt-2 flex items-center justify-between gap-2">
           <button
             data-testid="advanced-toggle"
             onClick={() => setAdvancedOpen((o) => !o)}
@@ -758,6 +874,17 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           >
             Advanced {advancedOpen ? '▾' : '▸'}
           </button>
+          {/* Keyboard shortcut hints — shown below input for discoverability */}
+          <div
+            data-testid="input-keyboard-hints"
+            className="flex items-center gap-3 text-[9px] text-[var(--color-text-muted)]"
+            aria-label="Keyboard shortcuts"
+          >
+            <span><kbd className="font-mono-data bg-[var(--color-border)] px-1 rounded">Esc</kbd> clear</span>
+            <span><kbd className="font-mono-data bg-[var(--color-border)] px-1 rounded">↑</kbd><kbd className="font-mono-data bg-[var(--color-border)] px-1 rounded">↓</kbd> history</span>
+            <span><kbd className="font-mono-data bg-[var(--color-border)] px-1 rounded">⌃⇧C</kbd> copy result</span>
+            <span><kbd className="font-mono-data bg-[var(--color-border)] px-1 rounded">⌃↵</kbd> send</span>
+          </div>
         </div>
 
         {/* Advanced panel — capability selector + known caps chips */}

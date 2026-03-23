@@ -4,6 +4,27 @@
 
 ---
 
+## Iteration 49: Chat keyboard shortcuts
+
+**Files modified:** `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/keyboard-shortcuts.spec.ts`
+
+**Changes:**
+- Added `sentHistoryRef` (ref, not state) to `OrchestratorChat` — stores the last 50 sent `{ content, capability }` entries. Populated on every `handleSend`, prepended at index 0 so the most-recent entry is always index 0. Stored as a ref to avoid triggering re-renders.
+- Added `historyIndex` state (default `-1`) and `inputBufferRef` — together they power Up/Down history navigation. `inputBufferRef` snapshots the current draft before history navigation begins so it can be restored.
+- Added `copyResultFlash` state (default `false`) — drives the 1.5-second "Copied!" flash indicator in the toolbar.
+- **Escape** shortcut on the message textarea: clears the input value, resets `msgError`, exits history-navigation mode (resets `historyIndex` to `-1`). Guard: only fires when `!sending`.
+- **Up arrow** shortcut on the message textarea: intercepts only when the cursor is at position 0 (start of input) OR when already in history-navigation mode (`historyIndex >= 0`). Saves the current draft to `inputBufferRef` on the first Up press, then increments `historyIndex` to load progressively older entries. If the historical entry had an explicit capability, it restores that capability and opens the Advanced panel.
+- **Down arrow** shortcut on the message textarea: reverses Up-arrow navigation when `historyIndex >= 0`. Reaching `historyIndex = -1` restores the original buffered draft.
+- **Ctrl+Shift+C** global keyboard shortcut: attached via `window.addEventListener('keydown')` in a `useEffect` (cleans up on unmount). Finds the most recent `result`-role message in `messages`, writes its content to `navigator.clipboard`, and sets `copyResultFlash = true` for 1500 ms. No-op when no result message exists.
+- Added `⌨` keyboard shortcuts hint button (`data-testid="keyboard-shortcuts-hint"`) to the chat toolbar, after the System toggle button. Has a `title` attribute listing all four shortcuts (Esc, ↑/↓, Ctrl+Shift+C, Ctrl+Enter). Styled with the existing muted toolbar style using `var(--color-*)` tokens.
+- Added "Copied!" flash span (`data-testid="copy-result-flash"`, `aria-live="polite"`) inside the toolbar — rendered only when `copyResultFlash` is true.
+- Added `data-testid="input-keyboard-hints"` hints strip in the input area, inline with the Advanced toggle row. Shows four `<kbd>`-styled reminder badges: `Esc clear`, `↑ ↓ history`, `⌃⇧C copy result`, `⌃↵ send`. Uses `var(--color-border)` background for `<kbd>` chips.
+
+**Tests:** 790 passed / 2 skipped / 0 failures. Build clean.
+
+---
+
 ## Iteration 48: Collapsible system messages
 
 **Files modified:** `src/components/OrchestratorChat.tsx`, `tests/e2e/dispatch-response.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

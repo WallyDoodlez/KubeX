@@ -4,6 +4,21 @@
 
 ---
 
+- [x] **Iteration 49: Chat keyboard shortcuts**
+  - [x] Add `sentHistoryRef` (ref, not state — no re-renders) storing last 50 sent `{ content, capability }` entries. Populated on every `handleSend`, prepended at index 0 so most-recent is index 0.
+  - [x] Add `historyIndex` state (default `-1`) and `inputBufferRef` to buffer the current draft before entering history navigation.
+  - [x] **Escape** on the message textarea: clears the input, resets `msgError`, exits history navigation. Only fires when `!sending`.
+  - [x] **Up arrow** on the message textarea: when cursor is at position 0 OR already in history-navigation mode (`historyIndex >= 0`), loads the previous sent message (`historyIndex + 1`). Opens Advanced panel if the historical entry had a capability. Saves draft to `inputBufferRef` on first press.
+  - [x] **Down arrow** on the message textarea: when in history-navigation mode (`historyIndex >= 0`), loads the next entry. When reaching `historyIndex < 0`, restores the buffered draft.
+  - [x] **Ctrl+Shift+C** (global `keydown` listener): finds the most recent `result` message in `messages` and writes it to `navigator.clipboard`. Shows a 1.5-second "Copied!" flash (`data-testid="copy-result-flash"`) in the toolbar. No-op when no result message exists.
+  - [x] Add a `⌨` keyboard shortcuts button (`data-testid="keyboard-shortcuts-hint"`) in the chat toolbar (after the System toggle). Has a `title` tooltip listing all shortcuts. Non-interactive/informational only.
+  - [x] Add `data-testid="input-keyboard-hints"` hints strip below the Advanced toggle row, showing pill-badge shortcut reminders: `Esc clear`, `↑ ↓ history`, `⌃⇧C copy result`, `⌃↵ send`.
+  - [x] Use `var(--color-*)` for all new elements.
+  - [x] Create `tests/e2e/keyboard-shortcuts.spec.ts` — 13 tests passing (1 skipped) covering: hint strip renders, keyboard hint button renders with tooltip, Escape clears input, Up arrow recalls last sent message, Up arrow navigates older entries, Down arrow restores draft, Down arrow does nothing outside history mode, Ctrl+Shift+C shows copy flash, copy flash not present before shortcut, Up arrow does nothing with no history, Escape resets history index, input hints strip visible with shortcut content.
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 790 passed, 2 skipped, 0 failures
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 48: Collapsible system messages**
   - [x] Add `showSystemMessages` boolean state (default `false`) to `OrchestratorChat` — system messages are hidden by default to reduce noise.
   - [x] Add a **System toggle button** (`data-testid="system-messages-toggle"`) to the chat toolbar, after the auto-scroll button. Shows current count badge (`data-testid="system-messages-hidden-count"`) when messages are hidden and count > 0.
