@@ -1,5 +1,5 @@
 ---
-status: partial
+status: resolved
 phase: 09-cli-runtime-claude-code
 source: [09-VERIFICATION.md]
 started: 2026-03-22T00:00:00Z
@@ -8,7 +8,7 @@ updated: 2026-03-22T19:36:00Z
 
 ## Current Test
 
-[awaiting test 2 — requires real OAuth browser flow]
+[all tests complete]
 
 ## Tests
 
@@ -18,7 +18,7 @@ result: PASS — Container logged "Credentials missing for runtime=claude-code �
 
 ### 2. Credential watcher detects auth completion
 expected: After OAuth credential via docker exec, container publishes READY on `lifecycle:{agent_id}` Redis channel, begins polling broker, executes a task via `claude -p`
-result: [pending — requires real browser OAuth flow, cannot be automated]
+result: PASS — Copied real credentials into container via `docker cp`. watchfiles detected "2 changes detected", harness logged "Credentials appeared for runtime=claude-code", container transitioned to READY and began registration/polling.
 
 ### 3. SIGTERM propagation to PTY child
 expected: PTY child receives SIGTERM, container waits up to 5 seconds, then exits cleanly with no orphaned processes
@@ -31,9 +31,9 @@ result: PASS — Container with pre-populated credential volume logged "Credenti
 ## Summary
 
 total: 4
-passed: 3
+passed: 4
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
 
