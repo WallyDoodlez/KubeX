@@ -14,27 +14,40 @@ import { test, expect } from '@playwright/test';
 test.describe('Settings Page', () => {
 
   test.beforeEach(async ({ page }) => {
+    // Clear only the settings-specific keys — kubex-onboarding is kept at
+    // "completed" via the global storageState so the onboarding tour overlay
+    // never fires and blocks element visibility / ARIA accessibility.
     await page.addInitScript(() => {
       localStorage.removeItem('kubex-theme');
       localStorage.removeItem('kubex-settings');
     });
-    await page.goto('/');
+    // Navigate directly to /settings and wait for the lazy chunk to render
+    // so every test starts from a fully-loaded settings page.
+    await page.goto('/settings');
+    await page.waitForSelector('[data-testid="settings-page"]', { timeout: 10_000 });
   });
 
   // ── Navigation ────────────────────────────────────────────────────
 
   test('Settings nav item is present in the sidebar', async ({ page }) => {
+    // Navigate to dashboard first so the sidebar nav is meaningful
+    await page.goto('/');
     await expect(page.getByRole('button', { name: /settings/i })).toBeVisible();
   });
 
   test('clicking Settings nav item navigates to /settings', async ({ page }) => {
+    await page.goto('/');
     await page.getByRole('button', { name: /settings.*preferences/i }).click();
     await expect(page).toHaveURL('/settings');
   });
 
   test('settings page renders with main heading', async ({ page }) => {
-    await page.goto('/settings');
-    await expect(page.getByRole('heading', { name: /settings.*preferences/i })).toBeVisible();
+    // The Settings page lazy-chunk renders an h1 "Settings & Preferences".
+    // The Layout top bar also has a smaller h1 "Settings" (nav item label).
+    // We target the page-level heading inside the settings container.
+    const heading = page.getByTestId('settings-page').getByRole('heading', { level: 1 });
+    await expect(heading).toContainText('Settings');
+    await expect(heading).toContainText('Preferences');
   });
 
   test('settings page is accessible via direct URL', async ({ page }) => {

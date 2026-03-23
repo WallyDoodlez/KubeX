@@ -4,6 +4,16 @@
 
 ---
 
+- [x] **Iteration 40: Test Coverage Gaps and Critical Bug Fixes**
+  - [x] Diagnose root cause of 35+ test failures across `settings.spec.ts` and `onboarding-tour.spec.ts`
+  - [x] Fix infinite render loop in `QuickDispatchModal.tsx` — `useMemo` stabilises `allCapabilities` and `capabilitiesForSuggestion` so the suggestions `useEffect` only re-runs when the agents list or capability input actually changes; adds `isOpen` guard so the effect is skipped entirely while the modal is closed; uses functional updater `setCapSuggestions(prev => prev.length === 0 ? prev : [])` to bail out when state is already empty
+  - [x] Create `tests/e2e/global-setup.ts` — Playwright global setup script that navigates to the app and persists `kubex-onboarding: {completed: true}` to a storage state JSON file before any test runs; prevents the first-run tour overlay from blocking accessible-tree queries in 40+ unrelated test files
+  - [x] Update `playwright.config.ts` — add `globalSetup` pointing at the new setup script; add `storageState` pointing at `tests/state/onboarding-complete.json` so every test context inherits completed onboarding state by default; tests in `onboarding-tour.spec.ts` that need a fresh tour explicitly override via `addInitScript`
+  - [x] Update `tests/e2e/settings.spec.ts` — `beforeEach` navigates directly to `/settings` and waits for `[data-testid="settings-page"]` (10 s timeout) so every test starts from a fully-loaded page; navigation tests that need the dashboard do their own `page.goto('/')` first; `settings page renders with main heading` test updated to query the h1 inside the settings container (avoiding clash with the Layout top-bar h1 "Settings")
+  - [x] Rewrote `tests/e2e/onboarding-tour.spec.ts` — helper functions `activateTour()` / `completeTour()` replace old `clearOnboarding()` pattern; global storageState means tests start clean and opt-in to tour via `addInitScript` rather than post-load clearing
+  - [x] Build: `npm run build` — clean, 113 modules
+  - [x] Test: `npx playwright test` — 658/658 passed (1 skipped); 20 more tests now pass compared to the pre-fix 638 baseline
+
 - [x] **Iteration 39: Auto-Refresh Countdown Indicator**
   - [x] Create `src/components/RefreshCountdown.tsx` — small circular SVG ring that visually counts down the polling interval; resets on each poll tick; shows seconds remaining as tooltip; accepts `interval` (ms) and `lastPolledAt` (Date | null) props; animates stroke-dashoffset from 0→full circumference over the interval duration; pauses gracefully when `lastPolledAt` is null; uses `requestAnimationFrame` for smooth 60fps animation
   - [x] Add `lastHealthPollAt: Date | null` and `setLastHealthPollAt` to `AppContext` — updated by `useHealthCheck` after each successful poll cycle

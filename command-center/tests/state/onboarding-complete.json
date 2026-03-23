@@ -1,0 +1,14 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:3099",
+      "localStorage": [
+        {
+          "name": "kubex-onboarding",
+          "value": "{\"completed\":true,\"currentStep\":0,\"active\":false}"
+        }
+      ]
+    }
+  ]
+}

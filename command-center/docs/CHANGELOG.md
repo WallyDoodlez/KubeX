@@ -4,6 +4,19 @@
 
 ---
 
+## Iteration 40: Test Coverage Gaps and Critical Bug Fixes
+**Files created:** `tests/e2e/global-setup.ts`
+**Files modified:** `src/components/QuickDispatchModal.tsx`, `playwright.config.ts`, `tests/e2e/settings.spec.ts`, `tests/e2e/onboarding-tour.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Fixed critical infinite render loop in `src/components/QuickDispatchModal.tsx`. The suggestions `useEffect` had `capabilitiesForSuggestion` as a dependency, but that array was recreated on every render (new reference), causing the effect to run on every render cycle, each time calling `setCapSuggestions([])` which triggered another render. Fix: stabilise `allCapabilities` and `capabilitiesForSuggestion` with `useMemo` (only recompute when `agents` or `selectedAgentId` changes); add `isOpen` guard so the effect is skipped when the modal is closed; use functional updater `setCapSuggestions(prev => prev.length === 0 ? prev : [])` to bail out when state is already empty.
+- Created `tests/e2e/global-setup.ts` — Playwright global setup that launches a headless browser, navigates to the app, stores `kubex-onboarding: {completed: true}` in localStorage, and saves the resulting storage state to `tests/state/onboarding-complete.json`. This file is created once before any test runs and prevents the first-run onboarding tour overlay (fixed z-index 9000) from interfering with ARIA accessibility queries in 40+ unrelated test files.
+- Updated `playwright.config.ts` — wired `globalSetup: './tests/e2e/global-setup.ts'`; added `storageState: ONBOARDING_STATE` to the global `use` block so every test context inherits the completed onboarding state; used ESM-compatible `fileURLToPath`/`dirname` to replace `__dirname`.
+- Updated `tests/e2e/settings.spec.ts` — `beforeEach` navigates directly to `/settings` and waits for `[data-testid="settings-page"]` (10 s timeout); navigation-only tests redirect to `/` themselves first; fixed `settings page renders with main heading` to scope the heading query inside `getByTestId('settings-page')` to avoid collision with the Layout top-bar h1.
+- Updated `tests/e2e/onboarding-tour.spec.ts` — introduced `activateTour()` and `completeTour()` helper functions using `addInitScript` for deterministic state injection before page load; removed tests that depended on the implicit auto-start behaviour.
+**Tests:** 638 → 658 (20 previously-failing tests now pass; total 658 pass / 1 skip)
+
+---
+
 ## Iteration 39: Auto-Refresh Countdown Indicator
 **Files created:** `src/components/RefreshCountdown.tsx`, `tests/e2e/refresh-countdown.spec.ts`
 **Files modified:** `src/context/AppContext.tsx`, `src/hooks/useHealthCheck.ts`, `src/components/ConnectionIndicator.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
