@@ -1,5 +1,6 @@
 import type {
   Agent,
+  AuditResponse,
   HealthResponse,
   Kubex,
   TaskRequest,
@@ -219,6 +220,10 @@ export async function dispatchTask(
 
 export async function getTaskResult(taskId: string): Promise<FetchResult<TaskResult>> {
   return apiFetch<TaskResult>('GET', `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/result`);
+}
+
+export async function getTaskAudit(taskId: string): Promise<FetchResult<AuditResponse>> {
+  return apiFetch<AuditResponse>('GET', `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/audit`);
 }
 
 // ── Gateway agents proxy ─────────────────────────────────────────────

@@ -6,8 +6,8 @@ import 'highlight.js/styles/github-dark.css';
 import CopyButton from './CopyButton';
 import MermaidBlock from './MermaidBlock';
 import TaskTimeline from './TaskTimeline';
-import { dispatchTask, getTaskResult, getAgents, getTaskStreamUrl, provideInput } from '../api';
-import type { ChatMessage, TrafficEntry, Agent, TaskPhaseEntry } from '../types';
+import { dispatchTask, getTaskResult, getTaskAudit, getAgents, getTaskStreamUrl, provideInput } from '../api';
+import type { AuditEntry, ChatMessage, TrafficEntry, Agent, TaskPhaseEntry } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
 import { useSSE } from '../hooks/useSSE';
 import type { SSEStatus } from '../hooks/useSSE';
@@ -1035,6 +1035,262 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   );
 }
 
+// ── Audit Trail ──────────────────────────────────────────────────────
+
+/** Map an audit event_type to a color family and icon */
+function auditEventStyle(eventType: string): { color: string; icon: string } {
+  const lower = eventType.toLowerCase();
+  if (lower.includes('fail') || lower.includes('error') || lower.includes('denied')) {
+    return { color: 'red', icon: '✕' };
+  }
+  if (lower.includes('warn') || lower.includes('escalat') || lower.includes('timeout')) {
+    return { color: 'amber', icon: '⚠' };
+  }
+  if (lower.includes('complet') || lower.includes('success') || lower.includes('done') || lower.includes('allow')) {
+    return { color: 'emerald', icon: '✓' };
+  }
+  return { color: 'gray', icon: '•' };
+}
+
+const COLOR_MAP: Record<string, { dot: React.CSSProperties; badge: React.CSSProperties }> = {
+  emerald: {
+    dot: { background: 'var(--color-emerald, #10b981)' },
+    badge: { background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' },
+  },
+  amber: {
+    dot: { background: '#f59e0b' },
+    badge: { background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' },
+  },
+  red: {
+    dot: { background: '#ef4444' },
+    badge: { background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' },
+  },
+  gray: {
+    dot: { background: 'var(--color-text-muted, #6b7280)' },
+    badge: { background: 'var(--color-border)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border-strong)' },
+  },
+};
+
+/**
+ * AuditTrail — collapsible audit log panel for result/error bubbles.
+ * Lazy-fetches on first expand, caches result in state.
+ */
+const AuditTrail = memo(function AuditTrail({ taskId }: { taskId: string }) {
+  const [open, setOpen] = useState(false);
+  const [entries, setEntries] = useState<AuditEntry[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const fetchedRef = useRef(false);
+
+  function handleToggle() {
+    setOpen((v) => !v);
+    // Lazy-fetch on first expand
+    if (!fetchedRef.current) {
+      fetchedRef.current = true;
+      setLoading(true);
+      setFetchError(null);
+      getTaskAudit(taskId)
+        .then((res) => {
+          if (res.ok && res.data) {
+            setEntries(res.data.entries);
+          } else {
+            setFetchError(res.error ?? `HTTP ${res.status}`);
+            fetchedRef.current = false; // allow retry
+          }
+        })
+        .catch((err: unknown) => {
+          setFetchError(err instanceof Error ? err.message : 'Unknown error');
+          fetchedRef.current = false;
+        })
+        .finally(() => setLoading(false));
+    }
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: '0.5rem',
+        paddingTop: '0.5rem',
+        borderTop: '1px solid var(--color-border)',
+      }}
+    >
+      {/* Toggle button */}
+      <button
+        data-testid="audit-trail-toggle"
+        onClick={handleToggle}
+        aria-expanded={open}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.3rem',
+          fontSize: '11px',
+          color: 'var(--color-text-muted)',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+        }}
+      >
+        <span aria-hidden="true" style={{ fontSize: '10px' }}>{open ? '▾' : '▸'}</span>
+        <span>📋 Audit trail</span>
+      </button>
+
+      {/* Expanded panel */}
+      {open && (
+        <div
+          data-testid="audit-trail-entries"
+          style={{
+            marginTop: '0.5rem',
+            paddingLeft: '0.25rem',
+          }}
+        >
+          {loading && (
+            <p
+              data-testid="audit-trail-loading"
+              style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontStyle: 'italic' }}
+            >
+              Loading audit trail…
+            </p>
+          )}
+
+          {fetchError && !loading && (
+            <p
+              data-testid="audit-trail-error"
+              style={{ fontSize: '11px', color: '#ef4444' }}
+            >
+              Failed to load audit trail: {fetchError}
+            </p>
+          )}
+
+          {!loading && !fetchError && entries !== null && entries.length === 0 && (
+            <p
+              data-testid="audit-trail-empty"
+              style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontStyle: 'italic' }}
+            >
+              No audit events recorded for this task.
+            </p>
+          )}
+
+          {!loading && !fetchError && entries && entries.length > 0 && (
+            <ol
+              role="list"
+              style={{
+                listStyle: 'none',
+                margin: 0,
+                padding: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.375rem',
+              }}
+            >
+              {entries.map((entry, idx) => {
+                const { color, icon } = auditEventStyle(entry.event_type);
+                const styles = COLOR_MAP[color] ?? COLOR_MAP.gray;
+
+                const detailsText =
+                  entry.details !== undefined
+                    ? typeof entry.details === 'string'
+                      ? entry.details
+                      : JSON.stringify(entry.details)
+                    : null;
+
+                return (
+                  <li
+                    key={idx}
+                    data-testid="audit-entry"
+                    role="listitem"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '0.5rem',
+                      fontSize: '11px',
+                    }}
+                  >
+                    {/* Color dot */}
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        flexShrink: 0,
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        color: '#fff',
+                        marginTop: '1px',
+                        ...styles.dot,
+                      }}
+                    >
+                      {icon}
+                    </span>
+
+                    {/* Content */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Event type badge + timestamp */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        <span
+                          data-testid="audit-entry-type"
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            fontFamily: 'var(--font-mono, monospace)',
+                            padding: '0.1em 0.4em',
+                            borderRadius: '4px',
+                            ...styles.badge,
+                          }}
+                        >
+                          {entry.event_type}
+                        </span>
+                        <span
+                          data-testid="audit-entry-timestamp"
+                          style={{
+                            fontSize: '10px',
+                            color: 'var(--color-text-muted)',
+                            fontFamily: 'var(--font-mono, monospace)',
+                          }}
+                        >
+                          {entry.timestamp}
+                        </span>
+                        {entry.hook_name && (
+                          <span style={{ fontSize: '10px', color: 'var(--color-text-dim)' }}>
+                            {entry.hook_name}
+                          </span>
+                        )}
+                        {entry.status !== undefined && (
+                          <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
+                            exit:{entry.status}
+                          </span>
+                        )}
+                      </div>
+                      {/* Details */}
+                      {detailsText && (
+                        <p
+                          data-testid="audit-entry-details"
+                          style={{
+                            marginTop: '0.2rem',
+                            fontSize: '10px',
+                            color: 'var(--color-text-muted)',
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          {detailsText}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
 // ── Chat bubble ───────────────────────────────────────────────────────
 
 /** Returns true if the text looks like raw JSON (starts with { or [) */
@@ -1143,6 +1399,10 @@ const ChatBubble = memo(function ChatBubble({
               <div className="mt-2 pt-2 border-t border-red-500/15">
                 <TaskTimeline phases={message.phases} data-testid="error-bubble-timeline" />
               </div>
+            )}
+            {/* Audit trail — lazy-loaded on expand, only when task_id is present */}
+            {message.task_id && (
+              <AuditTrail taskId={message.task_id} />
             )}
           </div>
           <RelativeTime
@@ -1421,6 +1681,11 @@ const ChatBubble = memo(function ChatBubble({
               <div className={`mt-2 pt-2 border-t border-[var(--color-border)]`}>
                 <TaskTimeline phases={message.phases} data-testid="result-bubble-timeline" />
               </div>
+            )}
+
+            {/* Audit trail — lazy-loaded on expand, only when task_id is present */}
+            {message.task_id && (
+              <AuditTrail taskId={message.task_id} />
             )}
           </div>
           <RelativeTime

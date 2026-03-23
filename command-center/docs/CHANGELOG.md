@@ -4,6 +4,28 @@
 
 ---
 
+## Iteration 52: Task audit trail viewer
+
+**Files modified:** `src/types.ts`, `src/api.ts`, `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/task-audit-trail.spec.ts`
+
+**Changes:**
+- Added `AuditEntry` and `AuditResponse` types to `src/types.ts`. `AuditEntry` carries `event_type`, `timestamp`, optional `hook_name`, `status`, and `details` fields matching the Phase 10 hook server audit format stored in Redis sorted sets.
+- Added `getTaskAudit(taskId: string)` to `src/api.ts` — calls `GET /tasks/{task_id}/audit` on the gateway and returns an `AuditResponse`.
+- Added inline `AuditTrail` React component (memoized) to `OrchestratorChat.tsx`:
+  - Renders a small "📋 Audit trail" toggle button (`data-testid="audit-trail-toggle"`) with `aria-expanded` state.
+  - Collapsed by default. On first expand, lazy-fetches audit data via `getTaskAudit`. Caches result in state — no re-fetch on subsequent toggles.
+  - Loading state (`data-testid="audit-trail-loading"`), error state (`data-testid="audit-trail-error"`), and empty state (`data-testid="audit-trail-empty"`).
+  - When entries exist, renders a vertical timeline (`role="list"`) of `data-testid="audit-entry"` items. Each entry shows: a color-coded dot, `data-testid="audit-entry-type"` badge, `data-testid="audit-entry-timestamp"`, optional `hook_name`, optional `status`, and optional `details`.
+  - Color coding: emerald for success/completed/allowed events, amber for warnings/escalations/timeouts, red for failures/errors/denied, gray for all others.
+  - The component sits below the result content (or TaskTimeline if phases are present) and above the RelativeTime timestamp on both result and error bubbles.
+  - Only rendered when `message.task_id` is present.
+- All styling uses `var(--color-*)` CSS custom properties. Component is wrapped in `React.memo` for stability.
+
+**Tests:** 10 new E2E tests in `tests/e2e/task-audit-trail.spec.ts`. Full suite: 822 passed (new: 10) / 2 skipped / 16 pre-existing containers failures (unrelated to this iteration). Build clean.
+
+---
+
 ## Iteration 51: Task progress timeline
 
 **Files modified:** `src/types.ts`, `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

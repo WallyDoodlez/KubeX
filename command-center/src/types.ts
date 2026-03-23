@@ -174,6 +174,29 @@ export interface ApprovalRequest {
 
 export type ApprovalDecision = 'approve' | 'reject';
 
+// ── Audit trail ─────────────────────────────────────────────────────
+
+/** A single audit event stored in Redis for a task (Phase 10 — Hooks monitoring) */
+export interface AuditEntry {
+  /** Event type identifier, e.g. "hook_pre_task", "task_started", "hook_post_task" */
+  event_type: string;
+  /** ISO 8601 timestamp of when the event was recorded */
+  timestamp: string;
+  /** Optional hook name when the event comes from a hook */
+  hook_name?: string;
+  /** Exit code or status code for the event (hook exit code, etc.) */
+  status?: number | string;
+  /** Arbitrary additional details about the event */
+  details?: string | Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/** Response shape from GET /tasks/{task_id}/audit */
+export interface AuditResponse {
+  task_id: string;
+  entries: AuditEntry[];
+}
+
 // ── Navigation ───────────────────────────────────────────────────────
 
 export type NavPage = 'dashboard' | 'agents' | 'traffic' | 'chat' | 'containers';

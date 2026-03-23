@@ -4,6 +4,21 @@
 
 ---
 
+- [x] **Iteration 52: Task audit trail viewer**
+  - [x] Add `AuditEntry` type to `src/types.ts` (fields: `event_type`, `timestamp`, `details?`, `hook_name?`, `status?`).
+  - [x] Add `AuditResponse` type to `src/types.ts` (fields: `task_id`, `entries: AuditEntry[]`).
+  - [x] Add `getTaskAudit(taskId: string)` to `src/api.ts` that calls `GET /tasks/{task_id}/audit`.
+  - [x] Create `AuditTrail` component inline in `OrchestratorChat.tsx` — collapsible "Audit trail" toggle on result/error bubbles that have a `task_id`. Lazy-fetches on first expand, caches after.
+  - [x] Render a compact vertical timeline of audit entries: icon (color by event type), event_type badge, timestamp, details (if any). Emerald=success, amber=warning, red=error, gray=info.
+  - [x] Loading, error, and empty states.
+  - [x] `data-testid="audit-trail-toggle"`, `data-testid="audit-trail-entries"`, `data-testid="audit-entry"`.
+  - [x] Audit trail sits below result content, above the timestamp. Collapsed by default.
+  - [x] Use `var(--color-*)` tokens. React.memo compatible (no function prop instability).
+  - [x] Create `tests/e2e/task-audit-trail.spec.ts` — 10 tests covering: toggle visible on result bubble with task_id, toggle not visible without task_id, toggle on error bubble, clicking toggle expands, entries render with event_type/timestamp, API failure error state, empty state, collapsed by default, aria-expanded false, aria-expanded true.
+  - [x] Build: npm run build — clean
+  - [x] Test: 822 passed (10 new) / 2 skipped / 16 pre-existing containers failures
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 51: Task progress timeline**
   - [x] Add `TaskPhaseEntry` interface and `TaskPhaseStatus` type to `src/types.ts` — `{ label, status, timestamp? }` with status `pending | active | done | failed`.
   - [x] Add `phases?: TaskPhaseEntry[]` to `ChatMessage` type — persists the lifecycle snapshot on result/error bubbles.
