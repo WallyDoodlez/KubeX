@@ -53,6 +53,36 @@ CLI_CREDENTIAL_MOUNTS: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
+# Hook config helpers
+# ---------------------------------------------------------------------------
+
+
+def _generate_hook_settings(agent_id: str, output_dir: Path) -> Path:
+    """Generate ~/.claude/settings.json with HTTP hook config (HOOK-02, D-08).
+
+    Creates a settings.json file with type:http hooks for PostToolUse, Stop,
+    SessionEnd, and SubagentStop, all pointing at the harness hook server at
+    http://127.0.0.1:8099/hooks.
+
+    Returns the host-side path to the generated file. This file is bind-mounted
+    read-only at /root/.claude/settings.json inside the container.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    hook_entry = [{"hooks": [{"type": "http", "url": "http://127.0.0.1:8099/hooks", "timeout": 10}]}]
+    settings = {
+        "hooks": {
+            "PostToolUse": hook_entry,
+            "Stop": [{"hooks": [{"type": "http", "url": "http://127.0.0.1:8099/hooks", "timeout": 10}]}],
+            "SessionEnd": [{"hooks": [{"type": "http", "url": "http://127.0.0.1:8099/hooks", "timeout": 10}]}],
+            "SubagentStop": [{"hooks": [{"type": "http", "url": "http://127.0.0.1:8099/hooks", "timeout": 10}]}],
+        }
+    }
+    settings_path = output_dir / f"{agent_id}-claude-settings.json"
+    settings_path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    return settings_path
+
+
+# ---------------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------------
 
@@ -432,6 +462,17 @@ class KubexLifecycle:
             if cred_mount is not None:
                 volume_name = f"kubex-creds-{agent_id}"
                 volumes[volume_name] = {"bind": cred_mount, "mode": "rw"}
+
+            # Hook config: read-only settings.json for CLI runtimes (HOOK-02, D-08)
+            # Bind mount AFTER credential volume — Docker overlays bind mount on top of
+            # named volume, so settings.json shadows the volume entry for that file path.
+            if runtime == "claude-code":
+                hook_settings_dir = self._config_dir / "hook-settings"
+                settings_host_path = _generate_hook_settings(agent_id, hook_settings_dir)
+                volumes[str(settings_host_path)] = {
+                    "bind": "/root/.claude/settings.json",
+                    "mode": "ro",
+                }
 
             # Step 6: Create container via Docker SDK
             docker_client = docker.from_env()
