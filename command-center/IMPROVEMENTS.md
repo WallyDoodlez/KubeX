@@ -4,6 +4,18 @@
 
 ---
 
+- [x] **Iteration 47: Result bubble expand/collapse**
+  - [x] Add a `COLLAPSE_LINE_THRESHOLD` constant (default 8 lines) — result bubbles with content exceeding this threshold are collapsed by default.
+  - [x] Add local `expanded` state to `ChatBubble` (result role only). Default is `false` when content is long, `true` when short.
+  - [x] Render a clipped preview of the first N lines when collapsed (CSS `line-clamp` or max-height + overflow hidden). Show a gradient fade at the bottom to indicate more content.
+  - [x] Add a "Show more" / "Show less" toggle button at the bottom of collapsible result bubbles. Only rendered when content exceeds the threshold.
+  - [x] Collapsed bubbles show a subtle "X lines hidden" indicator so users know there's more content.
+  - [x] All new elements use `data-testid` attributes and `var(--color-*)` theming.
+  - [x] E2E tests: short results are not collapsible; long results start collapsed with "Show more" button; clicking "Show more" expands and shows "Show less"; clicking "Show less" re-collapses.
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 762 passed, 1 skipped
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 46: Auto-scroll toggle with scroll-to-bottom FAB**
   - [x] Add `autoScroll` boolean state (default `true`) — when true, chat snaps to bottom on new messages; when false, position is preserved.
   - [x] Detect when the user manually scrolls up (scroll event on messages container) and automatically disengage auto-scroll (`autoScroll → false`).

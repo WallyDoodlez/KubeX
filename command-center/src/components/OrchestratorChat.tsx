@@ -788,6 +788,12 @@ function isLikelyJSON(text: string): boolean {
   return trimmed.startsWith('{') || trimmed.startsWith('[');
 }
 
+/**
+ * Number of lines above which a result bubble is collapsed by default.
+ * Content with fewer than this many newlines is always shown expanded.
+ */
+const COLLAPSE_LINE_THRESHOLD = 8;
+
 // Wrapped in React.memo — OrchestratorChat re-renders whenever messages array changes
 // (every new message). ChatBubble memo ensures old messages don't re-render when a new
 // message is appended; only the new bubble is mounted/rendered.
@@ -796,6 +802,10 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
   const isResult = message.role === 'result';
   const isError = message.role === 'error';
   const isSystem = message.role === 'system';
+
+  // Expand/collapse state for result bubbles. Long content starts collapsed.
+  const isLong = isResult && message.content.split('\n').length > COLLAPSE_LINE_THRESHOLD;
+  const [expanded, setExpanded] = useState(!isLong);
 
   if (isSystem) {
     return (
@@ -856,8 +866,12 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
 
   if (isResult) {
     const jsonContent = isLikelyJSON(message.content);
+    // How many lines are hidden when collapsed
+    const totalLines = message.content.split('\n').length;
+    const hiddenLines = isLong ? totalLines - COLLAPSE_LINE_THRESHOLD : 0;
+
     return (
-      <div className="flex justify-start">
+      <div className="flex justify-start" data-testid="result-bubble">
         <div className="max-w-2xl w-full">
           <div className="rounded-2xl rounded-tl-sm bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-3">
             <div className="flex items-center gap-2 mb-2">
@@ -883,6 +897,21 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
                 className="ml-auto"
               />
             </div>
+
+            {/* Content wrapper — clipped when collapsed */}
+            <div
+              data-testid="result-content-wrapper"
+              data-expanded={expanded}
+              style={
+                !expanded
+                  ? {
+                      maxHeight: `${COLLAPSE_LINE_THRESHOLD * 1.6 * 14}px`, // approx lines * line-height * font-size
+                      overflow: 'hidden',
+                      position: 'relative',
+                    }
+                  : {}
+              }
+            >
             {jsonContent ? (
               <pre
                 data-testid="json-content"
@@ -1048,6 +1077,51 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
                 >
                   {message.content}
                 </ReactMarkdown>
+              </div>
+            )}
+
+            {/* Gradient fade overlay — shown only when collapsed and content is long */}
+            {!expanded && isLong && (
+              <div
+                data-testid="result-collapse-fade"
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: '3rem',
+                  background: 'linear-gradient(to bottom, transparent, var(--color-surface))',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+            </div>{/* end content wrapper */}
+
+            {/* Show more / Show less toggle */}
+            {isLong && (
+              <div className="mt-2 pt-2 border-t border-[var(--color-border)] flex items-center justify-between">
+                <button
+                  data-testid={expanded ? 'result-show-less' : 'result-show-more'}
+                  onClick={() => setExpanded((v) => !v)}
+                  aria-expanded={expanded}
+                  className="
+                    text-[11px] font-medium
+                    text-emerald-400 hover:text-emerald-300
+                    transition-colors flex items-center gap-1
+                  "
+                >
+                  <span aria-hidden="true">{expanded ? '▲' : '▼'}</span>
+                  {expanded ? 'Show less' : 'Show more'}
+                </button>
+                {!expanded && (
+                  <span
+                    data-testid="result-hidden-lines"
+                    className="text-[10px] text-[var(--color-text-muted)]"
+                  >
+                    {hiddenLines} lines hidden
+                  </span>
+                )}
               </div>
             )}
           </div>

@@ -4,6 +4,28 @@
 
 ---
 
+## Iteration 47: Result bubble expand/collapse
+
+**Files modified:** `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/result-expand-collapse.spec.ts`
+
+**Changes:**
+- Added `COLLAPSE_LINE_THRESHOLD = 8` constant — result bubbles whose content has more than 8 newlines are considered "long" and collapse by default.
+- Added `isLong` derived boolean and `expanded` state (via `useState`) inside `ChatBubble` for result-role messages. Short results default to `expanded = true`; long results default to `expanded = false`.
+- Wrapped result bubble content (both JSON `<pre>` and markdown `<ReactMarkdown>`) inside a `data-testid="result-content-wrapper"` div. When collapsed, this div gets `maxHeight`, `overflow: hidden`, and `position: relative` via inline styles, clipping content to approximately 8 visible lines.
+- Added `data-testid="result-bubble"` to the outermost div of the result bubble for improved testability.
+- Added `data-expanded` attribute on the content wrapper (`"true"` / `"false"`) to allow easy test assertions without relying on CSS.
+- Added a **gradient fade overlay** (`data-testid="result-collapse-fade"`) absolutely positioned at the bottom of the clipped content area, using `linear-gradient(to bottom, transparent, var(--color-surface))`. Only rendered when `!expanded && isLong`.
+- Added a **toggle row** (`mt-2 pt-2 border-t`) below the content wrapper, rendered only when `isLong`. Contains:
+  - A toggle button (`data-testid="result-show-more"` / `data-testid="result-show-less"`) with `aria-expanded` attribute and emerald hover styling.
+  - A "X lines hidden" indicator (`data-testid="result-hidden-lines"`) shown only when collapsed, giving users a concrete sense of how much content is hidden.
+- Short result bubbles have no toggle row — the feature is entirely transparent for short content.
+- Created `tests/e2e/result-expand-collapse.spec.ts` with 15 tests covering: short bubble has no show-more, long bubble starts collapsed, expanding/collapsing mechanics, gradient overlay presence/absence, independent state for multiple bubbles, coexistence of short and long bubbles.
+
+**Tests:** 762 passed / 1 skipped / 0 failures. Build clean.
+
+---
+
 ## Iteration 46: Auto-scroll toggle with scroll-to-bottom FAB
 
 **Files modified:** `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
