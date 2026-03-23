@@ -74,7 +74,7 @@ DEFAULT_NANO_CPUS = 500_000_000  # 0.5 CPUs in nano-CPUs
 CLI_CREDENTIAL_MOUNTS: dict[str, str] = {
     "claude-code": "/root/.claude",
     "codex-cli": "/root/.codex",
-    "gemini-cli": "/root/.config/gemini",
+    "gemini-cli": "/root/.gemini",
 }
 
 

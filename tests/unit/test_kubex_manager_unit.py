@@ -1490,3 +1490,36 @@ class TestToHostPath:
         assert result.startswith("D:/dev/dev/openclaw")
         assert "configs" in result
         assert "test.yaml" in result
+
+
+# ===========================================================================
+# TestGeminiCredentialMount
+# ===========================================================================
+
+
+class TestGeminiCredentialMount:
+    """Verify gemini-cli credential mount points to /root/.gemini (not /root/.config/gemini)."""
+
+    def test_gemini_cli_credential_mount_path(self):
+        from kubex_manager.lifecycle import CLI_CREDENTIAL_MOUNTS
+        assert CLI_CREDENTIAL_MOUNTS["gemini-cli"] == "/root/.gemini"
+
+    def test_gemini_cli_credential_mount_not_config_dir(self):
+        from kubex_manager.lifecycle import CLI_CREDENTIAL_MOUNTS
+        assert "/root/.config/gemini" not in CLI_CREDENTIAL_MOUNTS.values()
+
+
+# ===========================================================================
+# TestGeminiNoHookSettings
+# ===========================================================================
+
+
+class TestGeminiNoHookSettings:
+    """Verify _generate_hook_settings is not called for gemini-cli."""
+
+    def test_hook_settings_gate_is_claude_code_only(self):
+        """The settings.json gate in lifecycle.py checks runtime == claude-code."""
+        import inspect
+        from kubex_manager.lifecycle import KubexLifecycle
+        source = inspect.getsource(KubexLifecycle.create_kubex)
+        assert 'runtime == "claude-code"' in source
