@@ -4,6 +4,24 @@
 
 ---
 
+## Iteration 43: Markdown rendering for result bubbles
+
+**Files modified:** `src/components/OrchestratorChat.tsx`, `package.json`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/markdown-rendering.spec.ts`
+
+**Changes:**
+- Installed `react-markdown`, `remark-gfm`, `rehype-highlight`, and `highlight.js` (102 packages added).
+- Added `isLikelyJSON(text: string): boolean` helper before `ChatBubble` — returns `true` if trimmed text starts with `{` or `[`, enabling the JSON fallback path.
+- Modified `ChatBubble` result branch: when `isLikelyJSON` is true, renders existing `<pre data-testid="json-content">` (unchanged); otherwise renders `<div data-testid="markdown-content">` containing `<ReactMarkdown>` with `remarkGfm` and `rehypeHighlight` plugins.
+- Imported `highlight.js/styles/github-dark.css` for syntax highlighting of fenced code blocks — dark theme, compatible with the app's dark UI.
+- All markdown element renderers (`h1`–`h3`, `p`, `ul`, `ol`, `li`, `code`, `pre`, `table`, `th`, `td`, `a`, `strong`, `em`, `blockquote`, `hr`) use `var(--color-*)` CSS custom properties for theming — no Tailwind prose plugin dependency.
+- All existing result bubble features preserved: `Result` label, task ID display with copy button, content copy button, `RelativeTime` timestamp.
+- Created `tests/e2e/markdown-rendering.spec.ts` with 18 test cases covering: heading rendering, code block rendering, list rendering, table rendering, bold/italic/inline-code rendering, JSON object fallback, JSON array fallback, presence/absence of `markdown-content` vs `json-content` per content type, and preservation of existing bubble features (copy button, task ID, timestamp) for both paths.
+
+**Tests:** 709 passed / 1 skipped (18 new markdown-rendering tests all pass). Build clean (573 modules, no TypeScript errors).
+
+---
+
 ## Iteration 42: Unified chat input — Advanced capability toggle
 
 **Files modified:** `src/components/OrchestratorChat.tsx`, `src/types.ts`, `tests/e2e/dispatch-response.spec.ts`, `tests/e2e/validation.spec.ts`, `tests/e2e/chat-search.spec.ts`, `tests/e2e/streaming.spec.ts`, `tests/e2e/integration.spec.ts`, `tests/e2e/auth.spec.ts`, `tests/e2e/authgate.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

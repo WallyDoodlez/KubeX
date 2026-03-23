@@ -1,4 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github-dark.css';
 import CopyButton from './CopyButton';
 import { dispatchTask, getTaskResult, getAgents, getTaskStreamUrl, provideInput } from '../api';
 import type { ChatMessage, TrafficEntry, Agent } from '../types';
@@ -651,6 +655,12 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
 // ── Chat bubble ───────────────────────────────────────────────────────
 
+/** Returns true if the text looks like raw JSON (starts with { or [) */
+function isLikelyJSON(text: string): boolean {
+  const trimmed = text.trim();
+  return trimmed.startsWith('{') || trimmed.startsWith('[');
+}
+
 // Wrapped in React.memo — OrchestratorChat re-renders whenever messages array changes
 // (every new message). ChatBubble memo ensures old messages don't re-render when a new
 // message is appended; only the new bubble is mounted/rendered.
@@ -718,6 +728,7 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
   }
 
   if (isResult) {
+    const jsonContent = isLikelyJSON(message.content);
     return (
       <div className="flex justify-start">
         <div className="max-w-2xl w-full">
@@ -745,9 +756,168 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
                 className="ml-auto"
               />
             </div>
-            <pre className="text-sm text-[var(--color-text)] whitespace-pre-wrap break-words font-mono-data">
-              {message.content}
-            </pre>
+            {jsonContent ? (
+              <pre
+                data-testid="json-content"
+                className="text-sm text-[var(--color-text)] whitespace-pre-wrap break-words font-mono-data"
+              >
+                {message.content}
+              </pre>
+            ) : (
+              <div
+                data-testid="markdown-content"
+                style={{
+                  color: 'var(--color-text)',
+                  fontSize: '0.875rem',
+                  lineHeight: '1.6',
+                }}
+                className="markdown-result"
+              >
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                  components={{
+                    h1: ({ children }) => (
+                      <h1 style={{ color: 'var(--color-text)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.5rem', marginTop: '0.75rem' }}>{children}</h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 style={{ color: 'var(--color-text)', fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.4rem', marginTop: '0.65rem' }}>{children}</h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 style={{ color: 'var(--color-text)', fontWeight: 600, fontSize: '1rem', marginBottom: '0.35rem', marginTop: '0.5rem' }}>{children}</h3>
+                    ),
+                    p: ({ children }) => (
+                      <p style={{ marginBottom: '0.5rem' }}>{children}</p>
+                    ),
+                    ul: ({ children }) => (
+                      <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.5rem', listStyleType: 'disc' }}>{children}</ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.5rem', listStyleType: 'decimal' }}>{children}</ol>
+                    ),
+                    li: ({ children }) => (
+                      <li style={{ marginBottom: '0.2rem' }}>{children}</li>
+                    ),
+                    code: ({ className, children, ...props }) => {
+                      const isBlock = className?.startsWith('language-');
+                      if (isBlock) {
+                        return (
+                          <code
+                            className={className}
+                            style={{ display: 'block', overflowX: 'auto' }}
+                            {...props}
+                          >
+                            {children}
+                          </code>
+                        );
+                      }
+                      return (
+                        <code
+                          style={{
+                            background: 'var(--color-surface-dark)',
+                            borderRadius: '0.25rem',
+                            padding: '0.1em 0.35em',
+                            fontSize: '0.8em',
+                            color: 'var(--color-text)',
+                            border: '1px solid var(--color-border)',
+                          }}
+                          {...props}
+                        >
+                          {children}
+                        </code>
+                      );
+                    },
+                    pre: ({ children }) => (
+                      <pre
+                        style={{
+                          background: 'var(--color-surface-dark)',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: '0.5rem',
+                          padding: '0.75rem 1rem',
+                          overflowX: 'auto',
+                          marginBottom: '0.5rem',
+                          fontSize: '0.8rem',
+                        }}
+                      >
+                        {children}
+                      </pre>
+                    ),
+                    table: ({ children }) => (
+                      <div style={{ overflowX: 'auto', marginBottom: '0.5rem' }}>
+                        <table
+                          style={{
+                            width: '100%',
+                            borderCollapse: 'collapse',
+                            fontSize: '0.85rem',
+                          }}
+                        >
+                          {children}
+                        </table>
+                      </div>
+                    ),
+                    th: ({ children }) => (
+                      <th
+                        style={{
+                          border: '1px solid var(--color-border)',
+                          padding: '0.4rem 0.75rem',
+                          textAlign: 'left',
+                          background: 'var(--color-surface-dark)',
+                          color: 'var(--color-text)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {children}
+                      </th>
+                    ),
+                    td: ({ children }) => (
+                      <td
+                        style={{
+                          border: '1px solid var(--color-border)',
+                          padding: '0.4rem 0.75rem',
+                          color: 'var(--color-text)',
+                        }}
+                      >
+                        {children}
+                      </td>
+                    ),
+                    a: ({ href, children }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--color-emerald, #10b981)', textDecoration: 'underline' }}
+                      >
+                        {children}
+                      </a>
+                    ),
+                    strong: ({ children }) => (
+                      <strong style={{ fontWeight: 700, color: 'var(--color-text)' }}>{children}</strong>
+                    ),
+                    em: ({ children }) => (
+                      <em style={{ fontStyle: 'italic', color: 'var(--color-text)' }}>{children}</em>
+                    ),
+                    blockquote: ({ children }) => (
+                      <blockquote
+                        style={{
+                          borderLeft: '3px solid var(--color-border-strong)',
+                          paddingLeft: '0.75rem',
+                          marginLeft: 0,
+                          color: 'var(--color-text-muted)',
+                          marginBottom: '0.5rem',
+                        }}
+                      >
+                        {children}
+                      </blockquote>
+                    ),
+                    hr: () => (
+                      <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '0.75rem 0' }} />
+                    ),
+                  }}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              </div>
+            )}
           </div>
           <RelativeTime
             date={message.timestamp}

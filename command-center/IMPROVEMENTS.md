@@ -14,14 +14,14 @@
   - [x] Test: npx playwright test — all pass
   - [x] Update `docs/CHANGELOG.md`
 
-- [ ] **Iteration 43: Markdown rendering for result bubbles**
-  - [ ] Install `react-markdown` + `remark-gfm` for tables, lists, code blocks, bold/italic.
-  - [ ] Replace `<pre>` in result ChatBubble with `<ReactMarkdown>` wrapped in prose styling. Keep raw JSON fallback for non-markdown responses.
-  - [ ] Add syntax highlighting for code blocks via `rehype-highlight` or similar lightweight highlighter.
-  - [ ] E2E tests: markdown renders correctly (headings, code blocks, lists, tables), JSON fallback works.
-  - [ ] Build: npm run build — clean
-  - [ ] Test: npx playwright test — all pass
-  - [ ] Update `docs/CHANGELOG.md`
+- [x] **Iteration 43: Markdown rendering for result bubbles**
+  - [x] Install `react-markdown` + `remark-gfm` for tables, lists, code blocks, bold/italic.
+  - [x] Replace `<pre>` in result ChatBubble with `<ReactMarkdown>` wrapped in prose styling. Keep raw JSON fallback for non-markdown responses.
+  - [x] Add syntax highlighting for code blocks via `rehype-highlight` or similar lightweight highlighter.
+  - [x] E2E tests: markdown renders correctly (headings, code blocks, lists, tables), JSON fallback works.
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — all pass
+  - [x] Update `docs/CHANGELOG.md`
 
 - [ ] **Iteration 44: Typing indicator + welcome empty state**
   - [ ] Replace `⟳ Streaming…` text with animated typing indicator (three dots in a bubble, left-aligned like a result message).
