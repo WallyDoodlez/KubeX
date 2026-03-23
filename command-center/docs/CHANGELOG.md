@@ -4,6 +4,19 @@
 
 ---
 
+## Iteration 39: Auto-Refresh Countdown Indicator
+**Files created:** `src/components/RefreshCountdown.tsx`, `tests/e2e/refresh-countdown.spec.ts`
+**Files modified:** `src/context/AppContext.tsx`, `src/hooks/useHealthCheck.ts`, `src/components/ConnectionIndicator.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Changes:**
+- Created `src/components/RefreshCountdown.tsx` — a 16×16px SVG ring component that visually counts down the time until the next health poll. Accepts `interval` (ms) and `lastPolledAt` (Date | null) props. Uses `requestAnimationFrame` for smooth 60fps animation — on each frame it reads `Date.now() - lastPolledAt` to compute the remaining proportion and sets `stroke-dashoffset` accordingly (0 = full ring, circumference = empty ring). Has a CSS `transition: stroke-dashoffset 0.25s linear` for smooth visual progression between frames. Exposes `data-testid="refresh-countdown"`, `data-testid="refresh-countdown-ring"`, and `data-testid="refresh-countdown-arc"`. Provides an `aria-label` and `title` tooltip that reads "Next health check in Xs (every 15s)" post-poll and "Waiting for first health check" pre-poll. Cleans up `cancelAnimationFrame` on unmount and on `lastPolledAt` change.
+- Updated `src/context/AppContext.tsx` — added `lastHealthPollAt: Date | null` state (initially `null`) and `setLastHealthPollAt` dispatcher to the `AppContextValue` interface and `AppProvider`. This exposes the poll timestamp globally so any component can drive countdown animations without duplicating state.
+- Updated `src/hooks/useHealthCheck.ts` — destructures `setLastHealthPollAt` from `useAppContext`; calls `setLastHealthPollAt(new Date())` immediately after `setServices(...)` in `checkHealth`. This means `lastHealthPollAt` is updated every 15 seconds on each successful poll cycle.
+- Updated `src/components/ConnectionIndicator.tsx` — imports `RefreshCountdown` and reads `lastHealthPollAt` from `useAppContext`; wraps the status dot in a `relative` 16×16 container; renders `RefreshCountdown` with `className="absolute inset-0"` so the ring sits behind the dot; passes `interval={HEALTH_INTERVAL}` (15 000 ms) and `lastPolledAt={lastHealthPollAt}`; ring color inherits from `textClass` (emerald/amber/red) so it visually matches system status.
+- Created `tests/e2e/refresh-countdown.spec.ts` — 22 tests: countdown present on Dashboard/Agents/Traffic/Containers/Approvals/Chat; SVG ring visible; arc visible; role=img; aria-label truthy; aria-label mentions "health check" after 2.5s wait; aria-label includes "15s"; aria-label includes seconds digit; title matches aria-label; initial state before poll resolves; co-exists with status dot; ring inside connection indicator button; arc stroke-dasharray is positive number; arc stroke-dashoffset set; offset increases over 2s (ring drains); aria-hidden not "true"; persists after navigating Dashboard→Agents→Traffic.
+**Tests:** 616 → 638 (22 new refresh-countdown tests; all pass; 24/24 connection-indicator tests still pass)
+
+---
+
 ## Iteration 38: Quick Dispatch Modal (Ctrl+D)
 **Files created:** `src/components/QuickDispatchModal.tsx`, `tests/e2e/quick-dispatch.spec.ts`
 **Files modified:** `src/components/Layout.tsx`, `src/components/CommandPalette.tsx`, `src/components/KeyboardShortcutsHelp.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

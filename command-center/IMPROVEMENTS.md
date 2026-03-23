@@ -4,6 +4,16 @@
 
 ---
 
+- [x] **Iteration 39: Auto-Refresh Countdown Indicator**
+  - [x] Create `src/components/RefreshCountdown.tsx` — small circular SVG ring that visually counts down the polling interval; resets on each poll tick; shows seconds remaining as tooltip; accepts `interval` (ms) and `lastPolledAt` (Date | null) props; animates stroke-dashoffset from 0→full circumference over the interval duration; pauses gracefully when `lastPolledAt` is null; uses `requestAnimationFrame` for smooth 60fps animation
+  - [x] Add `lastHealthPollAt: Date | null` and `setLastHealthPollAt` to `AppContext` — updated by `useHealthCheck` after each successful poll cycle
+  - [x] Update `useHealthCheck.ts` — call `setLastHealthPollAt(new Date())` after `setServices`
+  - [x] Update `ConnectionIndicator.tsx` — import `RefreshCountdown`; render it as a small 16px ring overlaying the status dot in a relative container; pass `interval={HEALTH_INTERVAL}` (15000) and `lastPolledAt` from context; ring inherits text color so it matches status (emerald/amber/red)
+  - [x] Create `tests/e2e/refresh-countdown.spec.ts` (22 tests) — countdown ring present on all 6 pages; SVG ring element present; arc element present; role=img on SVG; aria-label truthy; aria-label mentions "health check" after first poll; aria-label includes "15s"; aria-label includes remaining seconds; title tooltip matches aria-label; aria-label mentions "waiting" before poll; ring co-exists with status dot; ring inside connection indicator button; arc has stroke-dasharray; arc has stroke-dashoffset; stroke-dashoffset decreases over time (ring animates); aria-hidden=false; persists after navigation
+  - [x] Build: npm run build — clean (111 modules)
+  - [x] Test: npx playwright test tests/e2e/refresh-countdown.spec.ts — 22/22 passed; connection-indicator.spec.ts — 24/24 passed
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 38: Quick Dispatch Modal (Ctrl+D)**
   - [x] Create `src/components/QuickDispatchModal.tsx` — modal overlay triggered by Ctrl+D; agent selector dropdown with favorites-first sorting (using `useFavorites`) and optgroup separation; capability input with autocomplete (ArrowDown/Up/Enter navigation, mousedown-select to avoid blur race); message textarea; three-way priority selector (`low`/`normal`/`high`) as radio-group buttons; validate on submit and on blur (reuses `validateCapability` / `validateMessage`); dispatch via `dispatchTask` API; inline result panel (success/error) with aria-live; adds entry to traffic log via `addTrafficEntry`; close on backdrop click, Escape, Cancel button, or close icon; resets all form state on each open
   - [x] Wire Ctrl+D shortcut in `Layout.tsx` via `useKeyboardShortcuts` (`ctrl: true`, `allowInInput: true`, toggles `quickDispatchOpen`); Escape handler also closes quick dispatch; add `QuickDispatchModal` to JSX

@@ -40,6 +40,9 @@ interface AppContextValue {
   setServices: React.Dispatch<React.SetStateAction<ServiceHealth[]>>;
   /** Aggregate status derived from services */
   systemStatus: SystemStatus;
+  /** Timestamp of the last completed health poll cycle; null until first poll */
+  lastHealthPollAt: Date | null;
+  setLastHealthPollAt: React.Dispatch<React.SetStateAction<Date | null>>;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -68,6 +71,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [rawChatMessages, setChatMessages] = useLocalStorage<ChatMessage[]>('kubex-chat-messages', [WELCOME_MESSAGE]);
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [services, setServices] = useState<ServiceHealth[]>(INITIAL_SERVICES);
+  const [lastHealthPollAt, setLastHealthPollAt] = useState<Date | null>(null);
 
   // Rehydrate Date objects from JSON-parsed strings on every read.
   // useLocalStorage stores/retrieves via JSON.parse which converts Dates to ISO strings.
@@ -87,7 +91,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ trafficLog, addTrafficEntry, clearTrafficLog, chatMessages, setChatMessages, pendingApprovalCount, setPendingApprovalCount, services, setServices, systemStatus }}>
+    <AppContext.Provider value={{ trafficLog, addTrafficEntry, clearTrafficLog, chatMessages, setChatMessages, pendingApprovalCount, setPendingApprovalCount, services, setServices, systemStatus, lastHealthPollAt, setLastHealthPollAt }}>
       {children}
     </AppContext.Provider>
   );

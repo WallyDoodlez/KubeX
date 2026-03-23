@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import type { SystemStatus } from '../context/AppContext';
+import RefreshCountdown from './RefreshCountdown';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -59,8 +60,11 @@ function serviceStatusColor(s: string): string {
  * each service's individual status so operators can see which services
  * are up/down without navigating to the Dashboard.
  */
+/** 15 s — must stay in sync with HEALTH_INTERVAL in useHealthCheck.ts */
+const HEALTH_INTERVAL = 15_000;
+
 export default function ConnectionIndicator() {
-  const { services, systemStatus } = useAppContext();
+  const { services, systemStatus, lastHealthPollAt } = useAppContext();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -107,12 +111,24 @@ export default function ConnectionIndicator() {
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-1.5 text-xs font-mono-data ${textClass} hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)] rounded px-1 py-0.5`}
       >
-        <span
-          data-testid="connection-indicator-dot"
-          aria-hidden="true"
-          className={`h-2 w-2 rounded-full flex-shrink-0 ${dotClass}`}
-          data-status={systemStatus}
-        />
+        {/* Status dot with countdown ring overlay */}
+        <span className="relative inline-flex items-center justify-center flex-shrink-0" style={{ width: 16, height: 16 }}>
+          {/* Countdown ring — sits behind the dot */}
+          <RefreshCountdown
+            interval={HEALTH_INTERVAL}
+            lastPolledAt={lastHealthPollAt}
+            size={16}
+            strokeWidth={2}
+            className={`absolute inset-0 ${textClass}`}
+          />
+          {/* Status dot — centered on top of ring */}
+          <span
+            data-testid="connection-indicator-dot"
+            aria-hidden="true"
+            className={`h-2 w-2 rounded-full flex-shrink-0 ${dotClass}`}
+            data-status={systemStatus}
+          />
+        </span>
         <span className="hidden sm:inline" data-testid="connection-indicator-label">
           {systemStatus === 'loading'
             ? 'checking'

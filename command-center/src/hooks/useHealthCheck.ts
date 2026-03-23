@@ -24,7 +24,7 @@ const HEALTH_INTERVAL = 15_000; // 15 s — slightly less aggressive than Dashbo
  * always reflect the same data without duplicating API calls.
  */
 export function useHealthCheck(): void {
-  const { setServices } = useAppContext();
+  const { setServices, setLastHealthPollAt } = useAppContext();
 
   const checkHealth = useCallback(async () => {
     const checks = [
@@ -69,7 +69,8 @@ export function useHealthCheck(): void {
         return s;
       }),
     );
-  }, [setServices]);
+    setLastHealthPollAt(new Date());
+  }, [setServices, setLastHealthPollAt]);
 
   usePolling(checkHealth, {
     interval: HEALTH_INTERVAL,
