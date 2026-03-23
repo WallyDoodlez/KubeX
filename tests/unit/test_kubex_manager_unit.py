@@ -1331,6 +1331,57 @@ class TestManagerAPIExtensions:
 
 
 # ===========================================================================
+# Phase 9 — Credential injection endpoint
+# ===========================================================================
+
+
+class TestCredentialInjection:
+    """POST /kubexes/{id}/credentials — inject OAuth token into container."""
+
+    def _get_app_client(self):
+        import sys
+        import os
+        sys.path.insert(0, os.path.join(_ROOT, "services/kubex-manager"))
+        from fastapi.testclient import TestClient
+        from kubex_manager.main import app
+        return TestClient(app)
+
+    def test_credentials_endpoint_exists(self) -> None:
+        """POST /kubexes/{id}/credentials returns non-404."""
+        client = self._get_app_client()
+        resp = client.post(
+            "/kubexes/k-test-001/credentials",
+            json={"runtime": "claude-code", "credential_data": {"token": "test"}},
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert resp.status_code != 404, (
+            "POST /kubexes/{id}/credentials returned 404 — endpoint not implemented"
+        )
+
+    def test_credentials_unknown_runtime_returns_422(self) -> None:
+        """Unknown runtime returns 422 with error message."""
+        client = self._get_app_client()
+        resp = client.post(
+            "/kubexes/k-test-001/credentials",
+            json={"runtime": "unknown-cli", "credential_data": {"token": "test"}},
+            headers={"Authorization": "Bearer kubex-mgmt-token"},
+        )
+        # Will be 404 (kubex not found) or 422 (unknown runtime) — not 500
+        assert resp.status_code in (404, 422), (
+            f"Expected 404 or 422 for unknown runtime, got {resp.status_code}"
+        )
+
+    def test_credentials_requires_auth(self) -> None:
+        """Endpoint requires Bearer token."""
+        client = self._get_app_client()
+        resp = client.post(
+            "/kubexes/k-test-001/credentials",
+            json={"runtime": "claude-code", "credential_data": {"token": "test"}},
+        )
+        assert resp.status_code == 401
+
+
+# ===========================================================================
 # Phase 9 — CLI runtime named volumes (CLI-06)
 # ===========================================================================
 

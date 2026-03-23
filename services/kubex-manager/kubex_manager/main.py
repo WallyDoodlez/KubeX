@@ -9,6 +9,7 @@ Implements Stream 4A REST API:
   POST   /kubexes/{kubex_id}/kill     — kill
   POST   /kubexes/{kubex_id}/restart  — restart
   DELETE /kubexes/{kubex_id}          — remove
+  POST   /kubexes/{kubex_id}/credentials — inject OAuth token into container
 
 Auth: Bearer token required for all /kubexes endpoints.
 """
@@ -503,6 +504,103 @@ async def list_configs(request: Request) -> JSONResponse:
                 configs.append({"file": config_file.name, "agent_id": config_file.stem})
 
     return JSONResponse(status_code=200, content={"configs": configs})
+
+
+class InjectCredentialBody(BaseModel):
+    """Payload for credential injection."""
+
+    runtime: str  # e.g. "claude-code"
+    credential_data: dict[str, Any]  # Token JSON to write
+
+
+@router.post("/kubexes/{kubex_id}/credentials", dependencies=[Depends(verify_token)])
+async def inject_credentials(
+    kubex_id: str, body: InjectCredentialBody, request: Request
+) -> JSONResponse:
+    """Write OAuth credentials into a running container's credential volume.
+
+    Used by Command Center to provision CLI agent auth tokens after
+    the user completes an OAuth flow in the browser.
+    """
+    import json as _json
+
+    import docker  # type: ignore[import]
+
+    lifecycle = _get_lifecycle(request)
+    try:
+        record = lifecycle.get_kubex(kubex_id)
+    except KeyError:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="KubexNotFound",
+                message=f"Kubex not found: {kubex_id}",
+            ).model_dump(),
+        )
+
+    # Resolve credential path from runtime type
+    cred_paths = {
+        "claude-code": "/root/.claude/.credentials.json",
+        "codex-cli": "/root/.codex/.credentials.json",
+        "gemini-cli": "/root/.config/gemini/credentials.json",
+    }
+    cred_path = cred_paths.get(body.runtime)
+    if cred_path is None:
+        return JSONResponse(
+            status_code=422,
+            content=ErrorResponse(
+                error="UnknownRuntime",
+                message=f"No credential path for runtime: {body.runtime}",
+            ).model_dump(),
+        )
+
+    # Write credential file into the container via docker exec
+    try:
+        docker_client = docker.from_env()
+        container = docker_client.containers.get(record.container_id)
+
+        cred_json = _json.dumps(body.credential_data)
+        parent_dir = "/".join(cred_path.split("/")[:-1])
+        cmd = f"sh -c 'mkdir -p {parent_dir} && cat > {cred_path}'"
+        exit_code, output = container.exec_run(cmd, stdin=True, socket=True)
+
+        # exec_run with socket=True returns a socket — write data and close
+        sock = output._sock  # type: ignore[union-attr]
+        sock.sendall(cred_json.encode("utf-8"))
+        sock.close()
+
+        logger.info(
+            "credentials_injected",
+            kubex_id=kubex_id,
+            runtime=body.runtime,
+            path=cred_path,
+        )
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "injected",
+                "kubex_id": kubex_id,
+                "runtime": body.runtime,
+                "path": cred_path,
+            },
+        )
+    except docker.errors.NotFound:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="ContainerNotFound",
+                message=f"Container not running for kubex: {kubex_id}",
+            ).model_dump(),
+        )
+    except Exception as exc:
+        logger.error("credential_injection_failed", kubex_id=kubex_id, error=str(exc))
+        return JSONResponse(
+            status_code=500,
+            content=ErrorResponse(
+                error="InjectionFailed",
+                message=f"Failed to inject credentials: {exc}",
+            ).model_dump(),
+        )
 
 
 @router.delete("/kubexes/{kubex_id}", status_code=204, dependencies=[Depends(verify_token)])
