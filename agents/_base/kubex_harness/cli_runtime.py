@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 import httpx
 import redis.asyncio as aioredis
@@ -48,29 +48,93 @@ logger = logging.getLogger("kubex_harness.cli_runtime")
 # Constants
 # ---------------------------------------------------------------------------
 
-# Credential file paths per CLI runtime (D-04)
+# Credential file paths per CLI runtime (D-04, D-07)
 CREDENTIAL_PATHS: dict[str, Path] = {
     "claude-code": Path.home() / ".claude" / ".credentials.json",
+    "gemini-cli": Path.home() / ".gemini" / "oauth_creds.json",
 }
 
-# Failure output patterns per reason (D-13, D-14, D-17)
+# Failure output patterns per reason (D-10, D-13, D-14, D-17)
 FAILURE_PATTERNS: dict[str, list[str]] = {
     "auth_expired": [
         "authentication failed",
         "oauth token expired",
         "please run claude auth login",
         "session expired",
+        # Gemini CLI auth failure patterns (D-10)
+        "gemini_api_key environment variable not found",
+        "waiting for auth",
+        "unauthenticated",
+        "failed to sign in",
+        "invalid_grant",
     ],
     "subscription_limit": [
         "rate limit",
         "usage limit",
         "subscription limit",
         "quota exceeded",
+        # Gemini CLI quota/rate limit patterns (D-10)
+        "resource has been exhausted",
+        "resource_exhausted",
+        "you have exhausted your daily quota",
+        "you exceeded your current quota",
+        "ratelimitexceeded",
+        "you must be a named user",
     ],
     "runtime_not_available": [
         "command not found",
         "no such file or directory",
     ],
+}
+
+# Skill file names per CLI runtime (D-04)
+CLI_SKILL_FILES: dict[str, str] = {
+    "claude-code": "CLAUDE.md",
+    "gemini-cli": "GEMINI.md",
+}
+
+# Runtime-specific HITL auth instructions (D-08)
+_HITL_AUTH_MESSAGES: dict[str, str] = {
+    "claude-code": "docker exec -it <container> claude auth login",
+    "gemini-cli": "docker exec -it <container> gemini   (select 'Login with Google')",
+}
+
+
+# ---------------------------------------------------------------------------
+# CLI command builder functions (D-02)
+# ---------------------------------------------------------------------------
+
+
+def _build_claude_command(task_message: str, model: str | None) -> list[str]:
+    """Build claude CLI command for non-interactive task execution."""
+    cmd = [
+        "claude",
+        "-p", task_message,
+        "--output-format", "json",
+        "--dangerously-skip-permissions",
+        "--no-session-persistence",
+    ]
+    if model:
+        cmd += ["--model", model]
+    return cmd
+
+
+def _build_gemini_command(task_message: str, model: str | None) -> list[str]:
+    """Build gemini CLI command for non-interactive task execution."""
+    cmd = [
+        "gemini",
+        "-p", task_message,
+        "--output-format", "json",
+    ]
+    if model:
+        cmd += ["--model", model]
+    return cmd
+
+
+# Dispatch table mapping runtime type to command builder function (D-02)
+CLI_COMMAND_BUILDERS: dict[str, Callable[[str, str | None], list[str]]] = {
+    "claude-code": _build_claude_command,
+    "gemini-cli": _build_gemini_command,
 }
 
 # Maximum stdout buffer size (1MB) to prevent unbounded memory growth (Pitfall 1)
@@ -115,7 +179,7 @@ class CLIRuntime:
     """Manages the full lifecycle of a CLI-based agent inside a Kubex container.
 
     Boot sequence (D-08):
-        BOOTING -> install deps -> write CLAUDE.md -> check creds
+        BOOTING -> install deps -> write skill file (CLAUDE.md or GEMINI.md) -> check creds
         -> (CREDENTIAL_WAIT if missing) -> READY -> poll tasks -> BUSY per task
 
     State transitions are published to Redis pub/sub on ``lifecycle:{agent_id}``.
@@ -152,14 +216,14 @@ class CLIRuntime:
         self._http = httpx.AsyncClient(timeout=httpx.Timeout(60.0))
 
         try:
-            # Write CLAUDE.md from skill files (D-08, Pattern 8)
-            self._write_claude_md()
+            # Write runtime-specific skill file (CLAUDE.md or GEMINI.md) (D-04, D-08)
+            self._write_skill_file()
 
             # Gate on credentials before marking READY (D-08)
             await self._credential_gate()
 
-            # Start hook server for CLI runtimes (D-05, D-06)
-            if self.config.runtime != "openai-api":
+            # Start hook server for Claude Code runtimes only (D-13)
+            if self.config.runtime == "claude-code":
                 from kubex_harness.hook_server import start_hook_server
                 self._hook_server = await start_hook_server(self)
 
@@ -207,14 +271,19 @@ class CLIRuntime:
     # Boot sequence helpers
     # ------------------------------------------------------------------
 
-    def _write_claude_md(self) -> None:
-        """Write concatenated skill content to /app/CLAUDE.md (D-08, Pattern 8).
+    def _write_skill_file(self) -> None:
+        """Write concatenated skill content to runtime-specific file (D-04).
 
-        Claude Code picks up CLAUDE.md from its working directory (/app),
-        which makes skill instructions available to the LLM.
+        Writes CLAUDE.md for claude-code, GEMINI.md for gemini-cli.
+        The CLI picks up instructions from its working directory (/app).
         """
+        skill_filename = CLI_SKILL_FILES.get(self.config.runtime)
+        if skill_filename is None:
+            logger.warning("No skill file mapping for runtime=%s", self.config.runtime)
+            return
+
         skills_dir = Path("/app/skills")
-        claude_md_path = Path("/app/CLAUDE.md")
+        skill_md_path = Path("/app") / skill_filename
         sections: list[str] = []
 
         if skills_dir.is_dir():
@@ -227,10 +296,10 @@ class CLIRuntime:
                         logger.warning("Failed to read skill file: %s", skill_md)
 
         try:
-            claude_md_path.write_text("\n\n---\n\n".join(sections), encoding="utf-8")
-            logger.info("Wrote CLAUDE.md with %d skill sections", len(sections))
+            skill_md_path.write_text("\n\n---\n\n".join(sections), encoding="utf-8")
+            logger.info("Wrote %s with %d skill sections", skill_filename, len(sections))
         except OSError as exc:
-            logger.warning("Could not write CLAUDE.md: %s", exc)
+            logger.warning("Could not write %s: %s", skill_filename, exc)
 
     async def _credential_gate(self) -> None:
         """Check credentials; block in CREDENTIAL_WAIT if missing (D-06, D-08).
@@ -252,9 +321,13 @@ class CLIRuntime:
             "Credentials missing for runtime=%s — sending HITL request", self.config.runtime
         )
 
+        auth_instruction = _HITL_AUTH_MESSAGES.get(
+            self.config.runtime,
+            f"docker exec -it <container> {self.config.runtime}",
+        )
         hitl_message = (
             f"Agent '{self.config.agent_id}' needs CLI authentication. "
-            f"Please run: docker exec -it <container> claude auth login"
+            f"Please run: {auth_instruction}"
         )
         await self._request_hitl(hitl_message)
 
@@ -647,17 +720,17 @@ class CLIRuntime:
         return exit_code, "".join(buf)
 
     def _build_command(self, task_message: str) -> list[str]:
-        """Build the claude CLI command list for non-interactive task execution.
+        """Build CLI command for non-interactive task execution (D-02).
 
-        Pattern 2 from RESEARCH.md — uses ``-p`` flag with structured JSON output.
+        Dispatches to the correct builder function per runtime type via
+        CLI_COMMAND_BUILDERS. Falls back to using the runtime name as command
+        with -p flag if no builder is registered.
         """
-        cmd = [
-            "claude",
-            "-p", task_message,
-            "--output-format", "json",
-            "--dangerously-skip-permissions",
-            "--no-session-persistence",
-        ]
+        builder = CLI_COMMAND_BUILDERS.get(self.config.runtime)
+        if builder:
+            return builder(task_message, self.config.model or None)
+        # Fallback: use runtime name as command with -p flag
+        cmd = [self.config.runtime, "-p", task_message]
         if self.config.model:
             cmd += ["--model", self.config.model]
         return cmd

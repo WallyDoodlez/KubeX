@@ -33,6 +33,11 @@ from kubex_harness.cli_runtime import (
     CREDENTIAL_PATHS,
     FAILURE_PATTERNS,
     MAX_OUTPUT_BYTES,
+    CLI_COMMAND_BUILDERS,
+    CLI_SKILL_FILES,
+    _HITL_AUTH_MESSAGES,
+    _build_gemini_command,
+    _build_claude_command,
 )
 from kubex_harness.config_loader import AgentConfig
 
@@ -894,8 +899,8 @@ async def test_sigkill_escalation():
 
 
 def test_claude_md_written(tmp_path):
-    """_write_claude_md writes skill content to CLAUDE.md."""
-    config = make_config()
+    """_write_skill_file writes skill content to CLAUDE.md for claude-code runtime."""
+    config = make_config(runtime="claude-code")
     rt = CLIRuntime(config)
 
     skill_dir = tmp_path / "skills" / "my-skill"
@@ -906,16 +911,16 @@ def test_claude_md_written(tmp_path):
 
     with patch("kubex_harness.cli_runtime.Path") as mock_path_class:
         # Route Path("/app/skills") to tmp_path/skills
-        # Route Path("/app/CLAUDE.md") to tmp_path/CLAUDE.md
+        # Route Path("/app") / "CLAUDE.md" to tmp_path/CLAUDE.md
         def path_constructor(p):
             if str(p) == "/app/skills":
                 return tmp_path / "skills"
-            if str(p) == "/app/CLAUDE.md":
-                return claude_md_path
+            if str(p) == "/app":
+                return tmp_path
             return Path(p)
 
         mock_path_class.side_effect = path_constructor
-        rt._write_claude_md()
+        rt._write_skill_file()
 
     assert claude_md_path.exists()
     content = claude_md_path.read_text()
@@ -941,3 +946,347 @@ async def test_auth_expired_bypasses_retry():
             with patch.object(rt, "_credential_gate", new=AsyncMock()):
                 await rt._execute_task(task)
         assert mock_run.call_count == 1, "auth_expired must not retry"
+
+
+# ---------------------------------------------------------------------------
+# CLI_COMMAND_BUILDERS dispatch dict
+# ---------------------------------------------------------------------------
+
+
+class TestCLICommandBuilders:
+    def test_has_claude_code_key(self):
+        assert "claude-code" in CLI_COMMAND_BUILDERS
+
+    def test_has_gemini_cli_key(self):
+        assert "gemini-cli" in CLI_COMMAND_BUILDERS
+
+    def test_claude_code_maps_to_callable(self):
+        assert callable(CLI_COMMAND_BUILDERS["claude-code"])
+
+    def test_gemini_cli_maps_to_callable(self):
+        assert callable(CLI_COMMAND_BUILDERS["gemini-cli"])
+
+
+# ---------------------------------------------------------------------------
+# CLI_SKILL_FILES mapping
+# ---------------------------------------------------------------------------
+
+
+class TestCLISkillFiles:
+    def test_claude_code_maps_to_claude_md(self):
+        assert CLI_SKILL_FILES["claude-code"] == "CLAUDE.md"
+
+    def test_gemini_cli_maps_to_gemini_md(self):
+        assert CLI_SKILL_FILES["gemini-cli"] == "GEMINI.md"
+
+
+# ---------------------------------------------------------------------------
+# CREDENTIAL_PATHS — gemini-cli entry
+# ---------------------------------------------------------------------------
+
+
+class TestGeminiCredentialPath:
+    def test_gemini_cli_key_exists(self):
+        assert "gemini-cli" in CREDENTIAL_PATHS
+
+    def test_gemini_cli_path_is_oauth_creds(self):
+        path = CREDENTIAL_PATHS["gemini-cli"]
+        assert path.name == "oauth_creds.json"
+        assert ".gemini" in str(path)
+
+    def test_gemini_cli_path_is_pathlib_path(self):
+        assert isinstance(CREDENTIAL_PATHS["gemini-cli"], Path)
+
+
+# ---------------------------------------------------------------------------
+# _build_gemini_command module-level function
+# ---------------------------------------------------------------------------
+
+
+class TestBuildGeminiCommand:
+    def test_command_starts_with_gemini(self):
+        cmd = _build_gemini_command("hello", None)
+        assert cmd[0] == "gemini"
+
+    def test_includes_p_flag(self):
+        cmd = _build_gemini_command("hello", None)
+        assert "-p" in cmd
+
+    def test_task_follows_p_flag(self):
+        cmd = _build_gemini_command("hello", None)
+        idx = cmd.index("-p")
+        assert cmd[idx + 1] == "hello"
+
+    def test_includes_output_format_json(self):
+        cmd = _build_gemini_command("hello", None)
+        assert "--output-format" in cmd
+        idx = cmd.index("--output-format")
+        assert cmd[idx + 1] == "json"
+
+    def test_no_dangerously_skip_permissions(self):
+        cmd = _build_gemini_command("hello", None)
+        assert "--dangerously-skip-permissions" not in cmd
+
+    def test_no_no_session_persistence(self):
+        cmd = _build_gemini_command("hello", None)
+        assert "--no-session-persistence" not in cmd
+
+    def test_includes_model_when_set(self):
+        cmd = _build_gemini_command("hello", "gemini-2.5-pro")
+        assert "--model" in cmd
+        idx = cmd.index("--model")
+        assert cmd[idx + 1] == "gemini-2.5-pro"
+
+    def test_no_model_when_none(self):
+        cmd = _build_gemini_command("hello", None)
+        assert "--model" not in cmd
+
+
+# ---------------------------------------------------------------------------
+# _build_claude_command module-level function
+# ---------------------------------------------------------------------------
+
+
+class TestBuildClaudeCommand:
+    def test_command_starts_with_claude(self):
+        cmd = _build_claude_command("task", None)
+        assert cmd[0] == "claude"
+
+    def test_includes_dangerously_skip_permissions(self):
+        cmd = _build_claude_command("task", None)
+        assert "--dangerously-skip-permissions" in cmd
+
+    def test_includes_no_session_persistence(self):
+        cmd = _build_claude_command("task", None)
+        assert "--no-session-persistence" in cmd
+
+    def test_includes_model_when_set(self):
+        cmd = _build_claude_command("task", "claude-opus-4")
+        assert "--model" in cmd
+        idx = cmd.index("--model")
+        assert cmd[idx + 1] == "claude-opus-4"
+
+
+# ---------------------------------------------------------------------------
+# _build_command dispatch per runtime
+# ---------------------------------------------------------------------------
+
+
+class TestBuildCommandDispatch:
+    def test_gemini_cli_dispatch_starts_with_gemini(self):
+        config = make_config(runtime="gemini-cli")
+        rt = CLIRuntime(config)
+        cmd = rt._build_command("task")
+        assert cmd[0] == "gemini"
+
+    def test_claude_code_dispatch_starts_with_claude(self):
+        config = make_config(runtime="claude-code")
+        rt = CLIRuntime(config)
+        cmd = rt._build_command("task")
+        assert cmd[0] == "claude"
+
+    def test_gemini_cli_no_dangerously_skip_permissions(self):
+        config = make_config(runtime="gemini-cli")
+        rt = CLIRuntime(config)
+        cmd = rt._build_command("task")
+        assert "--dangerously-skip-permissions" not in cmd
+
+    def test_claude_code_has_dangerously_skip_permissions(self):
+        config = make_config(runtime="claude-code")
+        rt = CLIRuntime(config)
+        cmd = rt._build_command("task")
+        assert "--dangerously-skip-permissions" in cmd
+
+
+# ---------------------------------------------------------------------------
+# _write_skill_file — generalized skill injection
+# ---------------------------------------------------------------------------
+
+
+class TestWriteSkillFile:
+    def test_claude_code_writes_claude_md(self, tmp_path):
+        config = make_config(runtime="claude-code")
+        rt = CLIRuntime(config)
+
+        skill_dir = tmp_path / "skills" / "my-skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("# My Skill")
+
+        claude_md_path = tmp_path / "CLAUDE.md"
+
+        with patch("kubex_harness.cli_runtime.Path") as mock_path_class:
+            def path_constructor(p):
+                if str(p) == "/app/skills":
+                    return tmp_path / "skills"
+                if str(p) == "/app":
+                    return tmp_path
+                return Path(p)
+
+            mock_path_class.side_effect = path_constructor
+            rt._write_skill_file()
+
+        assert claude_md_path.exists()
+
+    def test_gemini_cli_writes_gemini_md(self, tmp_path):
+        config = make_config(runtime="gemini-cli")
+        rt = CLIRuntime(config)
+
+        skill_dir = tmp_path / "skills" / "my-skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("# My Skill")
+
+        gemini_md_path = tmp_path / "GEMINI.md"
+
+        with patch("kubex_harness.cli_runtime.Path") as mock_path_class:
+            def path_constructor(p):
+                if str(p) == "/app/skills":
+                    return tmp_path / "skills"
+                if str(p) == "/app":
+                    return tmp_path
+                return Path(p)
+
+            mock_path_class.side_effect = path_constructor
+            rt._write_skill_file()
+
+        assert gemini_md_path.exists()
+
+
+# ---------------------------------------------------------------------------
+# FAILURE_PATTERNS — Gemini-specific patterns
+# ---------------------------------------------------------------------------
+
+
+class TestGeminiFailurePatterns:
+    def test_auth_expired_contains_invalid_grant(self):
+        assert "invalid_grant" in FAILURE_PATTERNS["auth_expired"]
+
+    def test_auth_expired_contains_failed_to_sign_in(self):
+        assert "failed to sign in" in FAILURE_PATTERNS["auth_expired"]
+
+    def test_subscription_limit_contains_resource_exhausted(self):
+        assert "resource_exhausted" in FAILURE_PATTERNS["subscription_limit"]
+
+    def test_subscription_limit_contains_resource_has_been_exhausted(self):
+        assert "resource has been exhausted" in FAILURE_PATTERNS["subscription_limit"]
+
+    def test_classify_resource_exhausted(self):
+        config = make_config(runtime="gemini-cli")
+        rt = CLIRuntime(config)
+        assert rt._classify_failure(1, "RESOURCE_EXHAUSTED: quota hit") == "subscription_limit"
+
+    def test_classify_invalid_grant(self):
+        config = make_config(runtime="gemini-cli")
+        rt = CLIRuntime(config)
+        assert rt._classify_failure(1, "invalid_grant: token revoked") == "auth_expired"
+
+
+# ---------------------------------------------------------------------------
+# Hook server gate — only for claude-code
+# ---------------------------------------------------------------------------
+
+
+class TestHookServerGate:
+    @pytest.mark.asyncio
+    async def test_hook_server_not_started_for_gemini_cli(self):
+        """Hook server must NOT be started when runtime=gemini-cli."""
+        config = make_config(runtime="gemini-cli")
+        rt = CLIRuntime(config)
+        rt._redis = AsyncMock()
+        rt._http = AsyncMock()
+
+        with patch("kubex_harness.cli_runtime.Path") as mock_path_class:
+            mock_path_class.side_effect = lambda p: Path(p)
+            with patch.object(rt, "_credential_gate", new=AsyncMock()):
+                with patch.object(rt, "_task_loop", new=AsyncMock()):
+                    with patch.object(rt, "_register", new=AsyncMock()):
+                        with patch.object(rt, "_deregister", new=AsyncMock()):
+                            with patch("kubex_harness.cli_runtime.aioredis") as mock_redis_mod:
+                                mock_redis_mod.from_url.return_value = AsyncMock()
+                                with patch("httpx.AsyncClient") as mock_client:
+                                    mock_client.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
+                                    mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
+                                    # hook_server import must not be called
+                                    with patch("kubex_harness.hook_server.start_hook_server") as mock_hook:
+                                        try:
+                                            await rt.run()
+                                        except Exception:
+                                            pass
+                                        mock_hook.assert_not_called()
+
+    def test_hook_server_gate_is_claude_code_only(self):
+        """The hook server gate in run() checks runtime == 'claude-code' (D-13)."""
+        import inspect
+        import kubex_harness.cli_runtime as cli_mod
+        source = inspect.getsource(cli_mod.CLIRuntime.run)
+        assert 'self.config.runtime == "claude-code"' in source
+
+
+# ---------------------------------------------------------------------------
+# HITL auth message — runtime-specific
+# ---------------------------------------------------------------------------
+
+
+class TestHITLAuthMessages:
+    def test_claude_code_hitl_message_exists(self):
+        assert "claude-code" in _HITL_AUTH_MESSAGES
+
+    def test_gemini_cli_hitl_message_exists(self):
+        assert "gemini-cli" in _HITL_AUTH_MESSAGES
+
+    def test_gemini_cli_hitl_message_contains_docker_exec(self):
+        msg = _HITL_AUTH_MESSAGES["gemini-cli"]
+        assert "docker exec" in msg
+
+    def test_gemini_cli_hitl_message_contains_gemini(self):
+        msg = _HITL_AUTH_MESSAGES["gemini-cli"]
+        assert "gemini" in msg
+
+    def test_claude_code_hitl_message_does_not_say_gemini(self):
+        msg = _HITL_AUTH_MESSAGES["claude-code"]
+        assert "gemini" not in msg.lower()
+
+    @pytest.mark.asyncio
+    async def test_credential_gate_uses_gemini_message_for_gemini(self):
+        """HITL message for gemini-cli must reference gemini, not claude auth login."""
+        config = make_config(runtime="gemini-cli")
+        rt = CLIRuntime(config)
+        rt._redis = AsyncMock()
+        rt._http = AsyncMock()
+
+        captured_messages = []
+
+        async def capture_hitl(msg):
+            captured_messages.append(msg)
+
+        with patch.object(rt, "_publish_state", new=AsyncMock()):
+            with patch.object(rt, "_credentials_present", return_value=False):
+                with patch.object(rt, "_request_hitl", side_effect=capture_hitl):
+                    with patch.object(rt, "_wait_for_credentials", new=AsyncMock(return_value=True)):
+                        await rt._credential_gate()
+
+        assert len(captured_messages) == 1
+        msg = captured_messages[0]
+        assert "gemini" in msg.lower()
+        assert "claude auth login" not in msg
+
+
+# ---------------------------------------------------------------------------
+# _credentials_present — gemini-cli path
+# ---------------------------------------------------------------------------
+
+
+class TestGeminiCredentialsPresent:
+    def test_gemini_cli_missing_file_returns_false(self, tmp_path):
+        config = make_config(runtime="gemini-cli")
+        rt = CLIRuntime(config)
+        non_existent = tmp_path / "oauth_creds.json"
+        with patch.dict(CREDENTIAL_PATHS, {"gemini-cli": non_existent}):
+            assert rt._credentials_present("gemini-cli") is False
+
+    def test_gemini_cli_populated_file_returns_true(self, tmp_path):
+        config = make_config(runtime="gemini-cli")
+        rt = CLIRuntime(config)
+        cred_file = tmp_path / "oauth_creds.json"
+        cred_file.write_text('{"access_token": "tok"}')
+        with patch.dict(CREDENTIAL_PATHS, {"gemini-cli": cred_file}):
+            assert rt._credentials_present("gemini-cli") is True
