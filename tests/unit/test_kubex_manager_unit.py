@@ -28,6 +28,7 @@ from kubex_manager.lifecycle import (
     CreateKubexRequest,
     KUBEX_LIFECYCLE_STREAM,
     HARNESS_ENV_DEFAULTS,
+    _to_host_path,
 )
 
 
@@ -1456,3 +1457,36 @@ class TestCliRuntimeNamedVolumes:
             f"Expected no kubex-creds-* named volumes for openai-api runtime, "
             f"but found: {cred_volumes}"
         )
+
+
+# ===========================================================================
+# _to_host_path() unit tests
+# ===========================================================================
+
+
+class TestToHostPath:
+    """Unit tests for _to_host_path() — Manager-internal → host path translation."""
+
+    def test_translates_app_prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When KUBEX_HOST_PROJECT_DIR is set, /app/ prefix is replaced with host root."""
+        monkeypatch.setenv("KUBEX_HOST_PROJECT_DIR", "/host/project")
+        result = _to_host_path("/app/configs/test.yaml")
+        assert result == os.path.join("/host/project", "configs/test.yaml")
+
+    def test_no_env_var_returns_original(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When KUBEX_HOST_PROJECT_DIR is not set, the original path is returned."""
+        monkeypatch.delenv("KUBEX_HOST_PROJECT_DIR", raising=False)
+        assert _to_host_path("/app/configs/test.yaml") == "/app/configs/test.yaml"
+
+    def test_non_app_path_unchanged(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Paths that do not start with /app/ are returned unchanged even when env var is set."""
+        monkeypatch.setenv("KUBEX_HOST_PROJECT_DIR", "/host/project")
+        assert _to_host_path("/other/path") == "/other/path"
+
+    def test_windows_host_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Windows-style host paths are handled correctly."""
+        monkeypatch.setenv("KUBEX_HOST_PROJECT_DIR", "D:/dev/dev/openclaw")
+        result = _to_host_path("/app/configs/test.yaml")
+        assert result.startswith("D:/dev/dev/openclaw")
+        assert "configs" in result
+        assert "test.yaml" in result
