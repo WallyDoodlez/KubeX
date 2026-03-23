@@ -100,6 +100,8 @@ export interface ChatMessage {
   timestamp: Date;
   task_id?: string;
   raw?: unknown;
+  /** Explicitly chosen capability from the Advanced panel (undefined = default "orchestrate") */
+  capability?: string;
 }
 
 // ── SSE streaming ───────────────────────────────────────────────────

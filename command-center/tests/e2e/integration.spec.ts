@@ -38,16 +38,13 @@ test.describe('Integration — full user flow', () => {
     await expect(page.locator('header h1')).toHaveText('Orchestrator');
     await expect(page.locator('text=KubexClaw Command Center')).toBeVisible();
 
-    const agentInput = page.locator('input[placeholder*="orchestrate"]');
-    const taskInput  = page.locator('textarea[placeholder*="Task instructions"]');
+    const taskInput  = page.locator('[data-testid="message-input"]');
     const sendBtn    = page.locator('button', { hasText: 'Send' });
 
-    await expect(agentInput).toBeVisible();
     await expect(taskInput).toBeVisible();
     await expect(sendBtn).toBeDisabled();
 
-    // Fill both fields — send button should become enabled
-    await agentInput.fill('agent-alpha-001');
+    // Fill message — send button should become enabled (capability defaults to "orchestrate")
     await taskInput.fill('Summarise the latest logs and return a brief report.');
     await expect(sendBtn).toBeEnabled();
 
@@ -86,26 +83,20 @@ test.describe('Integration — dispatch and stream', () => {
     await expect(page.locator('header h1')).toHaveText('Orchestrator');
   });
 
-  test('send button enables only when both fields are filled', async ({ page }) => {
-    const agentInput = page.locator('input[placeholder*="orchestrate"]');
-    const taskInput  = page.locator('textarea[placeholder*="Task instructions"]');
+  test('send button enables when message is filled (no capability required)', async ({ page }) => {
+    const taskInput  = page.locator('[data-testid="message-input"]');
     const sendBtn    = page.locator('button', { hasText: 'Send' });
 
     // Neither field filled
     await expect(sendBtn).toBeDisabled();
 
-    // Only agent filled
-    await agentInput.fill('agent-alpha-001');
-    await expect(sendBtn).toBeDisabled();
-
-    // Both filled
+    // Message filled — send button should be enabled (capability defaults to "orchestrate")
     await taskInput.fill('Classify this document.');
     await expect(sendBtn).toBeEnabled();
   });
 
   test('dispatching a task shows a task ID or result', async ({ page }) => {
-    await page.locator('input[placeholder*="orchestrate"]').fill('agent-alpha-001');
-    await page.locator('textarea[placeholder*="Task instructions"]').fill('Extract key entities.');
+    await page.locator('[data-testid="message-input"]').fill('Extract key entities.');
     await page.locator('button', { hasText: 'Send' }).click();
 
     // After dispatch the UI should show something — a streaming status, task ID, or result
@@ -116,11 +107,9 @@ test.describe('Integration — dispatch and stream', () => {
   });
 
   test('clearing and re-dispatching works', async ({ page }) => {
-    const agentInput = page.locator('input[placeholder*="orchestrate"]');
-    const taskInput  = page.locator('textarea[placeholder*="Task instructions"]');
+    const taskInput  = page.locator('[data-testid="message-input"]');
     const sendBtn    = page.locator('button', { hasText: 'Send' });
 
-    await agentInput.fill('agent-alpha-001');
     await taskInput.fill('First task.');
     await sendBtn.click();
     await page.waitForTimeout(500);

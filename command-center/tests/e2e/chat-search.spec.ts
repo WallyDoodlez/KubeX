@@ -79,8 +79,13 @@ async function dispatchAndGetResult(
     });
   });
 
-  await page.locator('input[placeholder*="orchestrate"]').fill(capability);
-  await page.locator('textarea[placeholder*="Task instructions"]').fill(msg);
+  // Open Advanced panel and set capability when a non-default value is needed
+  if (capability && capability !== 'orchestrate') {
+    await page.locator('[data-testid="advanced-toggle"]').click();
+    await page.locator('[data-testid="capability-input"]').fill(capability);
+  }
+
+  await page.locator('[data-testid="message-input"]').fill(msg);
   await page.locator('button', { hasText: 'Send' }).click();
 
   // Wait for result bubble to confirm flow completed
@@ -211,8 +216,8 @@ test.describe('OrchestratorChat — message search and role filter (Iteration 41
     // Switch to user filter
     await page.locator('[data-testid="chat-role-filter"]').selectOption('user');
 
-    // User bubble should be visible (contains the [cap] message)
-    await expect(page.locator('text=[test-cap] find me later')).toBeVisible();
+    // User bubble should be visible — plain message text (no [cap] prefix in new design)
+    await expect(page.locator('text=find me later')).toBeVisible();
 
     // Result bubble should not be visible
     await expect(page.locator('text=some result')).not.toBeVisible();
@@ -228,7 +233,7 @@ test.describe('OrchestratorChat — message search and role filter (Iteration 41
     await expect(page.locator('text=unique-result-text-42')).toBeVisible();
 
     // User bubble should not be visible
-    await expect(page.locator('text=[test-cap] my message')).not.toBeVisible();
+    await expect(page.locator('text=my message')).not.toBeVisible();
   });
 
   test('role filter "all" shows all message types after dispatch', async ({ page }) => {
@@ -240,8 +245,8 @@ test.describe('OrchestratorChat — message search and role filter (Iteration 41
 
     // Switch back to all
     await page.locator('[data-testid="chat-role-filter"]').selectOption('all');
-    // Both user and result should show
-    await expect(page.locator('text=[test-cap] check-all')).toBeVisible();
+    // Both user message and result should show
+    await expect(page.locator('text=check-all')).toBeVisible();
     await expect(page.locator('text=result-for-all-filter')).toBeVisible();
   });
 

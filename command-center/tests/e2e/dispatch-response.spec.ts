@@ -42,14 +42,23 @@ async function routeTaskResult(page: import('@playwright/test').Page, result = '
 /**
  * Fill the chat inputs and click Send, then wait for the system dispatch
  * confirmation bubble to appear (confirms task was dispatched).
+ *
+ * When `capability` is provided and differs from the default "orchestrate",
+ * the Advanced panel is opened to set it explicitly. Otherwise, just the
+ * message is filled and sent (default capability = "orchestrate").
  */
 async function sendChatMessage(
   page: import('@playwright/test').Page,
   capability = 'test-cap',
   message = 'hello world',
 ) {
-  await page.locator('input[placeholder*="orchestrate"]').fill(capability);
-  await page.locator('textarea[placeholder*="Task instructions"]').fill(message);
+  // Open Advanced panel and set explicit capability when a non-default value is needed
+  if (capability && capability !== 'orchestrate') {
+    await page.locator('[data-testid="advanced-toggle"]').click();
+    await page.locator('[data-testid="capability-input"]').fill(capability);
+  }
+
+  await page.locator('[data-testid="message-input"]').fill(message);
   await page.locator('button', { hasText: 'Send' }).click();
 
   // Wait until the system bubble with the task ID appears — confirms dispatch succeeded
@@ -106,8 +115,8 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
     // The result bubble should appear with SSE result text
     await expect(page.locator('text=SSE result text')).toBeVisible({ timeout: 10_000 });
 
-    // The result bubble should have the "Result" label
-    await expect(page.locator('text=Result').first()).toBeVisible();
+    // The result bubble should have the "Result" label (scoped to the emerald result bubble label, not the filter dropdown option)
+    await expect(page.locator('span.text-emerald-400', { hasText: 'Result' }).first()).toBeVisible();
   });
 
   // ── Test 2: SSE stream ends without data → fallback getTaskResult is called ─
@@ -165,8 +174,7 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
 
     await page.goto('/chat');
 
-    await page.locator('input[placeholder*="orchestrate"]').fill('test-cap');
-    await page.locator('textarea[placeholder*="Task instructions"]').fill('hello world');
+    await page.locator('[data-testid="message-input"]').fill('hello world');
 
     // The sending-label should not be visible before Send
     await expect(page.locator('[data-testid="sending-label"]')).not.toBeVisible();
@@ -196,8 +204,7 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
     });
 
     await page.goto('/chat');
-    await page.locator('input[placeholder*="orchestrate"]').fill('test-cap');
-    await page.locator('textarea[placeholder*="Task instructions"]').fill('hello world');
+    await page.locator('[data-testid="message-input"]').fill('hello world');
     await page.locator('button', { hasText: 'Send' }).click();
 
     // Wait for dispatch system bubble (confirmed dispatched)
@@ -229,8 +236,8 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
     // The error bubble should appear with the error content
     await expect(page.locator('text=Agent crashed unexpectedly')).toBeVisible({ timeout: 10_000 });
 
-    // The error bubble should show the "Error" label
-    await expect(page.locator('text=Error').first()).toBeVisible();
+    // The error bubble should show the "Error" label (scoped to the red error bubble, not the filter dropdown option)
+    await expect(page.locator('p.text-red-400', { hasText: 'Error' }).first()).toBeVisible();
   });
 
   test('cancelled event via SSE is displayed as an error bubble in chat', async ({ page }) => {
@@ -252,7 +259,7 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
 
     // The error bubble should appear with cancellation content
     await expect(page.locator('text=User cancelled the task')).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('text=Error').first()).toBeVisible();
+    await expect(page.locator('p.text-red-400', { hasText: 'Error' }).first()).toBeVisible();
   });
 
   // ── Test 5: Dispatch failure (non-200 from /actions) ─────────────────────
@@ -269,15 +276,14 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
 
     await page.goto('/chat');
 
-    await page.locator('input[placeholder*="orchestrate"]').fill('test-cap');
-    await page.locator('textarea[placeholder*="Task instructions"]').fill('hello world');
+    await page.locator('[data-testid="message-input"]').fill('hello world');
     await page.locator('button', { hasText: 'Send' }).click();
 
     // An error bubble should appear — content includes "Dispatch failed"
     await expect(page.locator('text=/Dispatch failed/i')).toBeVisible({ timeout: 10_000 });
 
-    // The "Error" label from the error bubble should be visible
-    await expect(page.locator('text=Error').first()).toBeVisible();
+    // The "Error" label from the error bubble should be visible (scoped to red error bubble label)
+    await expect(page.locator('p.text-red-400', { hasText: 'Error' }).first()).toBeVisible();
   });
 
   // ── Test 6: No repeated polling after SSE carries result ──────────────────

@@ -25,6 +25,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [capError, setCapError] = useState<string | null>(null);
   const [msgError, setMsgError] = useState<string | null>(null);
   const [knownCaps, setKnownCaps] = useState<string[]>([]);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Chat search / filter state
@@ -255,17 +256,28 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   }
 
   async function handleSend() {
-    const cap = capability.trim();
     const msg = message.trim();
-    if (!cap || !msg || sending) return;
+    if (!msg || sending) return;
 
-    const capValidation = validateCapability(cap);
+    // Use explicitly chosen capability (from Advanced panel), or default to "orchestrate"
+    const capRaw = capability.trim();
+    const cap = capRaw || 'orchestrate';
+
+    // Validate capability only when one was explicitly provided
+    if (capRaw) {
+      const capValidation = validateCapability(capRaw);
+      if (!capValidation.valid) {
+        setCapError(capValidation.error ?? null);
+        return;
+      }
+    }
+
     const msgValidation = validateMessage(msg);
-    if (!capValidation.valid || !msgValidation.valid) {
-      setCapError(capValidation.error ?? null);
+    if (!msgValidation.valid) {
       setMsgError(msgValidation.error ?? null);
       return;
     }
+
     setCapError(null);
     setMsgError(null);
 
@@ -273,11 +285,13 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     setTerminalLines([]);
     setHitlRequest(null);
 
-    // Add user bubble
+    // Add user bubble — plain message text; capability badge only when non-default
     addMessage({
       role: 'user',
-      content: `[${cap}] ${msg}`,
+      content: msg,
       timestamp: new Date(),
+      // Store the capability used so the bubble can render the badge
+      capability: capRaw || undefined,
     });
 
     setCapability('');
@@ -487,48 +501,12 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
       {/* Input area */}
       <div className="flex-shrink-0 border-t border-[var(--color-border)] bg-[var(--color-surface-dark)] p-4">
+        {/* Main input row: textarea + Send + Clear + Export */}
         <div className="flex gap-3 items-end">
-          {/* Capability input */}
-          <div className="w-44 flex-shrink-0">
-            <label className="block text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
-              Capability
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={capability}
-                onChange={(e) => {
-                  setCapability(e.target.value);
-                  const result = validateCapability(e.target.value);
-                  setCapError(e.target.value.trim() ? (result.valid ? null : result.error ?? null) : null);
-                }}
-                onKeyDown={handleKeyDown}
-                list="capabilities-list"
-                placeholder="e.g. orchestrate"
-                disabled={sending}
-                className="
-                  w-full px-3 py-2 rounded-lg text-sm font-mono-data
-                  bg-[var(--color-surface)] border border-[var(--color-border)]
-                  text-[var(--color-text)] placeholder-[var(--color-text-muted)]
-                  focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20
-                  disabled:opacity-50 transition-colors
-                "
-              />
-              <datalist id="capabilities-list">
-                {knownCaps.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </div>
-            {capError && <p className="text-[10px] text-red-400 mt-0.5">{capError}</p>}
-          </div>
-
           {/* Message input */}
           <div className="flex-1">
-            <label className="block text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
-              Message
-            </label>
             <textarea
+              data-testid="message-input"
               value={message}
               onChange={(e) => {
                 setMessage(e.target.value);
@@ -536,7 +514,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 setMsgError(e.target.value.trim() ? (result.valid ? null : result.error ?? null) : null);
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Task instructions… (Ctrl+Enter to send)"
+              placeholder="Message the orchestrator… (Ctrl+Enter to send)"
               disabled={sending}
               rows={2}
               className="
@@ -550,10 +528,10 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
             {msgError && <p className="text-[10px] text-red-400 mt-0.5">{msgError}</p>}
           </div>
 
-          {/* Send button */}
+          {/* Send button — enabled when message is non-empty */}
           <button
             onClick={handleSend}
-            disabled={sending || !capability.trim() || !message.trim() || !!capError || !!msgError}
+            disabled={sending || !message.trim() || !!msgError}
             className="
               flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold
               bg-emerald-500 text-white
@@ -596,18 +574,74 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           />
         </div>
 
-        {knownCaps.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            <span className="text-[10px] text-[var(--color-text-muted)] self-center">Known caps:</span>
-            {knownCaps.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCapability(c)}
-                className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-border-strong)] transition-colors border border-[var(--color-border-strong)]"
-              >
-                {c}
-              </button>
-            ))}
+        {/* Advanced toggle */}
+        <div className="mt-2">
+          <button
+            data-testid="advanced-toggle"
+            onClick={() => setAdvancedOpen((o) => !o)}
+            disabled={sending}
+            className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors select-none"
+            aria-expanded={advancedOpen}
+            aria-controls="advanced-panel"
+          >
+            Advanced {advancedOpen ? '▾' : '▸'}
+          </button>
+        </div>
+
+        {/* Advanced panel — capability selector + known caps chips */}
+        {advancedOpen && (
+          <div
+            id="advanced-panel"
+            data-testid="advanced-panel"
+            className="mt-2 p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]"
+          >
+            <label className="block text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
+              Capability
+            </label>
+            <div className="relative w-48">
+              <input
+                type="text"
+                data-testid="capability-input"
+                value={capability}
+                onChange={(e) => {
+                  setCapability(e.target.value);
+                  const result = validateCapability(e.target.value);
+                  setCapError(e.target.value.trim() ? (result.valid ? null : result.error ?? null) : null);
+                }}
+                onKeyDown={handleKeyDown}
+                list="capabilities-list"
+                placeholder="e.g. orchestrate"
+                disabled={sending}
+                className="
+                  w-full px-3 py-2 rounded-lg text-sm font-mono-data
+                  bg-[var(--color-surface-dark)] border border-[var(--color-border)]
+                  text-[var(--color-text)] placeholder-[var(--color-text-muted)]
+                  focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20
+                  disabled:opacity-50 transition-colors
+                "
+              />
+              <datalist id="capabilities-list">
+                {knownCaps.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+            {capError && <p className="text-[10px] text-red-400 mt-0.5">{capError}</p>}
+
+            {knownCaps.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                <span className="text-[10px] text-[var(--color-text-muted)] self-center">Known caps:</span>
+                {knownCaps.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCapability(c)}
+                    className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-border-strong)] transition-colors border border-[var(--color-border-strong)]"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -637,11 +671,23 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
   }
 
   if (isUser) {
+    // Show capability badge only if a non-default capability was explicitly chosen
+    const showBadge = !!message.capability;
+    const capBadge = message.capability;
+
     return (
       <div className="flex justify-end">
         <div className="max-w-xl">
           <div className="rounded-2xl rounded-tr-sm bg-emerald-500/15 border border-emerald-500/25 px-4 py-2.5">
             <p className="text-sm text-[var(--color-text)]">{message.content}</p>
+            {showBadge && (
+              <span
+                data-testid="capability-badge"
+                className="mt-1 inline-block text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400/80 border border-emerald-500/20"
+              >
+                {capBadge}
+              </span>
+            )}
           </div>
           <RelativeTime
             date={message.timestamp}

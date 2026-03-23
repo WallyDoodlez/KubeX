@@ -5,8 +5,8 @@ test.describe('Streaming & Live Output', () => {
     await page.goto('/chat');
     await expect(page.locator('header h1')).toHaveText('Orchestrator');
     // Input fields should be present
-    await expect(page.locator('input[placeholder*="orchestrate"]')).toBeVisible();
-    await expect(page.locator('textarea[placeholder*="Task instructions"]')).toBeVisible();
+    await expect(page.locator('[data-testid="message-input"]')).toBeVisible();
+    await expect(page.locator('[data-testid="advanced-toggle"]')).toBeVisible();
     await expect(page.locator('button', { hasText: 'Send' })).toBeVisible();
   });
 
@@ -66,7 +66,7 @@ test.describe('Streaming & Live Output', () => {
     await page.goto('/chat');
     // The "Known caps:" label may or may not appear depending on API response
     // But the input area should always be present
-    await expect(page.locator('textarea[placeholder*="Task instructions"]')).toBeVisible();
+    await expect(page.locator('[data-testid="message-input"]')).toBeVisible();
   });
 
   test('status badge renders new lifecycle states', async ({ page }) => {
@@ -95,9 +95,8 @@ test.describe('Streaming & Live Output', () => {
 
     await page.goto('/chat');
 
-    // Fill in capability and message
-    await page.locator('input[placeholder*="orchestrate"]').fill('test-cap');
-    await page.locator('textarea[placeholder*="Task instructions"]').fill('hello world');
+    // Fill in message (capability defaults to "orchestrate")
+    await page.locator('[data-testid="message-input"]').fill('hello world');
 
     // Dispatch the task — MSW will handle this
     await page.locator('button', { hasText: 'Send' }).click();

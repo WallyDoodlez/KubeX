@@ -23,6 +23,6 @@ test.describe('Authentication', () => {
     await page.goto('/chat');
     await expect(page.locator('header h1')).toHaveText('Orchestrator');
     // The chat input area should be visible
-    await expect(page.locator('input[placeholder*="orchestrate"]')).toBeVisible();
+    await expect(page.locator('[data-testid="message-input"]')).toBeVisible();
   });
 });

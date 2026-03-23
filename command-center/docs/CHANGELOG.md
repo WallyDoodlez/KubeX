@@ -4,6 +4,23 @@
 
 ---
 
+## Iteration 42: Unified chat input — Advanced capability toggle
+
+**Files modified:** `src/components/OrchestratorChat.tsx`, `src/types.ts`, `tests/e2e/dispatch-response.spec.ts`, `tests/e2e/validation.spec.ts`, `tests/e2e/chat-search.spec.ts`, `tests/e2e/streaming.spec.ts`, `tests/e2e/integration.spec.ts`, `tests/e2e/auth.spec.ts`, `tests/e2e/authgate.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+
+**Changes:**
+- Removed the always-visible "Capability" input field from the main input row. The input area is now a single `textarea` + Send button, matching a modern chat UX.
+- Added a collapsible "Advanced ▸" toggle button (`data-testid="advanced-toggle"`) below the input row. Clicking it opens/closes the advanced panel (`data-testid="advanced-panel"`) which contains the capability text input (`data-testid="capability-input"`), a `<datalist>` of known capabilities, and the "Known caps:" chip bar.
+- Updated `handleSend` — when no capability is explicitly provided in the Advanced panel, defaults to `"orchestrate"`. Capability validation only runs when a value is explicitly entered.
+- Updated `ChatMessage` type (`src/types.ts`) — added optional `capability?: string` field to carry the explicitly chosen capability (undefined = default "orchestrate").
+- Updated user bubble rendering in `ChatBubble` — displays plain message text only. Shows a small `data-testid="capability-badge"` badge below the message text only when a non-default capability was explicitly chosen via the Advanced panel.
+- Fixed pre-existing test failures in `dispatch-response.spec.ts` — `locator('text=Result').first()` and `locator('text=Error').first()` were matching hidden `<option>` elements in the role-filter select instead of the visible bubble labels. Fixed by using scoped CSS selectors: `span.text-emerald-400` for the Result label and `p.text-red-400` for the Error label.
+- Updated all E2E test files that referenced the old `input[placeholder*="orchestrate"]` or `textarea[placeholder*="Task instructions"]` selectors — replaced with `data-testid` selectors (`[data-testid="message-input"]`, `[data-testid="advanced-toggle"]`, `[data-testid="capability-input"]`).
+
+**Tests:** 58 modified test cases pass (dispatch-response × 9, validation × 3, chat-search × 23, streaming × 11, integration × 14, auth × 3, authgate × 9). Build clean (no TypeScript errors).
+
+---
+
 ## Iteration 40: Test Coverage Gaps and Critical Bug Fixes
 **Files created:** `tests/e2e/global-setup.ts`
 **Files modified:** `src/components/QuickDispatchModal.tsx`, `playwright.config.ts`, `tests/e2e/settings.spec.ts`, `tests/e2e/onboarding-tour.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

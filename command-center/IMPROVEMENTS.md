@@ -4,6 +4,33 @@
 
 ---
 
+- [x] **Iteration 42: Unified chat input — hide capability selector behind Advanced toggle**
+  - [x] Redesign input area: single message box, no prominent "Capability" field. Send button enabled with just a message.
+  - [x] Add collapsible "Advanced" toggle below the input that reveals capability selector (datalist + known caps chips). Collapsed by default.
+  - [x] Update `handleSend` — default to `"orchestrate"` when no capability is explicitly chosen.
+  - [x] Update user bubble display: plain message text; show capability as a small badge only if explicitly chosen via Advanced.
+  - [x] Update E2E tests for new input structure and default capability behavior.
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — all pass
+  - [x] Update `docs/CHANGELOG.md`
+
+- [ ] **Iteration 43: Markdown rendering for result bubbles**
+  - [ ] Install `react-markdown` + `remark-gfm` for tables, lists, code blocks, bold/italic.
+  - [ ] Replace `<pre>` in result ChatBubble with `<ReactMarkdown>` wrapped in prose styling. Keep raw JSON fallback for non-markdown responses.
+  - [ ] Add syntax highlighting for code blocks via `rehype-highlight` or similar lightweight highlighter.
+  - [ ] E2E tests: markdown renders correctly (headings, code blocks, lists, tables), JSON fallback works.
+  - [ ] Build: npm run build — clean
+  - [ ] Test: npx playwright test — all pass
+  - [ ] Update `docs/CHANGELOG.md`
+
+- [ ] **Iteration 44: Typing indicator + welcome empty state**
+  - [ ] Replace `⟳ Streaming…` text with animated typing indicator (three dots in a bubble, left-aligned like a result message).
+  - [ ] Improve empty state: centered welcome with clickable example prompts (e.g., "Summarize recent logs", "Check system health") that auto-fill the input.
+  - [ ] E2E tests: typing indicator visible during send, welcome prompts visible on empty chat, clicking a prompt fills the input.
+  - [ ] Build: npm run build — clean
+  - [ ] Test: npx playwright test — all pass
+  - [ ] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 40: Test Coverage Gaps and Critical Bug Fixes**
   - [x] Diagnose root cause of 35+ test failures across `settings.spec.ts` and `onboarding-tour.spec.ts`
   - [x] Fix infinite render loop in `QuickDispatchModal.tsx` — `useMemo` stabilises `allCapabilities` and `capabilitiesForSuggestion` so the suggestions `useEffect` only re-runs when the agents list or capability input actually changes; adds `isOpen` guard so the effect is skipped entirely while the modal is closed; uses functional updater `setCapSuggestions(prev => prev.length === 0 ? prev : [])` to bail out when state is already empty

@@ -77,8 +77,8 @@ test.describe('AuthGate — banner mode', () => {
   test('full app remains functional on chat route without token', async ({ page }) => {
     await page.goto('/chat');
     // Chat interface should render completely
-    await expect(page.locator('input[placeholder*="orchestrate"]')).toBeVisible();
-    await expect(page.locator('textarea[placeholder*="Task instructions"]')).toBeVisible();
+    await expect(page.locator('[data-testid="message-input"]')).toBeVisible();
+    await expect(page.locator('[data-testid="advanced-toggle"]')).toBeVisible();
     await expect(page.locator('button', { hasText: 'Send' })).toBeVisible();
   });
 });

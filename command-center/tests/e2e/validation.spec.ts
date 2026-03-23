@@ -11,15 +11,16 @@ test.describe('Input Validation', () => {
     await expect(sendButton).toBeDisabled();
   });
 
-  test('send button is disabled with only capability filled', async ({ page }) => {
-    const capInput = page.locator('input[placeholder*="orchestrate"]');
-    await capInput.fill('test-capability');
+  test('send button is enabled with only message filled (capability defaults to orchestrate)', async ({ page }) => {
+    await page.locator('[data-testid="message-input"]').fill('test message');
     const sendButton = page.locator('button', { hasText: 'Send' });
-    await expect(sendButton).toBeDisabled();
+    await expect(sendButton).toBeEnabled();
   });
 
-  test('shows validation error for invalid capability characters', async ({ page }) => {
-    const capInput = page.locator('input[placeholder*="orchestrate"]');
+  test('shows validation error for invalid capability characters in Advanced panel', async ({ page }) => {
+    // Open Advanced panel first
+    await page.locator('[data-testid="advanced-toggle"]').click();
+    const capInput = page.locator('[data-testid="capability-input"]');
     // Type invalid characters (spaces, special chars)
     await capInput.fill('invalid capability!@#');
     // Should show validation error
