@@ -4,6 +4,25 @@
 
 ---
 
+## Iteration 48: Collapsible system messages
+
+**Files modified:** `src/components/OrchestratorChat.tsx`, `tests/e2e/dispatch-response.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/system-messages-toggle.spec.ts`
+
+**Changes:**
+- Added `showSystemMessages` boolean state (default `false`) to `OrchestratorChat`. System messages (e.g. "Task dispatched — ID: ...") are hidden by default to reduce noise in the chat.
+- Added `systemMessageCount` useMemo that counts toggleable system messages, excluding the permanent welcome message (`id='welcome'`). This drives the count badge.
+- Updated `filteredMessages` useMemo to suppress system messages when `showSystemMessages` is false, with two exceptions: (1) the welcome message (`id='welcome'`) is always shown as a fixed orientation marker; (2) when the role filter is explicitly set to "system", messages are always shown regardless of the toggle.
+- Added **System toggle button** (`data-testid="system-messages-toggle"`) to the chat toolbar, after the auto-scroll toggle. Uses `aria-pressed` for accessibility. Styled with slate color family (distinct from emerald used by other toolbar buttons).
+- Added count badge (`data-testid="system-messages-hidden-count"`) inside the toggle button, shown only when `!showSystemMessages && systemMessageCount > 0`. Displays the count of hidden transient system messages. Badge disappears when messages are shown.
+- Added `data-testid="system-message"` attribute to the system message bubble container in `ChatBubble` for improved testability.
+- Updated `tests/e2e/dispatch-response.spec.ts` — `sendChatMessage()` helper now clicks the system messages toggle to enable visibility before sending, ensuring the dispatch confirmation bubble ("Task dispatched — ID: ...") is findable in tests. Also fixed an inline occurrence at line 218 with the same pattern.
+- Created `tests/e2e/system-messages-toggle.spec.ts` with 15 tests covering: toggle button presence; default hidden state (`aria-pressed="false"`); system bubbles not visible by default; count badge accuracy; toggling on (`aria-pressed` becomes "true", bubbles visible); count badge removal when shown; toggle-off again; non-system messages always visible; role filter override ("system" filter forces visibility); "All types" filter with toggle off hides system bubbles; aria-label text in both states; no badge when no system messages exist; multiple messages visible when toggle enabled.
+
+**Tests:** 777 passed / 1 skipped / 0 failures. Build clean.
+
+---
+
 ## Iteration 47: Result bubble expand/collapse
 
 **Files modified:** `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

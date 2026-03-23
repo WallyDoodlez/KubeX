@@ -52,6 +52,13 @@ async function sendChatMessage(
   capability = 'test-cap',
   message = 'hello world',
 ) {
+  // Enable system messages so the dispatch confirmation bubble is visible
+  const toggle = page.locator('[data-testid="system-messages-toggle"]');
+  const isPressed = await toggle.getAttribute('aria-pressed');
+  if (isPressed !== 'true') {
+    await toggle.click();
+  }
+
   // Open Advanced panel and set explicit capability when a non-default value is needed
   if (capability && capability !== 'orchestrate') {
     await page.locator('[data-testid="advanced-toggle"]').click();
@@ -204,6 +211,8 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
     });
 
     await page.goto('/chat');
+    // Enable system messages so the dispatch confirmation bubble is visible
+    await page.locator('[data-testid="system-messages-toggle"]').click();
     await page.locator('[data-testid="message-input"]').fill('hello world');
     await page.locator('button', { hasText: 'Send' }).click();
 

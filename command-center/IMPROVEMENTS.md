@@ -4,6 +4,20 @@
 
 ---
 
+- [x] **Iteration 48: Collapsible system messages**
+  - [x] Add `showSystemMessages` boolean state (default `false`) to `OrchestratorChat` — system messages are hidden by default to reduce noise.
+  - [x] Add a **System toggle button** (`data-testid="system-messages-toggle"`) to the chat toolbar, after the auto-scroll button. Shows current count badge (`data-testid="system-messages-hidden-count"`) when messages are hidden and count > 0.
+  - [x] Update `filteredMessages` useMemo to suppress system messages when toggle is off, **except** the permanent welcome message (`id='welcome'`), which is always shown as a fixed orientation marker.
+  - [x] Count badge shows the number of toggleable system messages (excludes welcome). Badge disappears when messages are shown.
+  - [x] Add `data-testid="system-message"` to system message bubble `<div>` in `ChatBubble` for testability.
+  - [x] Role filter override: when `chatRoleFilter === 'system'`, system messages are always shown even if the toggle is off (the explicit filter takes priority).
+  - [x] Use `var(--color-*)` tokens for all new elements; styled with slate color family (distinct from emerald used by other toolbar buttons).
+  - [x] Update `tests/e2e/dispatch-response.spec.ts` — `sendChatMessage()` helper now enables the system messages toggle before sending so dispatch confirmation bubbles are visible in tests.
+  - [x] Created `tests/e2e/system-messages-toggle.spec.ts` — 15 tests covering: toggle renders, default hidden state, count badge accuracy, toggling on/off, non-system messages unaffected, role filter override, aria-label accuracy, no badge when no system messages, multiple messages shown when toggled on.
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 777 passed, 1 skipped
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 47: Result bubble expand/collapse**
   - [x] Add a `COLLAPSE_LINE_THRESHOLD` constant (default 8 lines) — result bubbles with content exceeding this threshold are collapsed by default.
   - [x] Add local `expanded` state to `ChatBubble` (result role only). Default is `false` when content is long, `true` when short.

@@ -44,6 +44,9 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [chatRoleFilter, setChatRoleFilter] = useState<'all' | 'user' | 'result' | 'error' | 'system'>('all');
   const isFiltering = chatSearch.trim() !== '' || chatRoleFilter !== 'all';
 
+  // System message visibility toggle
+  const [showSystemMessages, setShowSystemMessages] = useState(false);
+
   // SSE state
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [terminalLines, setTerminalLines] = useState<OutputLine[]>([]);
@@ -407,14 +410,25 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   }
 
   // Filtered messages for search / role filter
+  // Count of toggleable system messages (excludes the pinned welcome message with id='welcome')
+  const systemMessageCount = useMemo(
+    () => messages.filter((m) => m.role === 'system' && m.id !== 'welcome').length,
+    [messages],
+  );
+
   const filteredMessages = useMemo(() => {
     const needle = chatSearch.trim().toLowerCase();
     return messages.filter((m) => {
+      // The welcome message (id='welcome') is always shown regardless of the system toggle —
+      // it is a permanent orientation marker, not a task-lifecycle event.
+      // Only suppress transient system messages (e.g. "Task dispatched — ID: ...") when toggle is off.
+      const isWelcome = m.id === 'welcome';
+      if (m.role === 'system' && !isWelcome && !showSystemMessages && chatRoleFilter !== 'system') return false;
       const roleMatch = chatRoleFilter === 'all' || m.role === chatRoleFilter;
       const textMatch = needle === '' || m.content.toLowerCase().includes(needle) || (m.task_id ?? '').toLowerCase().includes(needle);
       return roleMatch && textMatch;
     });
-  }, [messages, chatSearch, chatRoleFilter]);
+  }, [messages, chatSearch, chatRoleFilter, showSystemMessages]);
 
   const isStreaming = streamUrl !== null && (sseStatus === 'connecting' || sseStatus === 'open');
 
@@ -501,6 +515,33 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         >
           <span aria-hidden="true">{autoScroll ? '🔒' : '🔓'}</span>
           <span className="hidden sm:inline">{autoScroll ? 'Scroll lock' : 'Scroll free'}</span>
+        </button>
+
+        {/* System messages toggle */}
+        <button
+          data-testid="system-messages-toggle"
+          onClick={() => setShowSystemMessages((v) => !v)}
+          title={showSystemMessages ? 'Hide system messages' : 'Show system messages'}
+          aria-label={showSystemMessages ? 'Hide system messages' : 'Show system messages'}
+          aria-pressed={showSystemMessages}
+          className={`
+            flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] border transition-colors
+            ${showSystemMessages
+              ? 'border-slate-500/40 bg-slate-500/10 text-slate-300 hover:bg-slate-500/20'
+              : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+            }
+          `}
+        >
+          <span aria-hidden="true">⚙</span>
+          <span className="hidden sm:inline">System</span>
+          {!showSystemMessages && systemMessageCount > 0 && (
+            <span
+              data-testid="system-messages-hidden-count"
+              className="ml-0.5 px-1 rounded-full text-[10px] bg-slate-500/20 text-slate-400 font-mono-data"
+            >
+              {systemMessageCount}
+            </span>
+          )}
         </button>
 
         {/* Match count / clear filters */}
@@ -809,7 +850,7 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
 
   if (isSystem) {
     return (
-      <div className="flex justify-center">
+      <div className="flex justify-center" data-testid="system-message">
         <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-3 py-1">
           {message.content}
         </span>
