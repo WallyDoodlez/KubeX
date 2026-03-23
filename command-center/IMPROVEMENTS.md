@@ -23,6 +23,17 @@
   - [x] Test: npx playwright test — all pass
   - [x] Update `docs/CHANGELOG.md`
 
+- [ ] **Iteration 45: Mermaid diagram rendering in result bubbles**
+  - [ ] Install `mermaid` package (the official JS library).
+  - [ ] Create a `MermaidBlock` component that detects ` ```mermaid ` fenced code blocks in markdown results and renders them as SVG diagrams using `mermaid.render()`.
+  - [ ] Wire `MermaidBlock` into the `ReactMarkdown` code renderer in ChatBubble — when language is `mermaid`, render via `MermaidBlock` instead of `rehype-highlight`.
+  - [ ] Theme integration: configure Mermaid to use dark theme matching the app's `var(--color-*)` tokens. Support light/dark toggle.
+  - [ ] Fallback: if Mermaid parsing fails, show the raw code block with syntax highlighting (graceful degradation).
+  - [ ] E2E tests: mermaid code block renders an SVG, invalid mermaid falls back to code block, diagram is visible and has expected structure.
+  - [ ] Build: npm run build — clean
+  - [ ] Test: npx playwright test — all pass
+  - [ ] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 44: Typing indicator + welcome empty state**
   - [x] Replace `⟳ Streaming…` text with animated typing indicator (three dots in a bubble, left-aligned like a result message).
   - [x] Improve empty state: centered welcome with clickable example prompts (e.g., "Summarize recent logs", "Check system health") that auto-fill the input.
