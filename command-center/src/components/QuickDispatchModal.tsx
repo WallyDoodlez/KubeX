@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { getAgents, dispatchTask } from '../api';
 import type { Agent, TrafficEntry } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
@@ -52,10 +52,19 @@ function QuickDispatchModal({ isOpen, onClose, prefilledAgentId }: QuickDispatch
   const selectedAgent = agents.find((a) => a.agent_id === selectedAgentId);
   const agentCapabilities: string[] = selectedAgent?.capabilities ?? [];
 
-  // All capabilities across all agents (for autocomplete when no agent selected)
-  const allCapabilities: string[] = [...new Set(agents.flatMap((a) => a.capabilities))].sort();
+  // All capabilities across all agents (for autocomplete when no agent selected).
+  // Stabilised with useMemo so the suggestions useEffect below only re-runs when
+  // the agents list actually changes — not on every render due to a new array ref.
+  const allCapabilities: string[] = useMemo(
+    () => [...new Set(agents.flatMap((a) => a.capabilities))].sort(),
+    [agents]
+  );
 
-  const capabilitiesForSuggestion = agentCapabilities.length > 0 ? agentCapabilities : allCapabilities;
+  const capabilitiesForSuggestion = useMemo(
+    () => (agentCapabilities.length > 0 ? agentCapabilities : allCapabilities),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedAgentId, agents, allCapabilities]
+  );
 
   // ── Sorted agents: favorites first ───────────────────────────────
   const sortedAgents = [...agents].sort((a, b) => {
@@ -103,8 +112,10 @@ function QuickDispatchModal({ isOpen, onClose, prefilledAgentId }: QuickDispatch
 
   // ── Update suggestions as user types ─────────────────────────────
   useEffect(() => {
+    // Guard: skip when the modal is closed to avoid running on every render
+    if (!isOpen) return;
     if (!capability.trim()) {
-      setCapSuggestions([]);
+      setCapSuggestions((prev) => (prev.length === 0 ? prev : []));
       setShowSuggestions(false);
       return;
     }
@@ -113,7 +124,7 @@ function QuickDispatchModal({ isOpen, onClose, prefilledAgentId }: QuickDispatch
     setCapSuggestions(matches);
     setShowSuggestions(matches.length > 0);
     setSuggestionIndex(-1);
-  }, [capability, capabilitiesForSuggestion]);
+  }, [isOpen, capability, capabilitiesForSuggestion]);
 
   // ── Validate on blur ──────────────────────────────────────────────
   function handleCapBlur() {

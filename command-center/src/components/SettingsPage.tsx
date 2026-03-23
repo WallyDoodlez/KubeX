@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
 import { GATEWAY, REGISTRY, MANAGER } from '../api';
+import { useOnboarding } from '../hooks/useOnboarding';
 
 // ── Section wrapper ──────────────────────────────────────────────────
 
@@ -204,6 +205,7 @@ export default function SettingsPage() {
   const { settings, updateSettings, resetSettings } = useSettings();
   const { token, setToken, clearToken, isConfigured } = useAuth();
   const { clearTrafficLog, setChatMessages } = useAppContext();
+  const { resetTour } = useOnboarding();
 
   const [tokenDraft, setTokenDraft] = useState('');
   const [tokenEditMode, setTokenEditMode] = useState(false);
@@ -461,6 +463,19 @@ export default function SettingsPage() {
               >
                 {clearChatConfirm ? 'Confirm Clear?' : 'Clear Chat'}
               </DangerButton>
+            </Row>
+
+            <Row
+              label="Onboarding Tour"
+              description="Reset the first-run feature tour so it appears again on next page load."
+            >
+              <button
+                onClick={resetTour}
+                data-testid="settings-restart-tour"
+                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text)] hover:border-[var(--color-border-hover)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+              >
+                Restart Tour
+              </button>
             </Row>
           </div>
         </Section>

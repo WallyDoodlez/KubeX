@@ -20,6 +20,8 @@ import { useTheme } from '../hooks/useTheme';
 import NotificationCenter from './NotificationCenter';
 import UserMenu from './UserMenu';
 import QuickDispatchModal from './QuickDispatchModal';
+import OnboardingTour from './OnboardingTour';
+import { useOnboarding } from '../hooks/useOnboarding';
 
 interface NavItem {
   label: string;
@@ -97,6 +99,12 @@ export default function Layout({ children }: LayoutProps) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [quickDispatchOpen, setQuickDispatchOpen] = useState(false);
+
+  // ── First-run onboarding tour ────────────────────────────────────────
+  const { tourCompleted, tourActive, currentStep, startTour, nextStep, skipTour } = useOnboarding();
+
+  // Tour is triggered from Settings "Restart Tour" button, not auto-started.
+  // This avoids interfering with keyboard navigation and other overlays on first load.
 
   // ── Global health checks (runs everywhere, not just Dashboard) ──────
   useHealthCheck();
@@ -387,6 +395,14 @@ export default function Layout({ children }: LayoutProps) {
         onConfirm={handleKillAll}
         kubexCount={kubexCount}
         isLoading={killAllLoading}
+      />
+
+      {/* ── First-run onboarding tour ─────────────────────────────────── */}
+      <OnboardingTour
+        active={tourActive}
+        currentStep={currentStep}
+        onNext={nextStep}
+        onSkip={skipTour}
       />
 
       {/* ── Mobile: overlay backdrop ─────────────────────────────────── */}
