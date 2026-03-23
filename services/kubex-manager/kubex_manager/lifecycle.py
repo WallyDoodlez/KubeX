@@ -24,6 +24,32 @@ from .skill_validator import SkillValidator
 
 logger = get_logger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Host path translation
+# ---------------------------------------------------------------------------
+
+
+def _to_host_path(container_path: str) -> str:
+    """Translate a Manager-internal /app/... path to a host-side path.
+
+    The Manager container mounts the project root at /app/. When creating
+    child containers, bind mount sources must reference the HOST filesystem,
+    not the Manager's internal filesystem. KUBEX_HOST_PROJECT_DIR maps /app
+    to the host project root.
+
+    Falls back to the container path if env var is not set (works on Linux
+    when paths happen to match).
+    """
+    host_root = os.environ.get("KUBEX_HOST_PROJECT_DIR", "")
+    if not host_root:
+        return container_path
+    # Replace /app/ prefix with host root
+    if container_path.startswith("/app/"):
+        return os.path.join(host_root, container_path[5:])  # skip "/app/"
+    return container_path
+
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -425,13 +451,13 @@ class KubexLifecycle:
             volumes: dict[str, dict[str, str]] = {}
             credentials_base = os.environ.get("KUBEX_CREDENTIALS_PATH", "/app/secrets/cli-credentials")
             for provider in providers:
-                host_path = os.path.join(credentials_base, provider)
+                host_path = _to_host_path(os.path.join(credentials_base, provider))
                 container_path = f"/run/secrets/{provider}"
                 volumes[host_path] = {"bind": container_path, "mode": "ro"}
 
             # Bind-mount config.yaml at /app/config.yaml (KMGR-03)
             if config_path is not None and config_path.exists():
-                volumes[str(config_path)] = {"bind": "/app/config.yaml", "mode": "ro"}
+                volumes[_to_host_path(str(config_path))] = {"bind": "/app/config.yaml", "mode": "ro"}
 
             # Skill volumes (SKIL-02): bind-mount skill directories read-only
             if request.skill_mounts:
@@ -453,7 +479,7 @@ class KubexLifecycle:
                 for skill_name in request.skill_mounts:
                     host_skill_path = os.path.join(skills_base_path, skill_name)
                     container_skill_path = f"/app/skills/{skill_name}"
-                    volumes[host_skill_path] = {"bind": container_skill_path, "mode": "ro"}
+                    volumes[_to_host_path(host_skill_path)] = {"bind": container_skill_path, "mode": "ro"}
 
             # Named Docker volume for CLI runtime credential persistence (CLI-06)
             # Named volumes use the volume name as key (not a host path).
@@ -469,7 +495,7 @@ class KubexLifecycle:
             if runtime == "claude-code":
                 hook_settings_dir = self._config_dir / "hook-settings"
                 settings_host_path = _generate_hook_settings(agent_id, hook_settings_dir)
-                volumes[str(settings_host_path)] = {
+                volumes[_to_host_path(str(settings_host_path))] = {
                     "bind": "/root/.claude/settings.json",
                     "mode": "ro",
                 }
