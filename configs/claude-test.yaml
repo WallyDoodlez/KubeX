@@ -1,0 +1,8 @@
+agent:
+  broker_url: http://kubex-broker:8060
+  capabilities:
+  - claude-test
+  gateway_url: http://gateway:8080
+  id: claude-test
+  runtime: claude-code
+  skills: []

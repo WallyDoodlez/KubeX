@@ -1,0 +1,8 @@
+{
+  "hooks": {
+    "PostToolUse": [{"hooks": [{"type": "http", "url": "http://127.0.0.1:8099/hooks", "timeout": 10}]}],
+    "Stop": [{"hooks": [{"type": "http", "url": "http://127.0.0.1:8099/hooks", "timeout": 10}]}],
+    "SessionEnd": [{"hooks": [{"type": "http", "url": "http://127.0.0.1:8099/hooks", "timeout": 10}]}],
+    "SubagentStop": [{"hooks": [{"type": "http", "url": "http://127.0.0.1:8099/hooks", "timeout": 10}]}]
+  }
+}

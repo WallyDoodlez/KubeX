@@ -49,6 +49,10 @@ At every significant step of code advancement (phase completion, feature merge, 
 - Always prove to the user that all tests pass before declaring a step complete. Show the pytest summary output.
 - Never accept "pre-existing failures" as normal — every failure is a signal that must be resolved.
 
+## Bug Tracking
+- `command-center/docs/BUGS.md` is the shared bug tracker between backend and frontend teams.
+- At the start of every phase, pull from git and check this file for outstanding bugs before beginning work. Fix any relevant open bugs before new feature work.
+
 ## Feature Implementation Workflow
 - All new features must follow the `implement-feature` skill workflow (see `skills/development/implement-feature/SKILL.md`). Write failing tests first, implement to make them pass, verify no regressions.
 
