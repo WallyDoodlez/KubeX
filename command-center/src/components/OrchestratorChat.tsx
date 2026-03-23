@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 import CopyButton from './CopyButton';
+import MermaidBlock from './MermaidBlock';
 import { dispatchTask, getTaskResult, getAgents, getTaskStreamUrl, provideInput } from '../api';
 import type { ChatMessage, TrafficEntry, Agent } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
@@ -833,6 +834,11 @@ const ChatBubble = memo(function ChatBubble({ message }: { message: ChatMessage 
                       <li style={{ marginBottom: '0.2rem' }}>{children}</li>
                     ),
                     code: ({ className, children, ...props }) => {
+                      const match = /language-(\w+)/.exec(className || '');
+                      const lang = match?.[1];
+                      if (lang === 'mermaid') {
+                        return <MermaidBlock code={String(children).replace(/\n$/, '')} />;
+                      }
                       const isBlock = className?.startsWith('language-');
                       if (isBlock) {
                         return (
