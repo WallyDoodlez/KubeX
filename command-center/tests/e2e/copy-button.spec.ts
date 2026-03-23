@@ -115,7 +115,7 @@ test.describe('CopyButton — Orchestrator Chat result bubble', () => {
     // (the result bubble only renders when there is a result message)
     // We verify the button renders when a result bubble exists by checking
     // that the chat area is present
-    await expect(page.locator('.flex.flex-col.h-full')).toBeVisible();
+    await expect(page.locator('[data-testid="message-input"]')).toBeVisible();
 
     // If a result bubble exists from a prior session, verify the button
     const copyResultBtns = page.locator('[data-testid="copy-result-content"]');

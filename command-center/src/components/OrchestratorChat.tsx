@@ -463,6 +463,34 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           <ChatBubble key={msg.id} message={msg} />
         ))}
 
+        {/* Welcome empty state — shown when only the system welcome message exists and no filters are active */}
+        {messages.length <= 1 && !isFiltering && (
+          <div className="flex flex-col items-center justify-center h-full py-16" data-testid="chat-welcome">
+            <div className="text-center mb-8">
+              <h2 className="text-lg font-semibold text-[var(--color-text)]">What can I help you with?</h2>
+              <p className="text-sm text-[var(--color-text-muted)] mt-1">Ask the orchestrator anything — it will route to the right agent.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md" data-testid="welcome-prompts">
+              {[
+                { label: 'Summarize recent logs', icon: '📋' },
+                { label: 'Check system health', icon: '💚' },
+                { label: 'List running agents', icon: '🤖' },
+                { label: 'Deploy a service', icon: '🚀' },
+              ].map((prompt) => (
+                <button
+                  key={prompt.label}
+                  data-testid="welcome-prompt-button"
+                  onClick={() => setMessage(prompt.label)}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-emerald-500/50 hover:bg-[var(--color-surface-dark)] text-left text-sm text-[var(--color-text)] transition-colors"
+                >
+                  <span>{prompt.icon}</span>
+                  <span>{prompt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Empty state when filters are active but nothing matches */}
         {isFiltering && filteredMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 text-center" data-testid="chat-no-results">
@@ -495,9 +523,15 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         )}
 
         {sending && (
-          <div className="flex items-center gap-2 text-xs text-[var(--color-text-dim)] pl-2">
-            <span className="animate-pulse">⟳</span>
-            <span data-testid="sending-label">{sendingLabel(sseStatus)}</span>
+          <div className="flex justify-start" data-testid="typing-indicator">
+            <div className="rounded-2xl rounded-tl-sm bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-3">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+              <p className="text-[10px] text-[var(--color-text-muted)] mt-1.5" data-testid="sending-label">{sendingLabel(sseStatus)}</p>
+            </div>
           </div>
         )}
         <div ref={bottomRef} />
