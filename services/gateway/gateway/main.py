@@ -821,6 +821,45 @@ async def get_task_result(task_id: str, request: Request) -> JSONResponse:
     return JSONResponse(status_code=200, content=data)
 
 
+@router.get("/tasks/{task_id}/audit")
+async def get_task_audit(task_id: str, request: Request) -> JSONResponse:
+    """Return the audit trail for a task from Redis sorted set (HOOK-04, D-13).
+
+    Reads from audit:{task_id} sorted set in DB 0. Returns entries sorted by
+    timestamp ascending (ZRANGE default). Returns empty array for unknown task_ids.
+
+    Returns:
+      200 — audit entries (may be empty list for unknown task_ids).
+      503 — Redis is not available.
+      500 — Redis query failed.
+    """
+    gateway: GatewayService = request.app.state.gateway_service
+
+    if gateway.redis_db0 is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Redis unavailable"},
+        )
+
+    key = f"audit:{task_id}"
+    try:
+        raw_entries = await gateway.redis_db0.zrange(key, 0, -1)
+    except Exception:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Redis query failed"},
+        )
+
+    entries = []
+    for raw in raw_entries:
+        try:
+            entries.append(json.loads(raw))
+        except (json.JSONDecodeError, TypeError):
+            pass  # skip malformed entries
+
+    return JSONResponse(content={"task_id": task_id, "entries": entries})
+
+
 # ─────────────────────────────────────────────
 # Skill-check endpoint (PSEC-03)
 # ─────────────────────────────────────────────
