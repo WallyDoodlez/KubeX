@@ -4,6 +4,20 @@
 
 ---
 
+- [x] **Iteration 53: Message reactions / feedback**
+  - [x] Add `feedback?: 'up' | 'down' | null` field to `ChatMessage` interface in `src/types.ts`.
+  - [x] Create `MessageFeedback` memo component inline in `OrchestratorChat.tsx` — thumbs up (👍) and thumbs down (👎) buttons on result bubbles.
+  - [x] Feedback persisted in localStorage under key `kubex-chat-feedback` as `{ [messageId]: 'up' | 'down' }` map.
+  - [x] Toggle semantics: clicking the active vote again removes it (null); clicking the other vote switches sides.
+  - [x] Confirmation label: "Marked helpful" (green) or "Marked not helpful" (red) shown when a vote is active.
+  - [x] Use `var(--color-*)` tokens for borders/backgrounds; active state uses emerald for up, red for down.
+  - [x] Accessible: `aria-pressed`, `aria-label`, `data-testid="message-feedback"`, `data-testid="feedback-up"`, `data-testid="feedback-down"`, `data-testid="feedback-label"`.
+  - [x] Placed at the bottom of result bubbles, below the audit trail, above the timestamp.
+  - [x] Create `tests/e2e/message-feedback.spec.ts` — 18 tests covering: widget absent before dispatch, widget present on result bubble, button labels, thumbs-up confirmation, thumbs-down confirmation, toggle off, switching votes, aria-pressed state, localStorage persistence.
+  - [x] Build: npm run build — clean
+  - [x] Test: 18/18 new tests passed; 824 total passed (16 pre-existing container backend failures unchanged)
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 52: Task audit trail viewer**
   - [x] Add `AuditEntry` type to `src/types.ts` (fields: `event_type`, `timestamp`, `details?`, `hook_name?`, `status?`).
   - [x] Add `AuditResponse` type to `src/types.ts` (fields: `task_id`, `entries: AuditEntry[]`).

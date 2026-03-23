@@ -4,6 +4,28 @@
 
 ---
 
+## Iteration 53: Message reactions / feedback
+
+**Files modified:** `src/types.ts`, `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/message-feedback.spec.ts`
+
+**Changes:**
+- Added `feedback?: 'up' | 'down' | null` field to `ChatMessage` interface in `src/types.ts` — future-proofs the type for server-side persistence.
+- Added inline `MessageFeedback` React component (memoized) to `OrchestratorChat.tsx`:
+  - Renders a "Helpful?" label with thumbs-up (👍) and thumbs-down (👎) buttons at the bottom of every result bubble.
+  - Feedback persisted to localStorage under key `kubex-chat-feedback` as a `{ [messageId]: 'up' | 'down' }` map.
+  - Toggle semantics: clicking the active vote removes it (returns to no-vote state); clicking the opposite vote switches sides.
+  - Confirmation label: "Marked helpful" (emerald green) or "Marked not helpful" (red) shown when a vote is active.
+  - Flash animation on click (scale-up then back) for tactile feedback.
+  - Active state: up-vote uses emerald border/background, down-vote uses red border/background.
+  - All styling uses `var(--color-*)` CSS custom properties.
+  - Accessible: `aria-pressed` reflects current vote state, `aria-label` on each button, `data-testid="message-feedback"` on container, `data-testid="feedback-up"`, `data-testid="feedback-down"`, `data-testid="feedback-label"`.
+  - Placed below the audit trail and above the RelativeTime timestamp on result bubbles.
+
+**Tests:** 18 new E2E tests in `tests/e2e/message-feedback.spec.ts` covering widget presence, button accessibility, vote logic, toggle-off, vote switching, aria-pressed states, and localStorage persistence. Full suite: 824 passed (new: 18) / 2 skipped / 16 pre-existing containers failures (unrelated). Build clean.
+
+---
+
 ## Iteration 52: Task audit trail viewer
 
 **Files modified:** `src/types.ts`, `src/api.ts`, `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

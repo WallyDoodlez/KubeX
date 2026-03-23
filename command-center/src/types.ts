@@ -120,6 +120,8 @@ export interface ChatMessage {
   retryMessage?: string;
   /** Task lifecycle phases — populated on result/error bubbles to show execution timeline */
   phases?: TaskPhaseEntry[];
+  /** User feedback on the message result — 'up' = helpful, 'down' = not helpful, null = no feedback */
+  feedback?: 'up' | 'down' | null;
 }
 
 // ── SSE streaming ───────────────────────────────────────────────────

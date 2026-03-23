@@ -1291,6 +1291,168 @@ const AuditTrail = memo(function AuditTrail({ taskId }: { taskId: string }) {
   );
 });
 
+// ── Message feedback ─────────────────────────────────────────────────
+
+const FEEDBACK_STORAGE_KEY = 'kubex-chat-feedback';
+
+/** Load feedback map from localStorage. Returns { [messageId]: 'up' | 'down' } */
+function loadFeedbackMap(): Record<string, 'up' | 'down'> {
+  try {
+    const raw = localStorage.getItem(FEEDBACK_STORAGE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, 'up' | 'down'>;
+  } catch {
+    return {};
+  }
+}
+
+/** Save feedback map to localStorage */
+function saveFeedbackMap(map: Record<string, 'up' | 'down'>) {
+  try {
+    localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // quota exceeded or private browsing — ignore
+  }
+}
+
+/**
+ * MessageFeedback — thumbs up / down reaction buttons for result bubbles.
+ * Feedback is persisted to localStorage keyed by message id.
+ * Clicking the same button again removes the vote (toggle).
+ */
+const MessageFeedback = memo(function MessageFeedback({ messageId }: { messageId: string }) {
+  const [vote, setVote] = useState<'up' | 'down' | null>(() => {
+    const map = loadFeedbackMap();
+    return map[messageId] ?? null;
+  });
+  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+
+  function handleVote(direction: 'up' | 'down') {
+    setVote((prev) => {
+      const next = prev === direction ? null : direction;
+      // Persist
+      const map = loadFeedbackMap();
+      if (next === null) {
+        delete map[messageId];
+      } else {
+        map[messageId] = next;
+      }
+      saveFeedbackMap(map);
+
+      // Flash animation feedback
+      if (next !== null) {
+        setFlash(next);
+        setTimeout(() => setFlash(null), 600);
+      }
+
+      return next;
+    });
+  }
+
+  return (
+    <div
+      data-testid="message-feedback"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.25rem',
+        marginTop: '0.5rem',
+        paddingTop: '0.5rem',
+        borderTop: '1px solid var(--color-border)',
+      }}
+    >
+      <span
+        style={{
+          fontSize: '10px',
+          color: 'var(--color-text-muted)',
+          marginRight: '0.25rem',
+          userSelect: 'none',
+        }}
+      >
+        Helpful?
+      </span>
+
+      {/* Thumbs up */}
+      <button
+        data-testid="feedback-up"
+        onClick={() => handleVote('up')}
+        aria-label="Mark as helpful"
+        aria-pressed={vote === 'up'}
+        title={vote === 'up' ? 'Remove helpful vote' : 'Mark as helpful'}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '24px',
+          height: '24px',
+          borderRadius: '6px',
+          border: vote === 'up'
+            ? '1px solid rgba(16,185,129,0.6)'
+            : '1px solid var(--color-border)',
+          background: vote === 'up'
+            ? 'rgba(16,185,129,0.15)'
+            : flash === 'up'
+            ? 'rgba(16,185,129,0.08)'
+            : 'var(--color-surface-dark)',
+          color: vote === 'up' ? '#10b981' : 'var(--color-text-muted)',
+          cursor: 'pointer',
+          fontSize: '12px',
+          transition: 'all 0.15s ease',
+          transform: flash === 'up' ? 'scale(1.25)' : 'scale(1)',
+        }}
+      >
+        👍
+      </button>
+
+      {/* Thumbs down */}
+      <button
+        data-testid="feedback-down"
+        onClick={() => handleVote('down')}
+        aria-label="Mark as not helpful"
+        aria-pressed={vote === 'down'}
+        title={vote === 'down' ? 'Remove not-helpful vote' : 'Mark as not helpful'}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '24px',
+          height: '24px',
+          borderRadius: '6px',
+          border: vote === 'down'
+            ? '1px solid rgba(239,68,68,0.6)'
+            : '1px solid var(--color-border)',
+          background: vote === 'down'
+            ? 'rgba(239,68,68,0.15)'
+            : flash === 'down'
+            ? 'rgba(239,68,68,0.08)'
+            : 'var(--color-surface-dark)',
+          color: vote === 'down' ? '#ef4444' : 'var(--color-text-muted)',
+          cursor: 'pointer',
+          fontSize: '12px',
+          transition: 'all 0.15s ease',
+          transform: flash === 'down' ? 'scale(1.25)' : 'scale(1)',
+        }}
+      >
+        👎
+      </button>
+
+      {/* Confirmation label shown after voting */}
+      {vote !== null && (
+        <span
+          data-testid="feedback-label"
+          style={{
+            fontSize: '10px',
+            color: vote === 'up' ? '#10b981' : '#ef4444',
+            marginLeft: '0.25rem',
+          }}
+        >
+          {vote === 'up' ? 'Marked helpful' : 'Marked not helpful'}
+        </span>
+      )}
+    </div>
+  );
+});
+
 // ── Chat bubble ───────────────────────────────────────────────────────
 
 /** Returns true if the text looks like raw JSON (starts with { or [) */
@@ -1687,6 +1849,9 @@ const ChatBubble = memo(function ChatBubble({
             {message.task_id && (
               <AuditTrail taskId={message.task_id} />
             )}
+
+            {/* Message feedback — thumbs up/down, persisted in localStorage */}
+            <MessageFeedback messageId={message.id} />
           </div>
           <RelativeTime
             date={message.timestamp}
