@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 10-00-PLAN.md
-last_updated: "2026-03-23T04:21:37.726Z"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-03-23T04:30:33.886Z"
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 10 (hooks-monitoring) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Plan: 2 of 3
 | Phase 09 P02 | 429 | 1 tasks | 2 files |
 | Phase 09-cli-runtime-claude-code P03 | 10 | 2 tasks | 2 files |
 | Phase 10-hooks-monitoring P00 | 4 | 1 tasks | 2 files |
+| Phase 10-hooks-monitoring P01 | 394 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,8 @@ Recent decisions affecting current work:
 - [Phase 09-03]: CLI runtime routing placed BEFORE harness_mode routing in main.py so CLI agents bypass StandaloneAgent even when harness_mode is standalone
 - [Phase 10-hooks-monitoring]: Test stubs use pytest.skip() (not xfail) so they are collected but never count as failures until Plan 01/02 fills them in
 - [Phase 10-hooks-monitoring]: Gateway audit tests placed in separate file (test_gateway_audit.py) since they test a different service boundary from harness-side hook server
+- [Phase 10-hooks-monitoring]: Annotated discriminated union validated via TypeAdapter.validate_python() not model_validate() — Annotated types are not BaseModel subclasses in pydantic v2
+- [Phase 10-hooks-monitoring]: _execute_task refactored into outer+inner pattern for try/finally _current_task_id cleanup while preserving all retry/auth early-return paths
 
 ### Pending Todos
 
@@ -108,6 +111,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-23T04:21:37.723Z
-Stopped at: Completed 10-00-PLAN.md
+Last session: 2026-03-23T04:30:33.883Z
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
