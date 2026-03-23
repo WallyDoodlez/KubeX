@@ -138,7 +138,7 @@ Plans:
 | 8.1 Agent System Prompts | v1.2 | 0/2 | In progress | - |
 | 9. CLI Runtime — Claude Code | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 10. Hooks Monitoring | v1.2 | 3/3 | Complete    | 2026-03-23 |
-| 11. Gemini CLI Runtime | v1.2 | 1/1 | Complete   | 2026-03-23 |
+| 11. Gemini CLI Runtime | v1.2 | 1/1 | Complete    | 2026-03-23 |
 | 12. OAuth Command Center Web Flow | v1.2 | 0/? | Not started | - |
 
 ## Backlog
