@@ -4,6 +4,22 @@
 
 ---
 
+- [x] **Iteration 51: Task progress timeline**
+  - [x] Add `TaskPhaseEntry` interface and `TaskPhaseStatus` type to `src/types.ts` — `{ label, status, timestamp? }` with status `pending | active | done | failed`.
+  - [x] Add `phases?: TaskPhaseEntry[]` to `ChatMessage` type — persists the lifecycle snapshot on result/error bubbles.
+  - [x] Create `src/components/TaskTimeline.tsx` — compact horizontal stepper. Phase dots: filled green circle (done), pulsing ring (active), empty ring (pending), red X (failed). Accessible with `role="list"`, `role="listitem"` per phase, `aria-label="Task progress timeline"`. `data-testid="timeline-phase-{label}"` and `data-phase-status="{status}"` per phase node.
+  - [x] Add `buildPhases(activeLabel, failed?)`, `buildPhasesCompleted()`, `buildPhasesFailed()` helpers and `livePhases` state to `OrchestratorChat`.
+  - [x] Advance phase to `Dispatched` (active) on `handleSend` start; `Connecting` after dispatch succeeds; `Streaming` on SSE open or first stdout/stderr event; clear on terminal event.
+  - [x] Attach `phases` to result messages (all done), error messages from SSE (failed phases), and dispatch-failure errors (single failed Dispatched phase).
+  - [x] Render `<TaskTimeline data-testid="live-task-timeline">` inside typing indicator bubble while `livePhases.length > 0`.
+  - [x] Render `<TaskTimeline data-testid="result-bubble-timeline">` at the bottom of result bubbles when `message.phases` is set.
+  - [x] Render `<TaskTimeline data-testid="error-bubble-timeline">` at the bottom of error bubbles when `message.phases` is set.
+  - [x] Use `var(--color-*)` custom properties for all new elements.
+  - [x] Create `tests/e2e/task-progress-timeline.spec.ts` — 12 tests covering: live timeline not visible initially, visible during streaming, role="list" accessibility, result bubble timeline present, result bubble shows 4 phases, all phases marked done, error bubble timeline present, failed phase has status "failed", dispatch failure shows failed dispatched phase, live timeline disappears after task completes, listitem roles count, aria-label attribute.
+  - [x] Build: npm run build — clean
+  - [x] Test: 812 passed (12 new) / 2 skipped / 0 failures
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 50: Retry failed tasks**
   - [x] Add `retryCapability?: string` and `retryMessage?: string` to the `ChatMessage` type in `src/types.ts` — carries the original dispatch inputs so error bubbles can offer a retry.
   - [x] Populate `retryMessage` and `retryCapability` on the dispatch-failure error message in `handleSend` (covers HTTP-level failures from the gateway).

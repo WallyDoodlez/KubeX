@@ -4,6 +4,30 @@
 
 ---
 
+## Iteration 51: Task progress timeline
+
+**Files modified:** `src/types.ts`, `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `src/components/TaskTimeline.tsx`, `tests/e2e/task-progress-timeline.spec.ts`
+
+**Changes:**
+- Added `TaskPhaseEntry` interface and `TaskPhaseStatus` type to `src/types.ts`. Each phase entry has a `label`, `status` (`pending` | `active` | `done` | `failed`), and optional `timestamp`.
+- Added `phases?: TaskPhaseEntry[]` field to `ChatMessage` — populated on result and error bubbles so the lifecycle timeline persists after the task finishes.
+- Created `src/components/TaskTimeline.tsx` — a compact horizontal stepper component. Renders phase dots (filled circle = done, pulsing ring = active, empty ring = pending, red X = failed) connected by animated bars. Accessible: `role="list"` with `role="listitem"` per phase, `aria-label="Task progress timeline"`. Phase items have `data-testid="timeline-phase-{label}"` and `data-phase-status="{status}"`.
+- Updated `OrchestratorChat` with phase helper functions (`buildPhases`, `buildPhasesCompleted`, `buildPhasesFailed`) and `livePhases` state. Phase progression:
+  - `Dispatched` (active) — set when Send is clicked, before the HTTP dispatch call.
+  - `Connecting` (active) — set when dispatch succeeds and SSE stream URL is assigned.
+  - `Streaming` (active) — set when any `stdout`/`stderr` event arrives OR when SSE status transitions to `open`.
+  - `Completed` / `Failed` — set when a terminal SSE event arrives or fallback poll resolves.
+- Live timeline shown inside the typing indicator bubble (below the status label) via `data-testid="live-task-timeline"`. Hidden when `livePhases` is empty (i.e., no active task).
+- Result bubbles render a `TaskTimeline` at the bottom (`data-testid="result-bubble-timeline"`) with all phases marked `done`.
+- Error bubbles render a `TaskTimeline` at the bottom (`data-testid="error-bubble-timeline"`) with a `Failed` phase replacing the final step.
+- Dispatch failure (HTTP-level) renders a single `Dispatched: failed` phase on the error bubble timeline.
+- All new elements use `var(--color-*)` custom properties for theming.
+
+**Tests:** 812 passed (new: 12 timeline tests) / 2 skipped / 0 failures (1 pre-existing flaky command-palette test passes in isolation). Build clean.
+
+---
+
 ## Iteration 50: Retry failed tasks
 
 **Files modified:** `src/types.ts`, `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

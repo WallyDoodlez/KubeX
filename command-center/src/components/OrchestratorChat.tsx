@@ -5,8 +5,9 @@ import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 import CopyButton from './CopyButton';
 import MermaidBlock from './MermaidBlock';
+import TaskTimeline from './TaskTimeline';
 import { dispatchTask, getTaskResult, getAgents, getTaskStreamUrl, provideInput } from '../api';
-import type { ChatMessage, TrafficEntry, Agent } from '../types';
+import type { ChatMessage, TrafficEntry, Agent, TaskPhaseEntry } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
 import { useSSE } from '../hooks/useSSE';
 import type { SSEStatus } from '../hooks/useSSE';
@@ -56,6 +57,44 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [hitlRequest, setHitlRequest] = useState<{ taskId: string; prompt: string } | null>(null);
   const activeTaskIdRef = useRef<string | null>(null);
   const activeCapRef = useRef<string>('');
+
+  // Task progress timeline — tracks live phases while a task is running
+  const PHASE_LABELS = ['Dispatched', 'Connecting', 'Streaming', 'Completed'] as const;
+  type PhaseLabel = (typeof PHASE_LABELS)[number];
+
+  /** Build a fresh phases array with the given phase set to 'active' and earlier ones 'done' */
+  function buildPhases(activeLabel: PhaseLabel, failed = false): TaskPhaseEntry[] {
+    const activeIdx = PHASE_LABELS.indexOf(activeLabel);
+    const now = new Date().toLocaleTimeString();
+    return PHASE_LABELS.map((label, i) => {
+      if (i < activeIdx) return { label, status: 'done', timestamp: now };
+      if (i === activeIdx) {
+        if (failed) return { label: 'Failed', status: 'failed', timestamp: now };
+        return { label, status: 'active', timestamp: now };
+      }
+      return { label, status: 'pending' };
+    });
+  }
+
+  /** Mark all phases done (terminal success) */
+  function buildPhasesCompleted(): TaskPhaseEntry[] {
+    const now = new Date().toLocaleTimeString();
+    return PHASE_LABELS.map((label) => ({ label, status: 'done' as const, timestamp: now }));
+  }
+
+  /** Mark the last phase as failed */
+  function buildPhasesFailed(): TaskPhaseEntry[] {
+    const now = new Date().toLocaleTimeString();
+    return [
+      { label: 'Dispatched', status: 'done', timestamp: now },
+      { label: 'Connecting', status: 'done', timestamp: now },
+      { label: 'Streaming', status: 'done', timestamp: now },
+      { label: 'Failed', status: 'failed', timestamp: now },
+    ] as TaskPhaseEntry[];
+  }
+
+  // Live phases state — drives the live timeline shown during active streaming
+  const [livePhases, setLivePhases] = useState<TaskPhaseEntry[]>([]);
 
   // Keyboard shortcut: message history for Up-arrow recall
   // Each entry stores { content, capability } from a sent user message
@@ -134,6 +173,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     const cap = activeCapRef.current;
 
     if (data.type === 'stdout' || data.type === 'stderr') {
+      // Any output means we're actively streaming
+      setLivePhases(buildPhases('Streaming'));
       setTerminalLines((prev) => [
         ...prev,
         {
@@ -158,9 +199,11 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     }
 
     if (data.type === 'result' || data.type === 'completed') {
+      const completedPhases = buildPhasesCompleted();
       setSending(false);
       setStreamUrl(null);
       setHitlRequest(null);
+      setLivePhases([]);
 
       const resultText =
         typeof data.result === 'string'
@@ -175,6 +218,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         timestamp: new Date(),
         task_id: taskId ?? undefined,
         raw: data,
+        phases: completedPhases,
       });
 
       onTrafficEntry({
@@ -190,9 +234,11 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     }
 
     if (data.type === 'failed' || data.type === 'cancelled') {
+      const failedPhases = buildPhasesFailed();
       setSending(false);
       setStreamUrl(null);
       setHitlRequest(null);
+      setLivePhases([]);
 
       const reason =
         (data.error as string) ??
@@ -206,6 +252,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         timestamp: new Date(),
         task_id: taskId ?? undefined,
         retryCapability: cap !== 'orchestrate' ? cap : undefined,
+        phases: failedPhases,
       });
 
       onTrafficEntry({
@@ -253,15 +300,20 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 ? JSON.stringify(rr.data.result, null, 2)
                 : JSON.stringify(rr.data, null, 2);
 
+            const isSuccess = rr.data!.status === 'completed';
+            const fallbackPhases = isSuccess ? buildPhasesCompleted() : buildPhasesFailed();
+            setLivePhases([]);
+
             setMessages((msgs) => [
               ...msgs,
               {
                 id: crypto.randomUUID(),
-                role: rr.data!.status === 'completed' ? 'result' : 'error',
-                content: rr.data!.status === 'completed' ? resultText : `Task ${rr.data!.status}: ${resultText}`,
+                role: isSuccess ? 'result' : 'error',
+                content: isSuccess ? resultText : `Task ${rr.data!.status}: ${resultText}`,
                 timestamp: new Date(),
                 task_id: taskId,
                 raw: rr.data,
+                phases: fallbackPhases,
               } as ChatMessage,
             ]);
 
@@ -271,7 +323,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               agent_id: 'orchestrator',
               action: 'task_result',
               capability: cap,
-              status: rr.data!.status === 'completed' ? 'allowed' : 'escalated',
+              status: isSuccess ? 'allowed' : 'escalated',
               task_id: taskId,
             });
 
@@ -282,6 +334,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
         if (!resolved) {
           // All retries exhausted — task still pending or unreachable
+          setLivePhases([]);
           setMessages((msgs) => [
             ...msgs,
             {
@@ -291,6 +344,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               timestamp: new Date(),
               task_id: taskId,
               retryCapability: cap !== 'orchestrate' ? cap : undefined,
+              phases: buildPhasesFailed(),
             } as ChatMessage,
           ]);
         }
@@ -307,6 +361,13 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     onMessage: handleSSEMessage,
     onComplete: handleSSEComplete,
   });
+
+  // Advance timeline phase when SSE connection opens
+  useEffect(() => {
+    if (sseStatus === 'open' && sending) {
+      setLivePhases(buildPhases('Streaming'));
+    }
+  }, [sseStatus, sending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive spinner label from SSE status
   function sendingLabel(status: SSEStatus): string {
@@ -345,6 +406,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     setSending(true);
     setTerminalLines([]);
     setHitlRequest(null);
+    setLivePhases(buildPhases('Dispatched'));
 
     // Push to sent history (most recent at index 0 after we prepend)
     sentHistoryRef.current = [{ content: msg, capability: capRaw }, ...sentHistoryRef.current].slice(0, 50);
@@ -367,12 +429,14 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     const res = await dispatchTask(cap, msg);
 
     if (!res.ok || !res.data) {
+      setLivePhases([]);
       addMessage({
         role: 'error',
         content: `Dispatch failed: ${res.error ?? `HTTP ${res.status}`}`,
         timestamp: new Date(),
         retryCapability: capRaw || undefined,
         retryMessage: msg,
+        phases: [{ label: 'Dispatched', status: 'failed', timestamp: new Date().toLocaleTimeString() }],
       });
 
       onTrafficEntry({
@@ -412,6 +476,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
     // Connect SSE stream
     setStreamUrl(getTaskStreamUrl(taskId));
+    setLivePhases(buildPhases('Connecting'));
   }
 
   async function handleHITLSubmit(taskId: string, input: string) {
@@ -794,6 +859,14 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
               <p className="text-[10px] text-[var(--color-text-muted)] mt-1.5" data-testid="sending-label">{sendingLabel(sseStatus)}</p>
+              {livePhases.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-[var(--color-border)]">
+                  <TaskTimeline
+                    phases={livePhases}
+                    data-testid="live-task-timeline"
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1066,6 +1139,11 @@ const ChatBubble = memo(function ChatBubble({
               )}
             </div>
             <p className="text-sm text-[var(--color-text)]">{message.content}</p>
+            {message.phases && message.phases.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-red-500/15">
+                <TaskTimeline phases={message.phases} data-testid="error-bubble-timeline" />
+              </div>
+            )}
           </div>
           <RelativeTime
             date={message.timestamp}
@@ -1335,6 +1413,13 @@ const ChatBubble = memo(function ChatBubble({
                     {hiddenLines} lines hidden
                   </span>
                 )}
+              </div>
+            )}
+
+            {/* Task lifecycle timeline — shown at the bottom of result bubbles */}
+            {message.phases && message.phases.length > 0 && (
+              <div className={`mt-2 pt-2 border-t border-[var(--color-border)]`}>
+                <TaskTimeline phases={message.phases} data-testid="result-bubble-timeline" />
               </div>
             )}
           </div>

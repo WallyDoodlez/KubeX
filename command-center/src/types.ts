@@ -93,6 +93,18 @@ export interface TrafficEntry {
 
 export type ChatRole = 'user' | 'system' | 'result' | 'error';
 
+/** A single lifecycle phase recorded during task execution */
+export type TaskPhaseStatus = 'pending' | 'active' | 'done' | 'failed';
+
+export interface TaskPhaseEntry {
+  /** Phase name shown in the timeline stepper */
+  label: string;
+  /** Current status of this phase */
+  status: TaskPhaseStatus;
+  /** ISO timestamp when this phase started/completed (optional) */
+  timestamp?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: ChatRole;
@@ -106,6 +118,8 @@ export interface ChatMessage {
   retryCapability?: string;
   /** Original message text used when the task was dispatched — enables retry on error bubbles */
   retryMessage?: string;
+  /** Task lifecycle phases — populated on result/error bubbles to show execution timeline */
+  phases?: TaskPhaseEntry[];
 }
 
 // ── SSE streaming ───────────────────────────────────────────────────
