@@ -32,6 +32,12 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [knownCaps, setKnownCaps] = useState<string[]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll state
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const autoScrollRef = useRef(true); // mirror of autoScroll, readable in scroll handler without stale closure
 
   // Chat search / filter state
   const [chatSearch, setChatSearch] = useState('');
@@ -58,10 +64,44 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     loadCaps();
   }, [loadCaps]);
 
-  // Auto-scroll on new messages
+  // Auto-scroll on new messages (only when locked to bottom)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (autoScrollRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setHasNewMessages(false);
+    } else {
+      // User has scrolled up — show FAB to signal new messages
+      setHasNewMessages(true);
+    }
   }, [messages]);
+
+  // Keep ref in sync with state (avoids stale closure in scroll listener)
+  useEffect(() => {
+    autoScrollRef.current = autoScroll;
+  }, [autoScroll]);
+
+  // Scroll event: disengage auto-scroll when user scrolls up; re-engage at bottom
+  const handleScrollContainer = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = distFromBottom < 40; // 40px threshold
+    if (atBottom && !autoScrollRef.current) {
+      setAutoScroll(true);
+      autoScrollRef.current = true;
+      setHasNewMessages(false);
+    } else if (!atBottom && autoScrollRef.current) {
+      setAutoScroll(false);
+      autoScrollRef.current = false;
+    }
+  }, []);
+
+  function scrollToBottomAndLock() {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setAutoScroll(true);
+    autoScrollRef.current = true;
+    setHasNewMessages(false);
+  }
 
   function addMessage(msg: Omit<ChatMessage, 'id'>) {
     const id = crypto.randomUUID();
@@ -437,6 +477,32 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           <option value="system">System</option>
         </select>
 
+        {/* Auto-scroll toggle */}
+        <button
+          data-testid="autoscroll-toggle"
+          onClick={() => {
+            if (!autoScroll) {
+              scrollToBottomAndLock();
+            } else {
+              setAutoScroll(false);
+              autoScrollRef.current = false;
+            }
+          }}
+          title={autoScroll ? 'Auto-scroll on — click to disable' : 'Auto-scroll off — click to re-enable'}
+          aria-label={autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}
+          aria-pressed={autoScroll}
+          className={`
+            flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] border transition-colors
+            ${autoScroll
+              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+              : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+            }
+          `}
+        >
+          <span aria-hidden="true">{autoScroll ? '🔒' : '🔓'}</span>
+          <span className="hidden sm:inline">{autoScroll ? 'Scroll lock' : 'Scroll free'}</span>
+        </button>
+
         {/* Match count / clear filters */}
         {isFiltering && (
           <div className="flex items-center gap-2 ml-auto">
@@ -458,8 +524,33 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         )}
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-4 space-y-3">
+      {/* Messages — relative container so the FAB can be positioned inside it */}
+      <div className="relative flex-1 overflow-hidden">
+        {/* Scroll-to-bottom FAB — shown when auto-scroll is off and new messages arrived */}
+        {!autoScroll && hasNewMessages && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none flex justify-center">
+            <button
+              data-testid="scroll-to-bottom-fab"
+              onClick={scrollToBottomAndLock}
+              aria-label="Scroll to bottom and re-enable auto-scroll"
+              className="
+                pointer-events-auto
+                flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-lg
+                bg-emerald-500 text-white hover:bg-emerald-400 active:bg-emerald-600
+                border border-emerald-400/50
+                transition-all animate-fade-in
+              "
+            >
+              <span aria-hidden="true">↓</span>
+              New messages
+            </button>
+          </div>
+        )}
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScrollContainer}
+          className="h-full overflow-y-auto scrollbar-thin px-6 py-4 space-y-3"
+        >
         {filteredMessages.map((msg) => (
           <ChatBubble key={msg.id} message={msg} />
         ))}
@@ -536,7 +627,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           </div>
         )}
         <div ref={bottomRef} />
-      </div>
+        </div>{/* end scrollContainer */}
+      </div>{/* end relative wrapper */}
 
       {/* Input area */}
       <div className="flex-shrink-0 border-t border-[var(--color-border)] bg-[var(--color-surface-dark)] p-4">

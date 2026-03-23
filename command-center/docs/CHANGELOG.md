@@ -4,6 +4,25 @@
 
 ---
 
+## Iteration 46: Auto-scroll toggle with scroll-to-bottom FAB
+
+**Files modified:** `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/autoscroll.spec.ts`
+
+**Changes:**
+- Added `autoScroll` boolean state (default `true`) and `hasNewMessages` boolean state to `OrchestratorChat`. A `useRef` mirror (`autoScrollRef`) allows the scroll event handler to read the current auto-scroll state without a stale closure.
+- Added `scrollContainerRef` pointing to the messages scroll container and an `onScroll` handler (`handleScrollContainer`) that detects when the user scrolls up (distance from bottom > 40px) and disengages auto-scroll, or re-engages it when the user manually scrolls back to the bottom.
+- Modified the `useEffect` that watches `messages` — it now only calls `scrollIntoView` when `autoScrollRef.current` is `true`. When auto-scroll is off, it sets `hasNewMessages = true` instead.
+- Added `scrollToBottomAndLock()` helper that scrolls to bottom, re-engages auto-scroll, and clears `hasNewMessages`.
+- Added **auto-scroll toggle button** (`data-testid="autoscroll-toggle"`) to the chat toolbar, right after the role filter. Uses `aria-pressed` to reflect current state, `aria-label` for screen readers, and a `title` tooltip. Styled with `var(--color-*)` tokens — emerald tint when locked, muted border when free. Label text: "Scroll lock" / "Scroll free" (hidden on narrow viewports via `sm:inline`).
+- Added a **floating action button** (`data-testid="scroll-to-bottom-fab"`) rendered inside a `relative flex-1 overflow-hidden` wrapper around the messages scroll area. The FAB is absolutely positioned at the bottom-center and only rendered when `!autoScroll && hasNewMessages`. Clicking it calls `scrollToBottomAndLock()`. Styled as an emerald pill button with `animate-fade-in`.
+- Messages scroll container moved from `flex-1 overflow-y-auto` directly on the outer div to a nested `ref={scrollContainerRef}` div inside the relative wrapper, preserving all existing padding/spacing behaviour.
+- Created `tests/e2e/autoscroll.spec.ts` with 15 tests covering: toggle presence, aria-pressed default, click-to-disable, click-to-re-enable, label text changes, FAB absence on load, FAB absence with many messages when auto-scroll is on, toggle keyboard accessibility via Enter key, title attribute presence.
+
+**Tests:** 748 total — 747 passed / 1 skipped / 0 failures. Build clean.
+
+---
+
 ## Iteration 45: Mermaid diagram rendering in result bubbles
 
 **Files modified:** `src/components/OrchestratorChat.tsx`, `package.json`, `package-lock.json`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

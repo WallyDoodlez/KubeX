@@ -4,6 +4,18 @@
 
 ---
 
+- [x] **Iteration 46: Auto-scroll toggle with scroll-to-bottom FAB**
+  - [x] Add `autoScroll` boolean state (default `true`) — when true, chat snaps to bottom on new messages; when false, position is preserved.
+  - [x] Detect when the user manually scrolls up (scroll event on messages container) and automatically disengage auto-scroll (`autoScroll → false`).
+  - [x] Add a floating action button (FAB) "↓ New messages" that appears only when `autoScroll` is false AND new messages have arrived since the user scrolled away. Clicking it scrolls to bottom and re-engages auto-scroll.
+  - [x] Add a lock/unlock auto-scroll toggle button in the chat toolbar (next to role filter). Icon switches between a lock-closed (auto-scroll on) and lock-open (auto-scroll off) state with tooltip.
+  - [x] Re-engage auto-scroll automatically when the user manually scrolls back to the bottom of the container.
+  - [x] All new elements use `data-testid` attributes and `var(--color-*)` theming.
+  - [x] E2E tests: auto-scroll toggle button renders; FAB appears when scrolled up and new message arrives; FAB click scrolls to bottom; scroll to bottom re-engages lock.
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 747 passed, 1 skipped
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 42: Unified chat input — hide capability selector behind Advanced toggle**
   - [x] Redesign input area: single message box, no prominent "Capability" field. Send button enabled with just a message.
   - [x] Add collapsible "Advanced" toggle below the input that reveals capability selector (datalist + known caps chips). Collapsed by default.
