@@ -154,7 +154,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // SSE complete / error → fallback to single getTaskResult poll
+  // SSE complete / error → fallback retry loop (3-5 attempts at 2s intervals)
   const handleSSEComplete = useCallback(async () => {
     const taskId = activeTaskIdRef.current;
     const cap = activeCapRef.current;
@@ -164,50 +164,70 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     // (sending will be false if SSE already handled it)
     setSending((prev) => {
       if (!prev) return prev; // already done
-      // Kick off fallback fetch
+      // Kick off fallback retry loop
       (async () => {
-        const rr = await getTaskResult(taskId);
-        if (rr.ok && rr.data) {
-          const resultText =
-            typeof rr.data.result === 'string'
-              ? rr.data.result
-              : rr.data.result !== undefined
-              ? JSON.stringify(rr.data.result, null, 2)
-              : JSON.stringify(rr.data, null, 2);
+        const MAX_ATTEMPTS = 4;
+        const RETRY_INTERVAL_MS = 2000;
+        let resolved = false;
 
-          setMessages((msgs) => [
-            ...msgs,
-            {
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          if (attempt > 1) {
+            // Wait before retrying
+            await new Promise<void>((res) => setTimeout(res, RETRY_INTERVAL_MS));
+          }
+
+          const rr = await getTaskResult(taskId);
+
+          // If the task completed (or failed/cancelled with a result), surface it
+          if (rr.ok && rr.data && (rr.data.status === 'completed' || rr.data.status === 'failed' || rr.data.status === 'cancelled')) {
+            const resultText =
+              typeof rr.data.result === 'string'
+                ? rr.data.result
+                : rr.data.result !== undefined
+                ? JSON.stringify(rr.data.result, null, 2)
+                : JSON.stringify(rr.data, null, 2);
+
+            setMessages((msgs) => [
+              ...msgs,
+              {
+                id: crypto.randomUUID(),
+                role: rr.data!.status === 'completed' ? 'result' : 'error',
+                content: rr.data!.status === 'completed' ? resultText : `Task ${rr.data!.status}: ${resultText}`,
+                timestamp: new Date(),
+                task_id: taskId,
+                raw: rr.data,
+              } as ChatMessage,
+            ]);
+
+            onTrafficEntry({
               id: crypto.randomUUID(),
-              role: 'result',
-              content: resultText,
               timestamp: new Date(),
+              agent_id: 'orchestrator',
+              action: 'task_result',
+              capability: cap,
+              status: rr.data!.status === 'completed' ? 'allowed' : 'escalated',
               task_id: taskId,
-              raw: rr.data,
-            } as ChatMessage,
-          ]);
+            });
 
-          onTrafficEntry({
-            id: crypto.randomUUID(),
-            timestamp: new Date(),
-            agent_id: 'orchestrator',
-            action: 'task_result',
-            capability: cap,
-            status: rr.data!.status === 'completed' ? 'allowed' : 'escalated',
-            task_id: taskId,
-          });
-        } else {
+            resolved = true;
+            break;
+          }
+        }
+
+        if (!resolved) {
+          // All retries exhausted — task still pending or unreachable
           setMessages((msgs) => [
             ...msgs,
             {
               id: crypto.randomUUID(),
               role: 'error',
-              content: `Stream ended without result for task ${taskId}. Check status later.`,
+              content: `Stream ended without result for task ${taskId}. The task may still be running — check Task History for its status.`,
               timestamp: new Date(),
               task_id: taskId,
             } as ChatMessage,
           ]);
         }
+
         setStreamUrl(null);
         setHitlRequest(null);
       })();
