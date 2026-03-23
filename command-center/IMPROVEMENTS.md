@@ -23,13 +23,13 @@
   - [x] Test: npx playwright test — all pass
   - [x] Update `docs/CHANGELOG.md`
 
-- [ ] **Iteration 44: Typing indicator + welcome empty state**
-  - [ ] Replace `⟳ Streaming…` text with animated typing indicator (three dots in a bubble, left-aligned like a result message).
-  - [ ] Improve empty state: centered welcome with clickable example prompts (e.g., "Summarize recent logs", "Check system health") that auto-fill the input.
-  - [ ] E2E tests: typing indicator visible during send, welcome prompts visible on empty chat, clicking a prompt fills the input.
-  - [ ] Build: npm run build — clean
-  - [ ] Test: npx playwright test — all pass
-  - [ ] Update `docs/CHANGELOG.md`
+- [x] **Iteration 44: Typing indicator + welcome empty state**
+  - [x] Replace `⟳ Streaming…` text with animated typing indicator (three dots in a bubble, left-aligned like a result message).
+  - [x] Improve empty state: centered welcome with clickable example prompts (e.g., "Summarize recent logs", "Check system health") that auto-fill the input.
+  - [x] E2E tests: typing indicator visible during send, welcome prompts visible on empty chat, clicking a prompt fills the input.
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — all pass
+  - [x] Update `docs/CHANGELOG.md`
 
 - [x] **Iteration 40: Test Coverage Gaps and Critical Bug Fixes**
   - [x] Diagnose root cause of 35+ test failures across `settings.spec.ts` and `onboarding-tour.spec.ts`

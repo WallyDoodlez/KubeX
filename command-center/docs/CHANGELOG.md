@@ -4,6 +4,21 @@
 
 ---
 
+## Iteration 44: Typing indicator + welcome empty state
+
+**Files modified:** `src/components/OrchestratorChat.tsx`, `tests/e2e/copy-button.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/typing-indicator.spec.ts`
+
+**Changes:**
+- Replaced the `⟳ Streaming…` sending indicator with an animated three-dot typing bubble. The bubble uses `rounded-2xl rounded-tl-sm` styling matching result bubbles, left-aligned via `flex justify-start`. Three `span` elements with `bg-emerald-400 animate-bounce` and staggered `animationDelay` (0ms / 150ms / 300ms) create the visual effect. The `sendingLabel(sseStatus)` text is preserved as a small muted `<p>` below the dots (`data-testid="sending-label"`). The container has `data-testid="typing-indicator"`.
+- Added welcome empty state inside the messages scroll area. Shown when `messages.length <= 1` (only the system welcome message exists) and `!isFiltering`. Renders a centered heading "What can I help you with?", sub-text, and a 2-column grid of 4 prompt buttons (`data-testid="welcome-prompt-button"`): "Summarize recent logs", "Check system health", "List running agents", "Deploy a service". Clicking a button calls `setMessage(prompt.label)` to fill the textarea — the user still clicks Send. The container has `data-testid="chat-welcome"`.
+- Fixed `tests/e2e/copy-button.spec.ts` — replaced ambiguous `.flex.flex-col.h-full` selector (now resolves to 2 elements: the chat container and the new welcome div) with `[data-testid="message-input"]`.
+- Created `tests/e2e/typing-indicator.spec.ts` with 16 tests: welcome section visible on fresh chat; heading text exact match; sub-text contains "orchestrator"; prompts container present; exactly 4 prompt buttons; each prompt fills the textarea correctly; welcome hidden when messages.length > 1; welcome hidden when chat-search filter active; welcome hidden when role filter active; typing indicator absent on page load; typing indicator absent when not sending; typing indicator shows 3 dot spans when sending; sending label present and non-empty when sending.
+
+**Tests:** 726 total — 722 passed / 1 skipped / 3 flaky pre-existing failures in `query-params.spec.ts` and `system-status.spec.ts` (timing-sensitive under parallel worker load, unrelated to this iteration, pass when run in isolation). Build clean (573 modules, no TypeScript errors).
+
+---
+
 ## Iteration 43: Markdown rendering for result bubbles
 
 **Files modified:** `src/components/OrchestratorChat.tsx`, `package.json`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
