@@ -20,9 +20,15 @@
 
 ## Open Bugs
 
+_(None — all known bugs fixed)_
+
+---
+
+## Fixed Bugs
+
 ### BUG-001: OrchestratorChat shows no response after task dispatch
 - **Severity:** P1
-- **Status:** OPEN
+- **Status:** FIXED
 - **Found:** 2026-03-23
 - **Component:** `src/components/OrchestratorChat.tsx`
 - **Description:** When dispatching a task (e.g. `knowledge_management` + "test"), the chat shows "Streaming..." but never displays the result. The task actually completes on the backend but the frontend misses it.
@@ -36,14 +42,9 @@
   4. Observe: spinner shows "Streaming..." then "Waiting for result..." then nothing
   5. Meanwhile, `curl http://localhost:8080/tasks/{id}/result` returns the completed result
 - **Backend fix (DONE):** Gateway SSE endpoint `stream_task_progress` now also breaks on `final: true` in addition to `type: "result"`. This means the SSE stream properly closes when an agent finishes its task. File: `services/gateway/gateway/main.py` line 701.
-- **Fix still needed (frontend):** The retry loop in `handleSSEComplete` is still recommended as a safety net — if SSE disconnects before the final event (network hiccup, timeout), the frontend should retry `getTaskResult` 3-5 times at 2s intervals before giving up.
-- **Workaround:** Refresh the page and check traffic log — the dispatch entry is recorded
-
----
-
-## Fixed Bugs
-
-_(None yet — move bugs here when fixed, include commit hash)_
+- **Frontend fix (DONE):** Replaced single `getTaskResult` fetch in `handleSSEComplete` with a 4-attempt retry loop at 2-second intervals. Loop exits early when task reaches a terminal status (`completed`/`failed`/`cancelled`); surfaces error message only after all retries are exhausted.
+- **Workaround:** N/A — fixed
+- **Fixed in:** 16bdd8b
 
 ---
 

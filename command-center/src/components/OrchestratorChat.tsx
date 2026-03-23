@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import CopyButton from './CopyButton';
 import { dispatchTask, getTaskResult, getAgents, getTaskStreamUrl, provideInput } from '../api';
 import type { ChatMessage, TrafficEntry, Agent } from '../types';
@@ -26,6 +26,11 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [msgError, setMsgError] = useState<string | null>(null);
   const [knownCaps, setKnownCaps] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Chat search / filter state
+  const [chatSearch, setChatSearch] = useState('');
+  const [chatRoleFilter, setChatRoleFilter] = useState<'all' | 'user' | 'result' | 'error' | 'system'>('all');
+  const isFiltering = chatSearch.trim() !== '' || chatRoleFilter !== 'all';
 
   // SSE state
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
@@ -342,15 +347,116 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     }
   }
 
+  // Filtered messages for search / role filter
+  const filteredMessages = useMemo(() => {
+    const needle = chatSearch.trim().toLowerCase();
+    return messages.filter((m) => {
+      const roleMatch = chatRoleFilter === 'all' || m.role === chatRoleFilter;
+      const textMatch = needle === '' || m.content.toLowerCase().includes(needle) || (m.task_id ?? '').toLowerCase().includes(needle);
+      return roleMatch && textMatch;
+    });
+  }, [messages, chatSearch, chatRoleFilter]);
+
   const isStreaming = streamUrl !== null && (sseStatus === 'connecting' || sseStatus === 'open');
 
   return (
     <div className="flex flex-col h-full animate-fade-in" style={{ maxHeight: 'calc(100vh - 48px)' }}>
+      {/* Search / filter toolbar */}
+      <div
+        data-testid="chat-search-toolbar"
+        className="flex-shrink-0 flex items-center gap-2 px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-surface-dark)]"
+      >
+        {/* Search input */}
+        <div className="relative flex-1 max-w-xs">
+          <input
+            type="text"
+            data-testid="chat-search-input"
+            value={chatSearch}
+            onChange={(e) => setChatSearch(e.target.value)}
+            placeholder="Search messages…"
+            aria-label="Search chat messages"
+            className="
+              w-full pl-7 pr-7 py-1.5 rounded-lg text-xs
+              bg-[var(--color-surface)] border border-[var(--color-border)]
+              text-[var(--color-text)] placeholder-[var(--color-text-muted)]
+              focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20
+              transition-colors
+            "
+          />
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] text-xs pointer-events-none" aria-hidden="true">
+            ⌕
+          </span>
+          {chatSearch && (
+            <button
+              onClick={() => setChatSearch('')}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-dim)] hover:text-[var(--color-text)] text-xs transition-colors"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Role filter */}
+        <select
+          data-testid="chat-role-filter"
+          value={chatRoleFilter}
+          onChange={(e) => setChatRoleFilter(e.target.value as typeof chatRoleFilter)}
+          aria-label="Filter by message type"
+          className="
+            text-xs px-2 py-1.5 rounded-lg
+            bg-[var(--color-surface)] border border-[var(--color-border)]
+            text-[var(--color-text)]
+            focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20
+            transition-colors cursor-pointer
+          "
+        >
+          <option value="all">All types</option>
+          <option value="user">User</option>
+          <option value="result">Results</option>
+          <option value="error">Errors</option>
+          <option value="system">System</option>
+        </select>
+
+        {/* Match count / clear filters */}
+        {isFiltering && (
+          <div className="flex items-center gap-2 ml-auto">
+            <span
+              data-testid="chat-filter-match-count"
+              className="text-[10px] text-[var(--color-text-muted)] font-mono-data"
+            >
+              {filteredMessages.length} / {messages.length}
+            </span>
+            <button
+              data-testid="chat-filter-clear"
+              onClick={() => { setChatSearch(''); setChatRoleFilter('all'); }}
+              className="text-[10px] text-[var(--color-text-dim)] hover:text-emerald-400 transition-colors"
+              aria-label="Clear all filters"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-4 space-y-3">
-        {messages.map((msg) => (
+        {filteredMessages.map((msg) => (
           <ChatBubble key={msg.id} message={msg} />
         ))}
+
+        {/* Empty state when filters are active but nothing matches */}
+        {isFiltering && filteredMessages.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-10 text-center" data-testid="chat-no-results">
+            <p className="text-sm text-[var(--color-text-dim)]">No messages match your filter.</p>
+            <button
+              onClick={() => { setChatSearch(''); setChatRoleFilter('all'); }}
+              className="mt-2 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
 
         {/* Live terminal output while streaming */}
         {(isStreaming || terminalLines.length > 0) && !sending === false && (
