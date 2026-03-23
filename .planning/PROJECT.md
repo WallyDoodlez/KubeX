@@ -41,7 +41,7 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 - [x] MCP Bridge — orchestrator coordinates workers via MCP protocol with policy-gated vault tools and live agent discovery — Phase 8 (v1.2)
 - [ ] CLI Runtime — any CLI agent (Claude Code, Codex, Gemini CLI) runs in PTY inside Kubex containers
 - [ ] Bidirectional MCP — harness is MCP server for CLI reporting (fallback for CLIs without hooks)
-- [ ] Hooks-based monitoring — passive instrumentation via CLI hooks where supported
+- [x] Hooks-based monitoring — passive instrumentation via CLI hooks where supported — Phase 10 (v1.2)
 - [ ] OAuth provisioning — web-based flow via Command Center, token injected at spawn
 - [ ] Lifecycle events — container/CLI/task state tracking and reporting
 
