@@ -4,6 +4,26 @@
 
 ---
 
+## Iteration 54: Multi-line auto-grow textarea
+
+**Files modified:** `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/autogrow-textarea.spec.ts`
+
+**Changes:**
+- Upgraded the message textarea in `OrchestratorChat.tsx` from a fixed 2-row element to an auto-growing textarea:
+  - Added `textareaRef` (`useRef<HTMLTextAreaElement>`) to the component.
+  - Added `adjustTextareaHeight` callback: sets `height = 'auto'` to collapse, then clamps `scrollHeight` between `MIN_HEIGHT_PX` (2 rows ≈ 64px) and `MAX_HEIGHT_PX` (8 rows ≈ 208px).
+  - Called `adjustTextareaHeight()` on every `onChange` so the element grows as the user types.
+  - Added a `useEffect` on `message === ''` to reset the textarea to `MIN_HEIGHT_PX` after send or clear — no leftover expanded height.
+  - Removed the fixed `rows={2}` attribute; replaced with inline `style` that sets `minHeight`, `maxHeight`, `height`, and `overflowY: auto` so a scrollbar appears when content exceeds the cap.
+  - Kept `resize-none` CSS class — manual user resizing remains disabled.
+  - All existing keyboard shortcuts (Ctrl+Enter, Escape, Up/Down history) continue to work unchanged.
+  - All styling continues to use `var(--color-*)` CSS custom properties.
+
+**Tests:** 12 new E2E tests in `tests/e2e/autogrow-textarea.spec.ts` covering: textarea presence, initial minimum height, single-line no-grow, multi-line growth, 8-row cap, Escape reset, post-send reset, placeholder visibility, disabled state, Ctrl+Enter submit, resize-none computed style, overflowY auto. Full suite: 830 passed (new: 12) / 16 pre-existing containers failures (unrelated). Build clean.
+
+---
+
 ## Iteration 53: Message reactions / feedback
 
 **Files modified:** `src/types.ts`, `src/components/OrchestratorChat.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

@@ -4,6 +4,19 @@
 
 ---
 
+- [x] **Iteration 54: Multi-line auto-grow textarea**
+  - [x] Remove fixed `rows={2}` from the message textarea in `OrchestratorChat.tsx` (resize-none kept intentionally).
+  - [x] Add `textareaRef` (`useRef<HTMLTextAreaElement>`) and `adjustTextareaHeight` callback that sets `height = 'auto'` then clamps scrollHeight between `MIN_HEIGHT_PX` (2 rows) and `MAX_HEIGHT_PX` (8 rows).
+  - [x] Call `adjustTextareaHeight` on every `onChange`.
+  - [x] `useEffect` on `message === ''` resets height to min after send or clear — no leftover height.
+  - [x] Inline `style` sets `minHeight`, `maxHeight`, `height`, and `overflowY: auto` on the textarea element.
+  - [x] All existing `onKeyDown`, `disabled`, placeholder, and CSS custom property tokens unchanged.
+  - [x] `data-testid="message-input"` already present — not duplicated.
+  - [x] Create `tests/e2e/autogrow-textarea.spec.ts` — 12 tests covering all growth/reset/cap/keyboard scenarios.
+  - [x] Build: npm run build — clean
+  - [x] Test: 12/12 new tests passed; 830 total passed (16 pre-existing containers failures unchanged)
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 53: Message reactions / feedback**
   - [x] Add `feedback?: 'up' | 'down' | null` field to `ChatMessage` interface in `src/types.ts`.
   - [x] Create `MessageFeedback` memo component inline in `OrchestratorChat.tsx` — thumbs up (👍) and thumbs down (👎) buttons on result bubbles.

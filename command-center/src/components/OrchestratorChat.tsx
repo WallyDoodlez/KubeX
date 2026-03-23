@@ -35,6 +35,32 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Auto-grow textarea
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Approximate pixel heights for min/max row counts (1.5rem line-height + 0.5rem padding each side)
+  const LINE_HEIGHT_PX = 24; // 1.5rem at 16px base
+  const TEXTAREA_PADDING_PX = 16; // 0.5rem top + 0.5rem bottom → total 8px; add border rounding ≈ 16px
+  const MIN_HEIGHT_PX = LINE_HEIGHT_PX * 2 + TEXTAREA_PADDING_PX; // ~64px — 2 rows
+  const MAX_HEIGHT_PX = LINE_HEIGHT_PX * 8 + TEXTAREA_PADDING_PX; // ~208px — 8 rows
+
+  const adjustTextareaHeight = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto'; // collapse to measure scrollHeight
+    const clamped = Math.min(Math.max(el.scrollHeight, MIN_HEIGHT_PX), MAX_HEIGHT_PX);
+    el.style.height = `${clamped}px`;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset textarea height to min when message is cleared (after send or explicit clear)
+  useEffect(() => {
+    if (message === '') {
+      const el = textareaRef.current;
+      if (el) {
+        el.style.height = `${MIN_HEIGHT_PX}px`;
+      }
+    }
+  }, [message]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-scroll state
   const [autoScroll, setAutoScroll] = useState(true);
   const [hasNewMessages, setHasNewMessages] = useState(false);
@@ -881,17 +907,19 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           {/* Message input */}
           <div className="flex-1">
             <textarea
+              ref={textareaRef}
               data-testid="message-input"
               value={message}
               onChange={(e) => {
                 setMessage(e.target.value);
                 const result = validateMessage(e.target.value);
                 setMsgError(e.target.value.trim() ? (result.valid ? null : result.error ?? null) : null);
+                adjustTextareaHeight();
               }}
               onKeyDown={handleKeyDown}
               placeholder="Message the orchestrator… (Ctrl+Enter to send)"
               disabled={sending}
-              rows={2}
+              style={{ minHeight: `${MIN_HEIGHT_PX}px`, maxHeight: `${MAX_HEIGHT_PX}px`, height: `${MIN_HEIGHT_PX}px`, overflowY: 'auto' }}
               className="
                 w-full px-3 py-2 rounded-lg text-sm resize-none
                 bg-[var(--color-surface)] border border-[var(--color-border)]
