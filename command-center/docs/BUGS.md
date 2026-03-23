@@ -27,7 +27,7 @@
 - **Component:** `src/components/OrchestratorChat.tsx`
 - **Description:** When dispatching a task (e.g. `knowledge_management` + "test"), the chat shows "Streaming..." but never displays the result. The task actually completes on the backend but the frontend misses it.
 - **Root cause:** Two issues:
-  1. The SSE stream (`/tasks/{id}/stream`) returns empty — the agent writes its result directly to Redis without publishing progress events to the `progress:{task_id}` pub/sub channel. So EventSource gets no `data:` frames.
+  1. ~~The SSE stream (`/tasks/{id}/stream`) returns empty — the agent writes its result directly to Redis without publishing progress events to the `progress:{task_id}` pub/sub channel. So EventSource gets no `data:` frames.~~ **WRONG — agents DO publish progress events.** The real issue: agents send `{final: true}` on completion, but the SSE endpoint only checked for `{type: "result"}` which agents never send. So progress chunks arrived fine but the stream never terminated.
   2. The fallback in `handleSSEComplete` does only **one** `getTaskResult` fetch. If the task hasn't completed by that moment, the result is lost. No retry loop.
 - **Reproduction:**
   1. Go to /chat
@@ -35,8 +35,8 @@
   3. Click Send
   4. Observe: spinner shows "Streaming..." then "Waiting for result..." then nothing
   5. Meanwhile, `curl http://localhost:8080/tasks/{id}/result` returns the completed result
-- **Fix needed (frontend):** Add a retry loop (3-5 attempts, 2s interval) in `handleSSEComplete` fallback before giving up
-- **Fix needed (backend):** Agents should publish progress events to `progress:{task_id}` Redis channel so SSE actually streams data
+- **Backend fix (DONE):** Gateway SSE endpoint `stream_task_progress` now also breaks on `final: true` in addition to `type: "result"`. This means the SSE stream properly closes when an agent finishes its task. File: `services/gateway/gateway/main.py` line 701.
+- **Fix still needed (frontend):** The retry loop in `handleSSEComplete` is still recommended as a safety net — if SSE disconnects before the final event (network hiccup, timeout), the frontend should retry `getTaskResult` 3-5 times at 2s intervals before giving up.
 - **Workaround:** Refresh the page and check traffic log — the dispatch entry is recorded
 
 ---

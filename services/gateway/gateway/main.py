@@ -698,6 +698,8 @@ async def stream_task_progress(task_id: str, request: Request) -> StreamingRespo
                     data = json.loads(message["data"])
                     if data.get("type") in ("result", "cancelled", "failed"):
                         break
+                    if data.get("final") is True:
+                        break
         finally:
             await pubsub.unsubscribe(channel)
             await pubsub.aclose()
