@@ -75,7 +75,8 @@ async function dispatchAndGetResult(page: import('@playwright/test').Page) {
   await expect(page.locator('[data-testid="result-bubble"]')).toBeVisible({ timeout: 10_000 });
 }
 
-test.describe('OrchestratorChat — message feedback reactions (Iteration 53)', () => {
+// DISABLED: MessageFeedback UI removed — awaiting POST /tasks/{id}/feedback backend endpoint
+test.describe.skip('OrchestratorChat — message feedback reactions (Iteration 53)', () => {
   test.beforeEach(async ({ page }) => {
     await setupRoutes(page);
     await page.goto('/chat');

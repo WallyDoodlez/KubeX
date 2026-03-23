@@ -1850,8 +1850,8 @@ const ChatBubble = memo(function ChatBubble({
               <AuditTrail taskId={message.task_id} />
             )}
 
-            {/* Message feedback — thumbs up/down, persisted in localStorage */}
-            <MessageFeedback messageId={message.id} />
+            {/* DISABLED: awaiting POST /tasks/{id}/feedback backend endpoint */}
+            {/* <MessageFeedback messageId={message.id} /> */}
           </div>
           <RelativeTime
             date={message.timestamp}
