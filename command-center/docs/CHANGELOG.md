@@ -4,6 +4,21 @@
 
 ---
 
+## Iteration 45: Mermaid diagram rendering in result bubbles
+
+**Files modified:** `src/components/OrchestratorChat.tsx`, `package.json`, `package-lock.json`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `src/components/MermaidBlock.tsx`, `tests/e2e/mermaid-rendering.spec.ts`
+
+**Changes:**
+- Installed `mermaid` package (126 packages added).
+- Created `MermaidBlock` component (`src/components/MermaidBlock.tsx`): React.memo-wrapped component that calls `mermaid.render()` asynchronously to produce an SVG. Shows a loading state (animated `⟳` spinner) while rendering. On success, renders the SVG via `dangerouslySetInnerHTML` inside a `data-testid="mermaid-diagram"` container with `overflow-x-auto`. On failure, renders a `data-testid="mermaid-fallback"` container showing the raw code text with a "Diagram render failed" label. Configured with `securityLevel: 'strict'` to prevent HTML injection, dark theme with emerald-500 primary color matching app design tokens.
+- Updated `OrchestratorChat.tsx`: imported `MermaidBlock` and added early return in the `code` component renderer — when `className` matches `language-mermaid`, renders `<MermaidBlock code={...} />` instead of the default `<code>` element. All other code blocks continue to use existing rehype-highlight rendering.
+- Created `tests/e2e/mermaid-rendering.spec.ts` with 7 tests: valid mermaid block renders `mermaid-diagram` container; container contains `<svg>`; SVG has `viewBox` or `width` attribute; invalid mermaid shows `mermaid-fallback`; fallback contains raw code text; `mermaid-diagram` has `overflow-x-auto` class; non-mermaid code blocks still render as `<pre><code>` alongside mermaid diagrams.
+
+**Tests:** 733 total — 732 passed / 1 skipped / 0 failures. Build clean (2441 modules, no TypeScript errors). Mermaid chunk size warning is expected given the library's scope.
+
+---
+
 ## Iteration 44: Typing indicator + welcome empty state
 
 **Files modified:** `src/components/OrchestratorChat.tsx`, `tests/e2e/copy-button.spec.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
