@@ -46,6 +46,23 @@ _(None — all known bugs fixed)_
 - **Workaround:** N/A — fixed
 - **Fixed in:** 16bdd8b
 
+### BUG-002: Manager bind-mount paths use container-internal paths instead of host paths
+- **Severity:** P0 — prevents all spawned containers from booting on Windows/Mac
+- **Status:** FIXED (2026-03-23)
+- **Found:** 2026-03-23
+- **Component:** `services/kubex-manager/lifecycle.py`
+- **Description:** Containers spawned by the Manager crash immediately on Windows/Mac with `IsADirectoryError: [Errno 21] Is a directory: '/app/config.yaml'`. Docker creates empty directories when a bind-mount source path does not exist on the host.
+- **Root cause:** The Manager runs inside Docker at `/app/`. When calling `docker.containers.create()`, it passed its own container-internal paths (e.g., `/app/configs/agent.yaml`) as bind-mount source paths. Docker needs HOST paths — on Windows/Mac the host filesystem does not have an `/app/` hierarchy, so Docker silently creates empty mount directories instead of mounting the intended files.
+- **Affected locations:** All 4 bind-mount locations in `lifecycle.py`: config YAML mount, credentials mount, skill mounts, and hook settings mount.
+- **Fix:** Added `_to_host_path()` helper function and `KUBEX_HOST_PROJECT_DIR` environment variable. At spawn time, any bind-mount source starting with `/app/` is translated to `${KUBEX_HOST_PROJECT_DIR}/...` so Docker receives the correct host-side absolute path.
+- **Reproduction:**
+  1. Run the stack on Windows or Mac
+  2. Dispatch a task to any capability
+  3. Observe: Manager spawns a container that immediately exits
+  4. `docker logs <container>` shows `IsADirectoryError: [Errno 21] Is a directory: '/app/config.yaml'`
+- **Workaround:** None — all agent spawns fail without this fix on non-Linux hosts.
+- **Fixed in:** See `git log --oneline --grep="host path"` for relevant commits
+
 ---
 
 ## Template
