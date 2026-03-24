@@ -38,6 +38,9 @@ def _to_host_path(container_path: str) -> str:
     not the Manager's internal filesystem. KUBEX_HOST_PROJECT_DIR maps /app
     to the host project root.
 
+    Docker requires absolute paths for bind mount sources — relative paths
+    are interpreted as named volumes and rejected if they contain slashes.
+
     Falls back to the container path if env var is not set (works on Linux
     when paths happen to match).
     """
@@ -46,8 +49,13 @@ def _to_host_path(container_path: str) -> str:
         return container_path
     # Replace /app/ prefix with host root
     if container_path.startswith("/app/"):
-        return os.path.join(host_root, container_path[5:])  # skip "/app/"
-    return container_path
+        result = os.path.join(host_root, container_path[5:])  # skip "/app/"
+    else:
+        result = container_path
+    # Docker bind mounts require absolute paths; resolve relative ones
+    if not os.path.isabs(result):
+        result = os.path.abspath(result)
+    return result
 
 
 # ---------------------------------------------------------------------------

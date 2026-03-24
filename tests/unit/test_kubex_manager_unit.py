@@ -1491,6 +1491,19 @@ class TestToHostPath:
         assert "configs" in result
         assert "test.yaml" in result
 
+    def test_relative_host_path_resolved_to_absolute(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Relative KUBEX_HOST_PROJECT_DIR is resolved to absolute path.
+
+        Docker requires absolute paths for bind mounts — relative paths are
+        interpreted as named volumes and rejected if they contain slashes.
+        """
+        monkeypatch.setenv("KUBEX_HOST_PROJECT_DIR", ".")
+        result = _to_host_path("/app/secrets/cli-credentials/claude-code")
+        assert os.path.isabs(result), f"Expected absolute path, got: {result}"
+        assert "secrets" in result
+        assert "cli-credentials" in result
+        assert "claude-code" in result
+
 
 # ===========================================================================
 # TestGeminiCredentialMount
