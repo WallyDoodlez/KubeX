@@ -4,19 +4,19 @@
 
 ---
 
-- [ ] **Iteration 61: Service info tooltips and descriptions on Dashboard**
-  - [ ] Add descriptive subtitles/tooltips to each service health card on the Dashboard explaining what each service does:
+- [x] **Iteration 61: Service info tooltips and descriptions on Dashboard**
+  - [x] Add descriptive subtitles/tooltips to each service health card on the Dashboard explaining what each service does:
     - **Gateway** — "Routes tasks to agents, enforces policies, streams results via SSE"
     - **Registry** — "Tracks registered agents and their capabilities"
     - **Kubex Manager** — "Spawns, manages, and monitors Kubex containers"
     - **Broker** — "Distributes tasks to available agents based on capability matching"
-  - [ ] Show the description as a subtitle line below the service name on each health card (muted text, small font).
-  - [ ] Add an info icon (ℹ) next to each service name that shows a richer tooltip on hover with: service purpose, port, key endpoints.
-  - [ ] Purely frontend — no new backend endpoints needed. Descriptions are static knowledge about the architecture.
-  - [ ] E2E tests: descriptions visible on health cards, info tooltips present, tooltip content matches expected text.
-  - [ ] Build: npm run build — clean
-  - [ ] Test: npx playwright test — all pass
-  - [ ] Update `docs/CHANGELOG.md`
+  - [x] Show the description as a subtitle line below the service name on each health card (muted text, small font).
+  - [x] Add an info icon (ℹ) next to each service name that shows a richer tooltip on hover with: service purpose, port, key endpoints.
+  - [x] Purely frontend — no new backend endpoints needed. Descriptions are static knowledge about the architecture.
+  - [x] E2E tests: descriptions visible on health cards, info tooltips present, tooltip content matches expected text.
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 15/15 service-info tests pass + 27 dashboard/smoke/system-status pass
+  - [x] Update `docs/CHANGELOG.md`
 
 - [x] **Iteration 60: Collapsible sidebar — icon-only mode**
   - [x] Add a collapse/expand toggle button at the bottom of the sidebar (or top). When collapsed, sidebar shrinks to icon-only width (~56px), showing only nav icons without labels.

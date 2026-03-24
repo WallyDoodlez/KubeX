@@ -4,6 +4,21 @@
 
 ---
 
+## Iteration 61: Service Info Tooltips and Descriptions on Dashboard
+
+**Files modified:** `src/components/ServiceCard.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/service-info.spec.ts`
+
+**Changes:**
+- Added `SERVICE_INFO` constant map in `ServiceCard.tsx` keyed by service name (`Gateway`, `Registry`, `Manager`, `Broker`), each containing `description`, optional `port`, and `endpoints[]`.
+- Added a subtitle `<p>` below the service name header on each health card — `text-[10px] text-[var(--color-text-muted)]`, `pl-8` to align under the service name past the icon.
+- Added `InfoTooltip` component — a small `ℹ` button (`data-testid="service-info-{name}"`) next to each service name. On hover/focus/click, shows a positioned `role="tooltip"` div with: service description, port (if present), key endpoints list, or "Internal service" note for Broker. Tooltip uses `var(--color-*)` design tokens, CSS arrow via border trick, `z-50` layering.
+- Tooltip visibility managed via `useState` + hover/focus events with a 100ms hide delay to allow tooltip hover without flicker.
+- Purely static — no API calls; all service knowledge is hardcoded architecture metadata.
+- **Build:** clean (tsc + vite). **Tests:** 15/15 service-info E2E tests pass; 27/27 dashboard/smoke/system-status tests pass — no regressions.
+
+---
+
 ## Iteration 60: Collapsible Sidebar — icon-only mode
 
 **Files modified:** `src/components/Layout.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
