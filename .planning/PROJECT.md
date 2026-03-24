@@ -42,8 +42,8 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 - [x] CLI Runtime — any CLI agent (Claude Code, Codex, Gemini CLI) runs in PTY inside Kubex containers — Phases 9-11 (v1.2)
 - [ ] Bidirectional MCP — harness is MCP server for CLI reporting (fallback for CLIs without hooks)
 - [x] Hooks-based monitoring — passive instrumentation via CLI hooks where supported — Phase 10 (v1.2)
-- [ ] OAuth provisioning — web-based flow via Command Center, token injected at spawn
-- [ ] Lifecycle events — container/CLI/task state tracking and reporting
+- [x] OAuth provisioning — web-based flow via Command Center, credential path fix, Gateway SSE lifecycle endpoint — Phase 12 (v1.2)
+- [x] Lifecycle events — Gateway SSE endpoint streams agent state transitions from Redis pub/sub — Phase 12 (v1.2)
 
 ### Future
 
@@ -64,7 +64,7 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 
 ## Context
 
-- **Current state:** 5 core services + 4 agents running live on Docker. 1196 tests passing. Orchestrator uses MCP Bridge (`harness_mode: mcp-bridge`) for worker coordination. CLIRuntime supports Claude Code and Gemini CLI via PTY with config-driven dispatch. Full E2E pipeline verified: Command Center → Gateway → Broker → Agent → GPT-5.2 → Result.
+- **Current state:** 5 core services + 4 agents running live on Docker. 649+ tests passing (unit/integration). Orchestrator uses MCP Bridge (`harness_mode: mcp-bridge`) for worker coordination. CLIRuntime supports Claude Code and Gemini CLI via PTY with config-driven dispatch. Gateway SSE lifecycle endpoint streams agent state transitions. OAuth credential provisioning via Command Center web flow with corrected credential paths. Full E2E pipeline verified: Command Center → Gateway → Broker → Agent → GPT-5.2 → Result.
 - **Tech stack:** Python, Docker, Redis, FastAPI, GPT-5.2 (non-pro), o3-mini (reviewer)
 - **Codebase:** ~30,700 LOC Python
 - **Live system:** Obsidian knowledge vault replacing Neo4j/Graphiti/OpenSearch. Command Center at :3001.
@@ -88,7 +88,7 @@ Any Kubex can become any agent — new capabilities are skill files, not Docker 
 | CLI runs as-is in PTY, not wrapped | Stem cell philosophy — container doesn't care what CLI you put in it | — Pending v1.2 |
 | Hooks preferred, MCP fallback for monitoring | Hooks are passive (zero prompt tokens), MCP for CLIs without hooks | — Pending v1.2 |
 | Bidirectional MCP — harness is client AND server | CLI reports via MCP tools, harness calls workers via MCP | — Pending v1.2 |
-| OAuth via Command Center web flow, not docker exec | More polished UX, token forwarded to container at spawn | — Pending v1.2 |
+| OAuth via Command Center web flow, not docker exec | More polished UX, token forwarded to container at spawn | ✓ Good — v1.2 Phase 12 |
 
 ## Constraints
 
@@ -127,4 +127,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-23 after Phase 11 (Gemini CLI Runtime) complete*
+*Last updated: 2026-03-24 after Phase 12 (OAuth Command Center Web Flow) complete*
