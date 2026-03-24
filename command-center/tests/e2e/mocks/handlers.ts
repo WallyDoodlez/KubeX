@@ -195,4 +195,46 @@ export const handlers = [
       completed_at: new Date().toISOString(),
     });
   }),
+
+  // Policy skill-check — Gateway
+  http.post(`${GATEWAY}/policy/skill-check`, async ({ request }) => {
+    const body = await request.json() as { agent_id?: string; skills?: string[] };
+    const agentId = body.agent_id ?? '';
+    const skills = body.skills ?? [];
+
+    // Simulate: known agents with an allowlist; unknown agents → ESCALATE
+    const allowlists: Record<string, string[]> = {
+      'agent-alpha-001': ['summarise', 'classify', 'extract'],
+      'agent-beta-007': ['translate', 'sentiment'],
+      'agent-gamma-099': ['code_review', 'security_scan'],
+    };
+
+    const allowlist = allowlists[agentId];
+    if (!allowlist) {
+      return HttpResponse.json({
+        decision: 'ESCALATE',
+        reason: `No skill allowlist for agent '${agentId}'`,
+        rule_matched: 'agent.skills.no_policy',
+        agent_id: agentId,
+      });
+    }
+
+    for (const skill of skills) {
+      if (!allowlist.includes(skill)) {
+        return HttpResponse.json({
+          decision: 'ESCALATE',
+          reason: `Skill '${skill}' not in allowlist for agent '${agentId}'`,
+          rule_matched: 'agent.skills.escalate',
+          agent_id: agentId,
+        });
+      }
+    }
+
+    return HttpResponse.json({
+      decision: 'ALLOW',
+      reason: 'All skills on allowlist',
+      rule_matched: 'agent.skills.allow',
+      agent_id: agentId,
+    });
+  }),
 ];

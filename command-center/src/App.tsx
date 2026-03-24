@@ -37,6 +37,7 @@ const LazyAuthCallbackPage = lazy(() => import('./components/AuthCallbackPage'))
 const LazyLoginPage = lazy(() => import('./components/LoginPage'));
 const LazyTaskHistoryPage = lazy(() => import('./components/TaskHistoryPage'));
 const LazySpawnWizard = lazy(() => import('./pages/SpawnWizard'));
+const LazyPolicyCheckPage = lazy(() => import('./pages/PolicyCheckPage'));
 
 const PAGE_TO_PATH: Record<NavPage, string> = {
   dashboard: '/',
@@ -145,6 +146,7 @@ export default function App() {
                   <Route path="/approvals" element={<LazyApprovalQueue />} />
                   <Route path="/tasks" element={<TasksPage />} />
                   <Route path="/spawn" element={<LazySpawnWizard />} />
+                  <Route path="/policy-check" element={<LazyPolicyCheckPage />} />
                   <Route path="/settings" element={<LazySettingsPage />} />
                   <Route path="/auth/callback" element={<LazyAuthCallbackPage />} />
                   <Route path="*" element={<LazyNotFoundPage />} />

@@ -10,6 +10,8 @@ import type {
   InstallDepResponse,
   Kubex,
   KubexConfigResponse,
+  SkillCheckRequest,
+  SkillCheckResponse,
   TaskRequest,
   TaskResponse,
   TaskResult,
@@ -358,4 +360,12 @@ export async function resolveEscalation(
     decision,
     reason,
   });
+}
+
+// ── Policy ────────────────────────────────────────────────────────────
+
+export async function checkSkillPolicy(
+  body: SkillCheckRequest,
+): Promise<FetchResult<SkillCheckResponse>> {
+  return apiFetch<SkillCheckResponse>('POST', `${GATEWAY}/policy/skill-check`, body);
 }

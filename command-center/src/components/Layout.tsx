@@ -39,8 +39,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Tasks',        icon: '✦', description: 'Dispatched tasks',  path: '/tasks'     },
   { label: 'Containers',   icon: '⬡', description: 'Docker kubexes',    path: '/containers'},
   { label: 'Spawn Kubex',  icon: '+', description: 'Launch new worker',  path: '/spawn'     },
-  { label: 'Approvals',    icon: '⚑', description: 'Escalated actions', path: '/approvals' },
-  { label: 'Settings',     icon: '⚙', description: 'Preferences',       path: '/settings'  },
+  { label: 'Approvals',    icon: '⚑', description: 'Escalated actions', path: '/approvals'     },
+  { label: 'Policy Check', icon: '⛨', description: 'Skill policy tool', path: '/policy-check' },
+  { label: 'Settings',     icon: '⚙', description: 'Preferences',       path: '/settings'     },
 ];
 
 interface LayoutProps {
@@ -220,6 +221,13 @@ export default function Layout({ children }: LayoutProps) {
       description: 'Go to Task History (after G)',
       handler: () => {
         if (gKeyPending.current) { gKeyPending.current = false; navigate('/tasks'); }
+      },
+    },
+    {
+      key: 'l',
+      description: 'Go to Policy Check (after G)',
+      handler: () => {
+        if (gKeyPending.current) { gKeyPending.current = false; navigate('/policy-check'); }
       },
     },
   ]);

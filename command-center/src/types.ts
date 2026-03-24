@@ -199,6 +199,24 @@ export interface AuditResponse {
   entries: AuditEntry[];
 }
 
+// ── Policy check ─────────────────────────────────────────────────────
+
+export type PolicyDecision = 'ALLOW' | 'ESCALATE' | 'DENY';
+
+/** Request body for POST /policy/skill-check */
+export interface SkillCheckRequest {
+  agent_id: string;
+  skills: string[];
+}
+
+/** Response from POST /policy/skill-check */
+export interface SkillCheckResponse {
+  decision: PolicyDecision;
+  reason: string;
+  rule_matched: string;
+  agent_id: string;
+}
+
 // ── Navigation ───────────────────────────────────────────────────────
 
 export type NavPage = 'dashboard' | 'agents' | 'traffic' | 'chat' | 'containers';

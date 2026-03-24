@@ -4,6 +4,17 @@
 
 ---
 
+- [x] **Iteration 69: Policy Check UI**
+  - [x] Add `PolicyDecision`, `SkillCheckRequest`, `SkillCheckResponse` types to `src/types.ts`
+  - [x] Add `checkSkillPolicy(body)` to `src/api.ts` — `POST ${GATEWAY}/policy/skill-check`
+  - [x] Create `src/pages/PolicyCheckPage.tsx` — form with agent ID (datalist suggestions from traffic log) + skills (comma/newline separated); posts to Gateway; renders result history newest-first; each result shows decision badge (ALLOW/ESCALATE/DENY), skill tags, reason, and rule_matched; clear button; empty state; full a11y (form aria-label, role=alert on errors, accessible labels, role=list results)
+  - [x] Add lazy route `/policy-check` → `LazyPolicyCheckPage` in `src/App.tsx`
+  - [x] Add "Policy Check" nav item (`⛨` icon) to `Layout.tsx` NAV_ITEMS; add `G + l` keyboard shortcut
+  - [x] Add `POST /policy/skill-check` mock handler in `tests/e2e/mocks/handlers.ts` — simulates allowlist logic for three known mock agents; returns ESCALATE for unknown agents or disallowed skills, ALLOW otherwise
+  - [x] Create `tests/e2e/policy-check.spec.ts` (25 tests) — navigation (2), page structure (3), validation (3), ALLOW result (2), ESCALATE result (2), skills parsing (2), history accumulation (2), clear (1), network error (1), accessibility (4)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1058/1058 passed (23 skipped)
+
 - [x] **Iteration 68: Agent status update**
   - [x] Add `updateAgentStatus(agentId, status)` to `src/api.ts` — PATCH `${REGISTRY}/agents/{id}/status`
   - [x] Add `AgentStatusControls` component in `AgentDetailPage.tsx` — four status buttons (running/busy/stopped/unknown); active status is highlighted and disabled; clicking calls PATCH; success/error inline feedback; 4s auto-clear; only visible on Overview tab
