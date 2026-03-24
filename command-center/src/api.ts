@@ -5,6 +5,7 @@ import type {
   CreateKubexResponse,
   HealthResponse,
   Kubex,
+  KubexConfigResponse,
   TaskRequest,
   TaskResponse,
   TaskResult,
@@ -222,6 +223,15 @@ export async function resumeKubex(kubexId: string): Promise<FetchResult<unknown>
   return apiFetch<unknown>(
     'POST',
     `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/resume`,
+    undefined,
+    managerHeaders(),
+  );
+}
+
+export async function getKubexConfig(kubexId: string): Promise<FetchResult<KubexConfigResponse>> {
+  return apiFetch<KubexConfigResponse>(
+    'GET',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/config`,
     undefined,
     managerHeaders(),
   );

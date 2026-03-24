@@ -227,3 +227,12 @@ export interface CreateKubexResponse {
   message?: string;
   [key: string]: unknown;
 }
+
+// ── Kubex Config ─────────────────────────────────────────────────────
+
+/** Response from GET /kubexes/{id}/config */
+export interface KubexConfigResponse {
+  kubex_id: string;
+  config_path: string | null;
+  config: Record<string, unknown> | null;
+}

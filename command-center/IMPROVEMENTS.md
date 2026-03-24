@@ -4,6 +4,17 @@
 
 ---
 
+- [x] **Iteration 59: Kubex Config Viewer**
+  - [x] Add `KubexConfigResponse` type to `src/types.ts`
+  - [x] Add `getKubexConfig(kubexId)` API function to `src/api.ts` — calls `GET /kubexes/{id}/config` on Manager
+  - [x] Create `src/components/KubexConfigPanel.tsx` — fetches config on mount, shows: config_path metadata, pretty-printed JSON `<pre>`, summary cards (Agent ID, Boundary, Capabilities, Skills, Providers), copy-to-clipboard button
+  - [x] Update `src/components/ContainersPanel.tsx` — KubexRow gains `configOpen` state + chevron expand button (`data-testid="kubex-expand-{id}"`); clicking chevron toggles `KubexConfigPanel` inline below the row
+  - [x] Fix focus ring regression — moved `ring-2` class back to inner row div (`data-nav-index` element) after wrapper restructure
+  - [x] Create `tests/e2e/kubex-config-viewer.spec.ts` (19 tests)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 903/903 passed (20 skipped)
+  - [x] Update `docs/CHANGELOG.md`
+
 - [ ] **Iteration 57: Skills management page + Spawn Wizard skill picker** ⚠️ BLOCKED — requires `GET /skills` and `POST /skills` endpoints (see `docs/FE-BE-REQUESTS.md`). Skip until BE implements the Skills API.
   - [ ] Pre-check: verify `GET /skills` endpoint exists on Manager (port 8090). If 404 → skip this iteration entirely.
   - [ ] Create `/skills` route and `SkillsManagement.tsx` page — list all available skills from `GET /skills`, grouped by category. Show name, description, capabilities, source badge (filesystem/dynamic).

@@ -4,6 +4,28 @@
 
 ---
 
+## Iteration 59: Kubex Config Viewer
+
+**Files modified:** `src/api.ts`, `src/types.ts`, `src/components/ContainersPanel.tsx`, `command-center/IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `src/components/KubexConfigPanel.tsx`, `tests/e2e/kubex-config-viewer.spec.ts`
+
+**Changes:**
+- Added `KubexConfigResponse` interface to `src/types.ts` — typed response from `GET /kubexes/{id}/config`.
+- Added `getKubexConfig(kubexId)` to `src/api.ts` — authenticated `GET` to `${MANAGER}/kubexes/{id}/config`.
+- Created `src/components/KubexConfigPanel.tsx` — inline config detail panel that fetches config on mount via `useEffect`. Shows:
+  - `config_path` metadata label
+  - Pretty-printed JSON `<pre>` block with copy-to-clipboard button
+  - Summary cards for `agent.id`, `agent.boundary`, `agent.capabilities`, `agent.skills`, `agent.providers`
+  - Loading spinner, error state, empty state
+- Updated `ContainersPanel.tsx` `KubexRow`:
+  - Added `configOpen: boolean` state and a chevron expand button (`data-testid="kubex-expand-{id}"`) inside the Kubex ID cell
+  - Clicking the chevron toggles `KubexConfigPanel` inline below the row
+  - Restructured row into outer wrapper div + inner main row div to support the expandable panel
+  - Moved `ring-2` focus ring to the inner div (where `data-nav-index` lives) to preserve keyboard-nav behaviour
+- **Build:** clean. **Tests:** 903/903 passed (20 skipped), including 19 new config viewer tests.
+
+---
+
 ## Iteration 56: Kubex lifecycle controls — Stop, Restart, Respawn
 
 **Files modified:** `src/api.ts`, `src/components/ConfirmDialog.tsx`, `src/components/ContainersPanel.tsx`, `tests/e2e/keyboard-nav.spec.ts`, `tests/e2e/query-params.spec.ts`, `tests/e2e/copy-button.spec.ts`, `tests/e2e/mocks/handlers.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

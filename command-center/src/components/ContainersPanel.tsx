@@ -18,6 +18,7 @@ import ExportMenu from './ExportMenu';
 import SelectionBar from './SelectionBar';
 import { exportAsJSON } from '../utils/export';
 import CopyButton from './CopyButton';
+import KubexConfigPanel from './KubexConfigPanel';
 
 // Status filter options
 type StatusFilter = 'all' | 'running' | 'created' | 'stopped' | 'error';
@@ -518,121 +519,149 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
   const isRunning = kubex.status === 'running';
   const isStopped = kubex.status === 'stopped' || kubex.status === 'error';
   const isCreated = kubex.status === 'created';
+  const [configOpen, setConfigOpen] = useState(false);
 
   return (
     <div
-      {...rowProps}
       className={`
-        grid grid-cols-[auto_2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-3 items-center
-        transition-colors outline-none
-        ${selected ? 'bg-emerald-500/5' : 'bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)]'}
+        transition-colors
         ${!isLast ? 'border-b border-[var(--color-border)]' : ''}
-        ${focused ? 'ring-2 ring-inset ring-emerald-500/60' : ''}
       `}
-      role="row"
     >
-      {/* Row checkbox */}
-      <span role="cell">
-        <input
-          type="checkbox"
-          aria-label={`Select kubex ${kubex.kubex_id}`}
-          data-testid={`kubex-checkbox-${kubex.kubex_id}`}
-          checked={selected}
-          onChange={onSelect}
-          className="h-3.5 w-3.5 rounded border-[var(--color-border)] accent-emerald-500 cursor-pointer"
-        />
-      </span>
-
-      {/* Kubex ID */}
-      <span className="flex items-center gap-1.5 min-w-0" role="cell">
-        <span className="font-mono-data text-sm text-[var(--color-text)] truncate" title={kubex.kubex_id}>
-          {kubex.kubex_id}
+      {/* Main row */}
+      <div
+        {...rowProps}
+        className={`
+          grid grid-cols-[auto_2fr_2fr_1fr_2fr_auto] gap-4 px-4 py-3 items-center
+          outline-none
+          ${selected ? 'bg-emerald-500/5' : 'bg-[var(--color-surface)] hover:bg-[var(--color-surface-hover)]'}
+          ${focused ? 'ring-2 ring-inset ring-emerald-500/60' : ''}
+        `}
+        role="row"
+      >
+        {/* Row checkbox */}
+        <span role="cell">
+          <input
+            type="checkbox"
+            aria-label={`Select kubex ${kubex.kubex_id}`}
+            data-testid={`kubex-checkbox-${kubex.kubex_id}`}
+            checked={selected}
+            onChange={onSelect}
+            className="h-3.5 w-3.5 rounded border-[var(--color-border)] accent-emerald-500 cursor-pointer"
+          />
         </span>
-        <CopyButton text={kubex.kubex_id} ariaLabel="Copy kubex ID" testId="copy-kubex-id" />
-      </span>
 
-      {/* Agent ID */}
-      <span className="font-mono-data text-sm text-[var(--color-text-secondary)] truncate" title={kubex.agent_id ?? '—'} role="cell">
-        {kubex.agent_id ?? <span className="text-[var(--color-text-muted)]">—</span>}
-      </span>
-
-      {/* Status */}
-      <span role="cell">
-        <StatusBadge status={kubex.status} />
-      </span>
-
-      {/* Image */}
-      <span className="font-mono-data text-xs text-[var(--color-text-dim)] truncate" title={kubex.image ?? '—'} role="cell">
-        {kubex.image ?? '—'}
-      </span>
-
-      {/* Actions */}
-      <div className="flex items-center gap-1.5" role="cell" data-testid={`kubex-actions-${kubex.kubex_id}`}>
-        {/* Start — shown when created or stopped/error */}
-        {(isCreated || isStopped) && (
+        {/* Kubex ID */}
+        <span className="flex items-center gap-1.5 min-w-0" role="cell">
           <button
-            onClick={onStart}
-            disabled={actionIn}
-            data-testid={`kubex-start-${kubex.kubex_id}`}
-            title="Start container"
-            className="px-2 py-1 text-[10px] rounded border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
+            onClick={() => setConfigOpen((v) => !v)}
+            data-testid={`kubex-expand-${kubex.kubex_id}`}
+            title={configOpen ? 'Collapse config' : 'Expand config'}
+            aria-expanded={configOpen}
+            className="flex items-center gap-1 min-w-0 text-left focus:outline-none group"
           >
-            {actionIn ? '…' : 'Start'}
+            <span
+              className="text-[var(--color-text-muted)] group-hover:text-[var(--color-text-dim)] transition-transform duration-150 flex-shrink-0"
+              style={{ display: 'inline-block', transform: configOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+              aria-hidden="true"
+            >
+              ›
+            </span>
+            <span className="font-mono-data text-sm text-[var(--color-text)] truncate" title={kubex.kubex_id}>
+              {kubex.kubex_id}
+            </span>
           </button>
-        )}
+          <CopyButton text={kubex.kubex_id} ariaLabel="Copy kubex ID" testId="copy-kubex-id" />
+        </span>
 
-        {/* Stop — shown when running */}
-        {isRunning && (
-          <button
-            onClick={onStop}
-            disabled={actionIn}
-            data-testid={`kubex-stop-${kubex.kubex_id}`}
-            title="Gracefully stop container"
-            className="px-2 py-1 text-[10px] rounded border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
-          >
-            {actionIn ? '…' : 'Stop'}
-          </button>
-        )}
+        {/* Agent ID */}
+        <span className="font-mono-data text-sm text-[var(--color-text-secondary)] truncate" title={kubex.agent_id ?? '—'} role="cell">
+          {kubex.agent_id ?? <span className="text-[var(--color-text-muted)]">—</span>}
+        </span>
 
-        {/* Restart — shown when running */}
-        {isRunning && (
-          <button
-            onClick={onRestart}
-            disabled={actionIn}
-            data-testid={`kubex-restart-${kubex.kubex_id}`}
-            title="Restart container"
-            className="px-2 py-1 text-[10px] rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
-          >
-            {actionIn ? '…' : 'Restart'}
-          </button>
-        )}
+        {/* Status */}
+        <span role="cell">
+          <StatusBadge status={kubex.status} />
+        </span>
 
-        {/* Respawn — shown for all non-running states */}
-        {!isRunning && (
-          <button
-            onClick={onRespawn}
-            disabled={actionIn}
-            data-testid={`kubex-respawn-${kubex.kubex_id}`}
-            title="Kill and recreate container from persisted config"
-            className="px-2 py-1 text-[10px] rounded border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition-colors disabled:opacity-50"
-          >
-            {actionIn ? '…' : 'Respawn'}
-          </button>
-        )}
+        {/* Image */}
+        <span className="font-mono-data text-xs text-[var(--color-text-dim)] truncate" title={kubex.image ?? '—'} role="cell">
+          {kubex.image ?? '—'}
+        </span>
 
-        {/* Kill — shown when running */}
-        {isRunning && (
-          <button
-            onClick={onKill}
-            disabled={actionIn}
-            data-testid={`kubex-kill-${kubex.kubex_id}`}
-            title="Force-kill container"
-            className="px-2 py-1 text-[10px] rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
-          >
-            {actionIn ? '…' : 'Kill'}
-          </button>
-        )}
+        {/* Actions */}
+        <div className="flex items-center gap-1.5" role="cell" data-testid={`kubex-actions-${kubex.kubex_id}`}>
+          {/* Start — shown when created or stopped/error */}
+          {(isCreated || isStopped) && (
+            <button
+              onClick={onStart}
+              disabled={actionIn}
+              data-testid={`kubex-start-${kubex.kubex_id}`}
+              title="Start container"
+              className="px-2 py-1 text-[10px] rounded border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
+            >
+              {actionIn ? '…' : 'Start'}
+            </button>
+          )}
+
+          {/* Stop — shown when running */}
+          {isRunning && (
+            <button
+              onClick={onStop}
+              disabled={actionIn}
+              data-testid={`kubex-stop-${kubex.kubex_id}`}
+              title="Gracefully stop container"
+              className="px-2 py-1 text-[10px] rounded border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+            >
+              {actionIn ? '…' : 'Stop'}
+            </button>
+          )}
+
+          {/* Restart — shown when running */}
+          {isRunning && (
+            <button
+              onClick={onRestart}
+              disabled={actionIn}
+              data-testid={`kubex-restart-${kubex.kubex_id}`}
+              title="Restart container"
+              className="px-2 py-1 text-[10px] rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
+            >
+              {actionIn ? '…' : 'Restart'}
+            </button>
+          )}
+
+          {/* Respawn — shown for all non-running states */}
+          {!isRunning && (
+            <button
+              onClick={onRespawn}
+              disabled={actionIn}
+              data-testid={`kubex-respawn-${kubex.kubex_id}`}
+              title="Kill and recreate container from persisted config"
+              className="px-2 py-1 text-[10px] rounded border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition-colors disabled:opacity-50"
+            >
+              {actionIn ? '…' : 'Respawn'}
+            </button>
+          )}
+
+          {/* Kill — shown when running */}
+          {isRunning && (
+            <button
+              onClick={onKill}
+              disabled={actionIn}
+              data-testid={`kubex-kill-${kubex.kubex_id}`}
+              title="Force-kill container"
+              className="px-2 py-1 text-[10px] rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+            >
+              {actionIn ? '…' : 'Kill'}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Expandable config panel */}
+      {configOpen && (
+        <KubexConfigPanel kubexId={kubex.kubex_id} />
+      )}
     </div>
   );
 });
