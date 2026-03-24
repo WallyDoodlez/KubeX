@@ -185,6 +185,12 @@ export const handlers = [
     return HttpResponse.json({ task_id: 'mock-task-1', status: 'accepted' });
   }),
 
+  // Task cancel — Gateway
+  http.post(`${GATEWAY}/tasks/:taskId/cancel`, ({ params }) => {
+    const { taskId } = params;
+    return HttpResponse.json({ task_id: taskId, status: 'cancelled' });
+  }),
+
   // Task result — Gateway
   http.get(`${GATEWAY}/tasks/:taskId/result`, ({ params }) => {
     const { taskId } = params;

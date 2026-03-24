@@ -345,6 +345,10 @@ export async function provideInput(
   return apiFetch<unknown>('POST', `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/input`, { input });
 }
 
+export async function cancelTask(taskId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>('POST', `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/cancel`);
+}
+
 // ── Escalations / Approvals ─────────────────────────────────────────
 
 export async function getEscalations(): Promise<FetchResult<unknown[]>> {

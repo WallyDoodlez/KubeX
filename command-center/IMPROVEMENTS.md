@@ -4,6 +4,16 @@
 
 ---
 
+- [x] **Iteration 70: Task Cancel UI**
+  - [x] Add `cancelTask(taskId)` to `src/api.ts` — `POST ${GATEWAY}/tasks/:id/cancel`
+  - [x] Add `cancelling` state and `handleCancel()` to `OrchestratorChat.tsx` — eagerly closes the SSE stream and clears sending/phase state, then calls `cancelTask`; surfaces "cancelled by user" error bubble on success
+  - [x] Expose `close` from `useSSE` hook (already existed); destructure as `closeSSE` in `OrchestratorChat`
+  - [x] Add Cancel button (`data-testid="cancel-task-button"`) inside the typing indicator block — visible only while `sending` is true; red-bordered, `aria-label="Cancel active task"`, disabled while cancellation is in flight
+  - [x] Add `POST /tasks/:taskId/cancel` mock handler in `tests/e2e/mocks/handlers.ts`
+  - [x] Create `tests/e2e/task-cancel.spec.ts` (7 tests) — cancel not visible at rest, appears during active task, label reads "Cancel", posts to cancel endpoint + surfaces message, has aria-label, typing indicator gone after cancel, disabled during in-flight cancel
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1065/1065 passed (23 skipped)
+
 - [x] **Iteration 69: Policy Check UI**
   - [x] Add `PolicyDecision`, `SkillCheckRequest`, `SkillCheckResponse` types to `src/types.ts`
   - [x] Add `checkSkillPolicy(body)` to `src/api.ts` — `POST ${GATEWAY}/policy/skill-check`

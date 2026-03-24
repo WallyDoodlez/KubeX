@@ -6,7 +6,7 @@ import 'highlight.js/styles/github-dark.css';
 import CopyButton from './CopyButton';
 import MermaidBlock from './MermaidBlock';
 import TaskTimeline from './TaskTimeline';
-import { dispatchTask, getTaskResult, getTaskAudit, getAgents, getTaskStreamUrl, provideInput } from '../api';
+import { dispatchTask, getTaskResult, getTaskAudit, getAgents, getTaskStreamUrl, provideInput, cancelTask } from '../api';
 import type { AuditEntry, ChatMessage, TrafficEntry, Agent, TaskPhaseEntry } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
 import { useSSE } from '../hooks/useSSE';
@@ -28,6 +28,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [capability, setCapability] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [capError, setCapError] = useState<string | null>(null);
   const [msgError, setMsgError] = useState<string | null>(null);
   const [knownCaps, setKnownCaps] = useState<string[]>([]);
@@ -389,7 +390,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     });
   }, [onTrafficEntry, setMessages]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { status: sseStatus } = useSSE({
+  const { status: sseStatus, close: closeSSE } = useSSE({
     url: streamUrl,
     onMessage: handleSSEMessage,
     onComplete: handleSSEComplete,
@@ -598,6 +599,41 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       { text: `[You] ${input}`, stream: 'system', timestamp: new Date().toLocaleTimeString() },
     ]);
     await provideInput(taskId, input);
+  }
+
+  // Cancel the active in-flight task
+  async function handleCancel() {
+    const taskId = activeTaskIdRef.current;
+    if (!taskId || cancelling) return;
+    setCancelling(true);
+    // Null out activeTaskIdRef first so the SSE complete handler ignores any close event
+    activeTaskIdRef.current = null;
+    // Close the SSE stream immediately so the UI stops waiting for events
+    closeSSE();
+    // Eagerly clear sending state — do not wait for the network call
+    setStreamUrl(null);
+    setSending(false);
+    setLivePhases([]);
+    setTerminalLines([]);
+    setHitlRequest(null);
+    localStorage.removeItem('kubex-active-task');
+    const res = await cancelTask(taskId);
+    setCancelling(false);
+    if (res.ok) {
+      addMessage({
+        role: 'error',
+        content: `Task ${taskId} cancelled by user.`,
+        timestamp: new Date(),
+        task_id: taskId,
+      });
+    } else {
+      addMessage({
+        role: 'error',
+        content: `Cancel failed: ${res.error ?? `HTTP ${res.status}`}`,
+        timestamp: new Date(),
+        task_id: taskId,
+      });
+    }
   }
 
   // Retry a failed task: pre-fill the capability + message and re-dispatch
@@ -981,7 +1017,24 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
-              <p className="text-[10px] text-[var(--color-text-muted)] mt-1.5" data-testid="sending-label">{sendingLabel(sseStatus)}</p>
+              <div className="flex items-center justify-between mt-1.5">
+                <p className="text-[10px] text-[var(--color-text-muted)]" data-testid="sending-label">{sendingLabel(sseStatus)}</p>
+                <button
+                  data-testid="cancel-task-button"
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                  aria-label="Cancel active task"
+                  className="
+                    ml-3 px-2 py-0.5 rounded text-[10px] font-medium
+                    border border-red-500/50 text-red-400
+                    hover:bg-red-500/10 hover:border-red-400
+                    disabled:opacity-40 disabled:cursor-not-allowed
+                    transition-colors
+                  "
+                >
+                  {cancelling ? 'Cancelling…' : 'Cancel'}
+                </button>
+              </div>
               {livePhases.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-[var(--color-border)]">
                   <TaskTimeline
