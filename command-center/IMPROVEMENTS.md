@@ -4,6 +4,21 @@
 
 ---
 
+- [x] **Iteration 63: Agent Detail — Live Output Tab with real lifecycle SSE**
+  - [x] Add `getAgentLifecycleStreamUrl(agentId)` and `getAgentLifecycleAuthHeader()` helpers to `src/api.ts`
+  - [x] Replace `LiveOutputTab` placeholder in `src/components/AgentDetailPage.tsx` with a fetch-based SSE reader:
+    - `AbortController`-based connect/disconnect with `ReadableStream` SSE parsing
+    - Status dot + label (Not connected / Connecting… / Live / Disconnected / Error)
+    - Connect / Disconnect button pair
+    - Scrollable event log (`role="log"`, `aria-live="polite"`) capped at 200 events
+    - Per-event rows: time, state (color-coded by lifecycle state), raw payload
+    - Clear button removes all events
+    - Auto-connects on tab mount; disconnects on unmount (no stream leaks on navigation)
+  - [x] Create `tests/e2e/agent-live-output.spec.ts` (17 tests using `page.route()` mocks for registry + SSE endpoint)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 972/972 passed (20 skipped), 17 new live-output tests all pass
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 62: Kubex dependency installer UI**
   - [x] Add `InstallDepBody` and `InstallDepResponse` types to `src/types.ts`
   - [x] Add `installKubexDep(kubexId, body)` API function to `src/api.ts` — calls `POST /kubexes/{id}/install-dep` on Manager

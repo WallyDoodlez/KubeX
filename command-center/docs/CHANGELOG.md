@@ -4,6 +4,26 @@
 
 ---
 
+## Iteration 63: Agent Detail — Live Output Tab
+
+**Files modified:** `src/api.ts`, `src/components/AgentDetailPage.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/agent-live-output.spec.ts`
+
+**Changes:**
+- Added `getAgentLifecycleStreamUrl(agentId)` and `getAgentLifecycleAuthHeader()` to `src/api.ts` — exposes the existing `GET /agents/{agent_id}/lifecycle` SSE endpoint URL and auth header builder for use by the component.
+- Replaced the `LiveOutputTab` placeholder in `AgentDetailPage.tsx` with a fully functional SSE-connected component:
+  - Uses `fetch()` + `ReadableStream` to consume the SSE stream with a `Bearer` auth header (standard `EventSource` does not support custom headers).
+  - `AbortController`-based connect/disconnect lifecycle — auto-connects on mount, aborts on unmount and on Disconnect button click. No stream leaks on navigation.
+  - Status indicator: colour-coded dot (pulse-animated when connecting or live) + text label (`Not connected` / `Connecting…` / `Live` / `Disconnected` / `Error`).
+  - Connect button when disconnected/errored; Disconnect button when live.
+  - Scrollable event log (`role="log"`, `aria-live="polite"`, `aria-label`): capped at 200 events; each row shows time, state (colour-coded by lifecycle state: running=green, busy=blue, idle=muted, booting=yellow, etc.), and raw JSON payload. Auto-scrolls to latest event.
+  - Clear button clears the event list.
+  - Graceful "Waiting for events…" empty state when connected but no events yet; "No events yet" when disconnected.
+  - Error message shown in a red banner when HTTP or network error occurs.
+- **Build:** clean (tsc + vite). **Tests:** 972/972 passed (20 skipped); 17 new live-output E2E tests cover: tab presence, container render, status dot/label, connect/disconnect buttons, event log role/aria, aria-live polite, empty/waiting states, tab switching, status label values, connect button focusability, clear button, clear removes events, no-crash on invalid agent, navigation cleanup.
+
+---
+
 ## Iteration 62: Kubex Dependency Installer UI
 
 **Files modified:** `src/api.ts`, `src/types.ts`, `src/components/ContainersPanel.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

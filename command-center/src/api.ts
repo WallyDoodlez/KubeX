@@ -295,6 +295,15 @@ export function getTaskStreamUrl(taskId: string): string {
   return `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/stream`;
 }
 
+export function getAgentLifecycleStreamUrl(agentId: string): string {
+  return `${GATEWAY}/agents/${encodeURIComponent(agentId)}/lifecycle`;
+}
+
+export function getAgentLifecycleAuthHeader(): string {
+  const token = getAccessToken() || MANAGER_TOKEN;
+  return token ? `Bearer ${token}` : '';
+}
+
 // ── HITL (Human-in-the-loop) ────────────────────────────────────────
 
 export async function provideInput(
