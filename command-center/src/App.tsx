@@ -134,23 +134,28 @@ export default function App() {
       <ToastBridge>
         <OAuthGate>
           <Layout>
+            {/* Outer boundary: catches crashes that escape the per-route boundary (rare). */}
             <ErrorBoundary>
               <Suspense fallback={LoadingFallback}>
-                <Routes>
-                  <Route path="/" element={<DashboardPage />} />
-                  <Route path="/agents" element={<LazyAgentsPanel />} />
-                  <Route path="/agents/:agentId" element={<LazyAgentDetailPage />} />
-                  <Route path="/traffic" element={<TrafficPage />} />
-                  <Route path="/chat" element={<ChatPage />} />
-                  <Route path="/containers" element={<LazyContainersPanel />} />
-                  <Route path="/approvals" element={<LazyApprovalQueue />} />
-                  <Route path="/tasks" element={<TasksPage />} />
-                  <Route path="/spawn" element={<LazySpawnWizard />} />
-                  <Route path="/policy-check" element={<LazyPolicyCheckPage />} />
-                  <Route path="/settings" element={<LazySettingsPage />} />
-                  <Route path="/auth/callback" element={<LazyAuthCallbackPage />} />
-                  <Route path="*" element={<LazyNotFoundPage />} />
-                </Routes>
+                {/* Inner per-route boundary: errors stay within the content area,
+                    keeping the sidebar and header intact. */}
+                <ErrorBoundary inline>
+                  <Routes>
+                    <Route path="/" element={<DashboardPage />} />
+                    <Route path="/agents" element={<LazyAgentsPanel />} />
+                    <Route path="/agents/:agentId" element={<LazyAgentDetailPage />} />
+                    <Route path="/traffic" element={<TrafficPage />} />
+                    <Route path="/chat" element={<ChatPage />} />
+                    <Route path="/containers" element={<LazyContainersPanel />} />
+                    <Route path="/approvals" element={<LazyApprovalQueue />} />
+                    <Route path="/tasks" element={<TasksPage />} />
+                    <Route path="/spawn" element={<LazySpawnWizard />} />
+                    <Route path="/policy-check" element={<LazyPolicyCheckPage />} />
+                    <Route path="/settings" element={<LazySettingsPage />} />
+                    <Route path="/auth/callback" element={<LazyAuthCallbackPage />} />
+                    <Route path="*" element={<LazyNotFoundPage />} />
+                  </Routes>
+                </ErrorBoundary>
               </Suspense>
             </ErrorBoundary>
           </Layout>
