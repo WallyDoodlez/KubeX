@@ -4,6 +4,15 @@
 
 ---
 
+- [x] **Iteration 73: Agent registration form**
+  - [x] Add `AgentRegistrationBody` type to `src/types.ts` — fields: `agent_id`, `capabilities`, `status?`, `boundary?`, `metadata?`
+  - [x] Add `registerAgent(body)` to `src/api.ts` — `POST ${REGISTRY}/agents`; imported `AgentRegistrationBody`
+  - [x] Create `src/components/AgentRegisterModal.tsx` — modal with form fields: Agent ID (required, validated), Capabilities (required, comma-separated, each validated), Boundary (default: "default"), Initial Status (select: unknown/running/busy/stopped), Metadata (optional JSON object); client-side validation on submit; success banner + Done button on success; error banner on API failure with retry; focus trap; Escape closes; backdrop click closes; form resets on reopen
+  - [x] Wire `AgentRegisterModal` into `AgentsPanel.tsx` — "+ Register Agent" button in header; modal `onRegistered` refreshes agent list without closing modal; `onClose` closes modal
+  - [x] Create `tests/e2e/agent-register.spec.ts` (26 tests) — button visible, modal opens, all fields present, boundary/status defaults, status options, close/cancel/Escape dismiss, validation errors (empty ID, empty caps, invalid cap chars, invalid JSON meta), metadata optional, success banner, Done button replaces Submit/Cancel, Done closes modal, valid ID chars, backdrop closes, form resets, API 409 shows error banner, retry possible after error
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1119/1119 passed (23 skipped)
+
 - [x] **Iteration 72: Search result highlighting**
   - [x] Add `highlightText(text, query)` utility inside `OrchestratorChat.tsx` — splits text on case-insensitive regex matches, returns React nodes with `<mark data-testid="search-highlight">` wrapping each occurrence; regex special characters are escaped; empty query returns the plain string unchanged
   - [x] Add `createRehypeHighlightSearch(query)` rehype plugin — uses `unist-util-visit` (already a transitive dep) to walk text nodes in the HAST tree and splice in `<mark>` element nodes for each match; skips text inside `<code>` blocks to avoid corrupting syntax highlighting; returns early when query is blank

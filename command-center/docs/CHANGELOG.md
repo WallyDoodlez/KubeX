@@ -4,6 +4,42 @@
 
 ---
 
+## Iteration 73: Agent Registration Form
+
+**Files modified:** `src/api.ts`, `src/types.ts`, `src/components/AgentsPanel.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `src/components/AgentRegisterModal.tsx`, `tests/e2e/agent-register.spec.ts`
+
+**Changes:**
+- Added `AgentRegistrationBody` interface to `src/types.ts` — fields: `agent_id` (required), `capabilities` (required array), `status?`, `boundary?`, `metadata?`. Matches the `AgentRegistration` Pydantic model in the Registry service.
+- Added `registerAgent(body: AgentRegistrationBody)` to `src/api.ts` — issues `POST ${REGISTRY}/agents`, wiring the previously unwired Registry endpoint for the first time from the frontend.
+- Created `src/components/AgentRegisterModal.tsx`:
+  - Full-screen overlay modal (fixed, z-50, backdrop blur) with focus trap and Escape-to-close.
+  - Form fields: Agent ID (required; validates `^[a-zA-Z0-9_.\-]+$`, max 100 chars), Capabilities (required; comma-separated list, each validated), Boundary (text, defaults to "default"), Initial Status (select: unknown/running/busy/stopped, defaults to unknown), Metadata (optional textarea; must be a valid JSON object if provided).
+  - Client-side validation on submit — inline error messages per field.
+  - On success: shows green success banner with agent ID; Submit/Cancel replaced by a single "Done" button; parent's `onRegistered` callback triggered to refresh the agent list.
+  - On API failure: shows red error banner; form stays open for retry.
+  - Form state resets to empty on every open.
+  - Backdrop click and Escape close the modal (unless submitting).
+- Updated `AgentsPanel.tsx`:
+  - Added `registerModalOpen` state.
+  - Added "+ Register Agent" emerald-styled button to the header toolbar (between Export and Refresh).
+  - Rendered `<AgentRegisterModal>` with `onRegistered` → `void load()` (refresh list, keep modal open to show success state), `onClose` → `setRegisterModalOpen(false)`.
+- Created `tests/e2e/agent-register.spec.ts` — 26 E2E tests:
+  - Button visible and labeled "+ Register Agent".
+  - Modal opens on click; has all 5 form fields.
+  - Boundary defaults to "default"; status defaults to "unknown"; all 4 status options present.
+  - Close button, Cancel button, Escape key, backdrop click all dismiss the modal.
+  - Validation errors for empty agent ID, empty capabilities, invalid cap chars (`inv@lid!`), invalid JSON metadata.
+  - Metadata optional — no error when blank.
+  - Successful registration: success banner visible, Done button replaces Submit/Cancel, Done closes modal.
+  - Valid agent ID chars (hyphens + underscores) accepted without error.
+  - Form resets between open/close cycles.
+  - Valid JSON metadata accepted without error.
+  - API 409 error: error banner visible, modal stays open, Submit button still available for retry.
+- **Build:** clean (tsc + vite, 10.5s). **Tests:** 1119 passed, 23 skipped, 0 failed; all 26 new agent-register E2E tests pass.
+
+---
+
 ## Iteration 65: Kubex Credential Management
 
 **Files modified:** `src/api.ts`, `src/types.ts`, `src/components/ContainersPanel.tsx`, `tests/e2e/mocks/handlers.ts`, `docs/CHANGELOG.md`

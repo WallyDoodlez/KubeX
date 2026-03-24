@@ -1,5 +1,6 @@
 import type {
   Agent,
+  AgentRegistrationBody,
   AuditResponse,
   CreateKubexBody,
   CreateKubexResponse,
@@ -151,6 +152,10 @@ export async function getAgents(): Promise<FetchResult<Agent[]>> {
 
 export async function getAgentsByCapability(cap: string): Promise<FetchResult<Agent[]>> {
   return apiFetch<Agent[]>('GET', `${REGISTRY}/capabilities/${encodeURIComponent(cap)}`);
+}
+
+export async function registerAgent(body: AgentRegistrationBody): Promise<FetchResult<Agent>> {
+  return apiFetch<Agent>('POST', `${REGISTRY}/agents`, body);
 }
 
 export async function deregisterAgent(agentId: string): Promise<FetchResult<unknown>> {

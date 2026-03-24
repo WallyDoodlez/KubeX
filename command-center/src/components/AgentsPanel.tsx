@@ -21,6 +21,7 @@ import SelectionBar from './SelectionBar';
 import { exportAsJSON } from '../utils/export';
 import CapabilityMatrix from './CapabilityMatrix';
 import CopyButton from './CopyButton';
+import AgentRegisterModal from './AgentRegisterModal';
 
 // Stable comparators defined at module level so their references don't change between renders
 const sortComparators = {
@@ -47,6 +48,7 @@ export default function AgentsPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deregistering, setDeregistering] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
   // Bulk selection
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkActionInProgress, setBulkActionInProgress] = useState(false);
@@ -212,6 +214,13 @@ export default function AgentsPanel() {
               exportAsJSON(agents, `agents-${new Date().toISOString().slice(0, 10)}`);
             }}
           />
+          <button
+            onClick={() => setRegisterModalOpen(true)}
+            data-testid="open-register-agent-btn"
+            className="px-3 py-1.5 text-xs rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+          >
+            + Register Agent
+          </button>
           <button
             onClick={refresh}
             className="px-3 py-1.5 text-xs rounded-lg border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] transition-colors"
@@ -417,6 +426,15 @@ export default function AgentsPanel() {
         variant="danger"
         onConfirm={handleBulkDeregister}
         onCancel={() => setBulkConfirmOpen(false)}
+      />
+
+      <AgentRegisterModal
+        open={registerModalOpen}
+        onClose={() => setRegisterModalOpen(false)}
+        onRegistered={() => {
+          // Refresh agent list in background; modal stays open to show success state
+          void load();
+        }}
       />
     </div>
   );

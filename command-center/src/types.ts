@@ -272,6 +272,17 @@ export interface InstallDepResponse {
   runtime_deps: string[];
 }
 
+// ── Agent Registration ────────────────────────────────────────────────
+
+/** Request body for POST /agents (Registry) */
+export interface AgentRegistrationBody {
+  agent_id: string;
+  capabilities: string[];
+  status?: 'running' | 'stopped' | 'busy' | 'unknown';
+  boundary?: string;
+  metadata?: Record<string, unknown>;
+}
+
 // ── Kubex Credential Injection ────────────────────────────────────────
 
 /** Supported CLI runtimes for credential injection */
