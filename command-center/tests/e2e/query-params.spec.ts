@@ -122,7 +122,34 @@ test.describe('AgentsPanel — URL query params', () => {
 
 // ── ContainersPanel ──────────────────────────────────────────────────────────
 
+const CONTAINERS_MANAGER = 'http://localhost:8090';
+
+const containersMockKubexes = [
+  {
+    kubex_id: 'kubex-550e8400-e29b-41d4',
+    agent_id: 'agent-alpha-001',
+    status: 'running',
+    image: 'kubex-base:latest',
+    container_id: 'abc123',
+    boundary: 'default',
+  },
+  {
+    kubex_id: 'kubex-6ba7b810-9dad-11d1',
+    agent_id: 'agent-beta-007',
+    status: 'created',
+    image: 'kubex-base:latest',
+    container_id: 'def456',
+    boundary: 'default',
+  },
+];
+
 test.describe('ContainersPanel — URL query params', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(`${CONTAINERS_MANAGER}/kubexes`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(containersMockKubexes) }),
+    );
+  });
+
   test('status filter appears in URL when changed', async ({ page }) => {
     await page.goto('/containers');
     await expect(page.locator('header h1')).toHaveText('Containers');

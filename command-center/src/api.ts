@@ -174,6 +174,33 @@ export async function startKubex(kubexId: string): Promise<FetchResult<unknown>>
   );
 }
 
+export async function stopKubex(kubexId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>(
+    'POST',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/stop`,
+    undefined,
+    managerHeaders(),
+  );
+}
+
+export async function restartKubex(kubexId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>(
+    'POST',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/restart`,
+    undefined,
+    managerHeaders(),
+  );
+}
+
+export async function respawnKubex(kubexId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>(
+    'POST',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/respawn`,
+    undefined,
+    managerHeaders(),
+  );
+}
+
 export async function createKubex(body: CreateKubexBody): Promise<FetchResult<CreateKubexResponse>> {
   return apiFetch<CreateKubexResponse>('POST', `${MANAGER}/kubexes`, body, managerHeaders());
 }

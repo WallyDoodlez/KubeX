@@ -4,6 +4,27 @@
 
 ---
 
+## Iteration 56: Kubex lifecycle controls — Stop, Restart, Respawn
+
+**Files modified:** `src/api.ts`, `src/components/ConfirmDialog.tsx`, `src/components/ContainersPanel.tsx`, `tests/e2e/keyboard-nav.spec.ts`, `tests/e2e/query-params.spec.ts`, `tests/e2e/copy-button.spec.ts`, `tests/e2e/mocks/handlers.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/kubex-lifecycle.spec.ts`
+
+**Changes:**
+- Added `stopKubex`, `restartKubex`, `respawnKubex` to `src/api.ts` — authenticated `POST` to `${MANAGER}/kubexes/{id}/stop|restart|respawn`.
+- Extended `ConfirmDialog.tsx` with a `'warning'` variant: amber confirm button + circular-arrows icon, used for Restart and Respawn which are recoverable but disruptive actions.
+- Overhauled `KubexRow` actions column in `ContainersPanel.tsx`:
+  - **Running containers:** Stop (amber — graceful, immediate), Restart (blue — confirm required), Kill (red — confirm required).
+  - **Stopped/error containers:** Start (green), Respawn (purple — confirm required).
+  - **Created containers:** Start (green), Respawn (purple — confirm required).
+- Collapsed all confirm dialog logic into a single `handleConfirmedAction` handler dispatching to `killKubex`, `restartKubex`, or `respawnKubex` based on `confirmTarget.action`.
+- All new buttons carry `data-testid="kubex-{action}-{id}"` attributes for targeted E2E testing.
+- Fixed 16 pre-existing E2E test failures in `keyboard-nav.spec.ts`, `query-params.spec.ts`, and `copy-button.spec.ts` — all three relied on a live Manager backend for ContainersPanel to render. Fixed by adding `page.route()` mocks for `GET /kubexes`.
+- Added MSW handler stubs for `/stop`, `/restart`, `/respawn` in `tests/e2e/mocks/handlers.ts`.
+- Created `tests/e2e/kubex-lifecycle.spec.ts` — 14 tests covering per-status button visibility, endpoint calls, confirm dialogs, cancel/confirm flows, disabled-during-action state.
+- **Build:** clean. **Tests:** 884/884 passed (20 skipped).
+
+---
+
 ## Iteration 55: Kubex Spawn Wizard page
 
 **Files modified:** `src/api.ts`, `src/types.ts`, `src/App.tsx`, `src/components/Layout.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

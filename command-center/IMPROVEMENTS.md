@@ -4,6 +4,20 @@
 
 ---
 
+- [x] **Iteration 56: Kubex lifecycle controls — Stop, Restart, Respawn**
+  - [x] Add `stopKubex`, `restartKubex`, `respawnKubex` to `src/api.ts` — wire POST /kubexes/{id}/stop, /restart, /respawn endpoints (all backed by Manager).
+  - [x] Extend `ConfirmDialog.tsx` — add `'warning'` variant (amber button + refresh icon) alongside existing `'danger'` and `'default'`.
+  - [x] Update `ContainersPanel.tsx` — expand KubexRow Actions column with full lifecycle button set: running containers show Stop (amber), Restart (blue), Kill (red); stopped/created containers show Start (green), Respawn (purple). Each action uses appropriate `data-testid` attributes.
+  - [x] Update `ContainersPanel.tsx` — single `handleConfirmedAction` handler dispatches to correct API call based on `confirmTarget.action` ('kill' | 'restart' | 'respawn'); `handleStop` runs immediately (no confirm); `requestRestart` and `requestRespawn` open a confirm dialog.
+  - [x] Update `ContainersPanel.tsx` — Restart and Respawn confirm dialogs use `'warning'` variant (amber styling, refresh icon).
+  - [x] Fix `tests/e2e/keyboard-nav.spec.ts` — add `page.route()` mock for Manager `/kubexes` endpoint in containers `beforeEach` so the table renders data without a live backend (pre-existing failure).
+  - [x] Fix `tests/e2e/query-params.spec.ts` — add `beforeEach` route mock for Manager `/kubexes` in ContainersPanel describe block (pre-existing failure).
+  - [x] Fix `tests/e2e/copy-button.spec.ts` — add inline `page.route()` mock for Manager `/kubexes` in containers copy-button test (pre-existing failure).
+  - [x] Create `tests/e2e/kubex-lifecycle.spec.ts` (14 tests): running shows Stop/Restart/Kill; stopped shows Start/Respawn; created shows Start/Respawn; stop calls endpoint; kill shows confirm dialog; restart shows warning confirm; respawn shows confirm; Cancel dismisses dialog; confirm kill/restart/respawn closes dialog; buttons disabled during in-flight; multiple-status matrix test.
+  - [x] Add handler stubs for stop/restart/respawn to `tests/e2e/mocks/handlers.ts` for completeness.
+  - [x] Build: npm run build — clean, 94 modules
+  - [x] Test: npx playwright test — 884/884 passed (20 skipped)
+
 - [x] **Iteration 55: Kubex Spawn Wizard page**
   - [x] Add `CreateKubexBody` and `CreateKubexResponse` types to `src/types.ts`.
   - [x] Add `createKubex(body: CreateKubexBody)` to `src/api.ts` — calls `POST ${MANAGER}/kubexes` with Manager auth token.

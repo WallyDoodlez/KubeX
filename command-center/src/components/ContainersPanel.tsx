@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, memo } from 'react';
 import type { Kubex } from '../types';
-import { getKubexes, killKubex, startKubex } from '../api';
+import { getKubexes, killKubex, startKubex, stopKubex, restartKubex, respawnKubex } from '../api';
 import StatusBadge from './StatusBadge';
 import { usePolling } from '../hooks/usePolling';
 import { useSearch } from '../hooks/useSearch';
@@ -47,7 +47,7 @@ export default function ContainersPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionIn, setActionIn] = useState<string | null>(null);
-  const [confirmTarget, setConfirmTarget] = useState<{ kubexId: string; action: 'kill' } | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{ kubexId: string; action: 'kill' | 'restart' | 'respawn' } | null>(null);
   // Bulk selection
   const [bulkKillConfirmOpen, setBulkKillConfirmOpen] = useState(false);
   const [bulkActionInProgress, setBulkActionInProgress] = useState(false);
@@ -163,12 +163,22 @@ export default function ContainersPanel() {
     setConfirmTarget({ kubexId, action: 'kill' });
   }
 
-  async function handleConfirmedKill() {
+  function requestRestart(kubexId: string) {
+    setConfirmTarget({ kubexId, action: 'restart' });
+  }
+
+  function requestRespawn(kubexId: string) {
+    setConfirmTarget({ kubexId, action: 'respawn' });
+  }
+
+  async function handleConfirmedAction() {
     if (!confirmTarget) return;
-    const { kubexId } = confirmTarget;
+    const { kubexId, action } = confirmTarget;
     setConfirmTarget(null);
     setActionIn(kubexId);
-    await killKubex(kubexId);
+    if (action === 'kill') await killKubex(kubexId);
+    else if (action === 'restart') await restartKubex(kubexId);
+    else if (action === 'respawn') await respawnKubex(kubexId);
     setActionIn(null);
     await load();
   }
@@ -176,6 +186,13 @@ export default function ContainersPanel() {
   async function handleStart(kubexId: string) {
     setActionIn(kubexId);
     await startKubex(kubexId);
+    setActionIn(null);
+    await load();
+  }
+
+  async function handleStop(kubexId: string) {
+    setActionIn(kubexId);
+    await stopKubex(kubexId);
     setActionIn(null);
     await load();
   }
@@ -357,6 +374,9 @@ export default function ContainersPanel() {
                       onSelect={() => toggleOne(kubex.kubex_id)}
                       onKill={() => requestKill(kubex.kubex_id)}
                       onStart={() => handleStart(kubex.kubex_id)}
+                      onStop={() => handleStop(kubex.kubex_id)}
+                      onRestart={() => requestRestart(kubex.kubex_id)}
+                      onRespawn={() => requestRespawn(kubex.kubex_id)}
                     />
                   ))}
                 </div>
@@ -414,11 +434,26 @@ export default function ContainersPanel() {
 
       <ConfirmDialog
         open={confirmTarget !== null}
-        title="Kill Kubex"
-        message={`Are you sure you want to kill kubex "${confirmTarget?.kubexId}"?`}
-        confirmLabel="Kill"
-        variant="danger"
-        onConfirm={handleConfirmedKill}
+        title={
+          confirmTarget?.action === 'kill'
+            ? 'Kill Kubex'
+            : confirmTarget?.action === 'restart'
+            ? 'Restart Kubex'
+            : 'Respawn Kubex'
+        }
+        message={
+          confirmTarget?.action === 'kill'
+            ? `Are you sure you want to kill kubex "${confirmTarget?.kubexId}"?`
+            : confirmTarget?.action === 'restart'
+            ? `Restart kubex "${confirmTarget?.kubexId}"? The container will be stopped and restarted.`
+            : `Respawn kubex "${confirmTarget?.kubexId}"? The container will be killed and a new one created from the persisted config.`
+        }
+        confirmLabel={
+          confirmTarget?.action === 'kill' ? 'Kill' :
+          confirmTarget?.action === 'restart' ? 'Restart' : 'Respawn'
+        }
+        variant={confirmTarget?.action === 'kill' ? 'danger' : 'warning'}
+        onConfirm={handleConfirmedAction}
         onCancel={() => setConfirmTarget(null)}
       />
 
@@ -472,12 +507,17 @@ interface KubexRowProps {
   onSelect: () => void;
   onKill: () => void;
   onStart: () => void;
+  onStop: () => void;
+  onRestart: () => void;
+  onRespawn: () => void;
 }
 
 // Wrapped in React.memo — ContainersPanel re-renders on every 10s poll tick.
 // KubexRow skips re-render when its own props haven't changed.
-const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, focused, rowProps, onSelect, onKill, onStart }: KubexRowProps) {
+const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, focused, rowProps, onSelect, onKill, onStart, onStop, onRestart, onRespawn }: KubexRowProps) {
   const isRunning = kubex.status === 'running';
+  const isStopped = kubex.status === 'stopped' || kubex.status === 'error';
+  const isCreated = kubex.status === 'created';
 
   return (
     <div
@@ -527,22 +567,69 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
       </span>
 
       {/* Actions */}
-      <div className="flex items-center gap-2" role="cell">
-        {isRunning ? (
-          <button
-            onClick={onKill}
-            disabled={actionIn}
-            className="px-2 py-1 text-[10px] rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
-          >
-            {actionIn ? '…' : 'Kill'}
-          </button>
-        ) : (
+      <div className="flex items-center gap-1.5" role="cell" data-testid={`kubex-actions-${kubex.kubex_id}`}>
+        {/* Start — shown when created or stopped/error */}
+        {(isCreated || isStopped) && (
           <button
             onClick={onStart}
             disabled={actionIn}
+            data-testid={`kubex-start-${kubex.kubex_id}`}
+            title="Start container"
             className="px-2 py-1 text-[10px] rounded border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
           >
             {actionIn ? '…' : 'Start'}
+          </button>
+        )}
+
+        {/* Stop — shown when running */}
+        {isRunning && (
+          <button
+            onClick={onStop}
+            disabled={actionIn}
+            data-testid={`kubex-stop-${kubex.kubex_id}`}
+            title="Gracefully stop container"
+            className="px-2 py-1 text-[10px] rounded border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+          >
+            {actionIn ? '…' : 'Stop'}
+          </button>
+        )}
+
+        {/* Restart — shown when running */}
+        {isRunning && (
+          <button
+            onClick={onRestart}
+            disabled={actionIn}
+            data-testid={`kubex-restart-${kubex.kubex_id}`}
+            title="Restart container"
+            className="px-2 py-1 text-[10px] rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
+          >
+            {actionIn ? '…' : 'Restart'}
+          </button>
+        )}
+
+        {/* Respawn — shown for all non-running states */}
+        {!isRunning && (
+          <button
+            onClick={onRespawn}
+            disabled={actionIn}
+            data-testid={`kubex-respawn-${kubex.kubex_id}`}
+            title="Kill and recreate container from persisted config"
+            className="px-2 py-1 text-[10px] rounded border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition-colors disabled:opacity-50"
+          >
+            {actionIn ? '…' : 'Respawn'}
+          </button>
+        )}
+
+        {/* Kill — shown when running */}
+        {isRunning && (
+          <button
+            onClick={onKill}
+            disabled={actionIn}
+            data-testid={`kubex-kill-${kubex.kubex_id}`}
+            title="Force-kill container"
+            className="px-2 py-1 text-[10px] rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+          >
+            {actionIn ? '…' : 'Kill'}
           </button>
         )}
       </div>

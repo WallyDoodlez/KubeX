@@ -27,6 +27,23 @@ test.describe('CopyButton — component presence', () => {
   });
 
   test('copy button is present in containers panel kubex rows', async ({ page }) => {
+    // Mock the Manager kubexes endpoint so rows render without a live backend
+    await page.route('http://localhost:8090/kubexes', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            kubex_id: 'kubex-copy-test-001',
+            agent_id: 'agent-copy-test',
+            status: 'running',
+            image: 'kubex-base:latest',
+            container_id: 'abc123',
+            boundary: 'default',
+          },
+        ]),
+      }),
+    );
     await page.goto('/containers');
     await expect(page.locator('header h1')).toHaveText('Containers');
 
