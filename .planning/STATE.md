@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
 stopped_at: Completed 12-02-PLAN.md
-last_updated: "2026-03-24T00:47:13.273Z"
+last_updated: "2026-03-24T00:51:35.138Z"
 progress:
   total_phases: 9
   completed_phases: 6
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ## Current Position
 
-Phase: 12 (oauth-command-center-web-flow) — EXECUTING
-Plan: 2 of 2
+Phase: 999.1
+Plan: Not started
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Plan: 2 of 2
 - Phase 08.2 inserted after Phase 8: Vault Persistence (INSERTED) — knowledge worker E2E vault ops, standalone agent vault wiring
 - Phase 08.3 inserted after Phase 8: Orchestrator Context Reset (INSERTED) — meta-tool or auto-truncate for context window management
 - Phase 08.4 inserted after Phase 8: Vault Git Sync (INSERTED) — configurable remote repo, auto commit+push, pull on boot
+- Phase 13 added: Error Observability Pipeline — unified error detection, propagation, and UI-consumable reporting across Gateway/Broker/Agent boundaries
 
 ### Decisions
 

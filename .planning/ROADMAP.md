@@ -130,6 +130,17 @@ Plans:
 - [x] 12-01-PLAN.md — Gateway lifecycle SSE endpoint with Bearer auth, Manager credential path fix, AUTH-03 confirmation
 - [x] 12-02-PLAN.md — FE handoff document with API contracts, sequence diagrams, edge cases
 
+### Phase 13: Error Observability Pipeline
+**Goal**: Unified error detection, propagation, and UI-consumable reporting across Gateway/Broker/Agent boundaries so that pipeline failures are visible in the Command Center instead of silently hanging
+**Depends on**: Phase 12
+**Requirements**: TBD
+**Success Criteria** (what must be TRUE):
+  1. A task dispatched to a capability with no registered agent is rejected immediately with a structured error (not silently queued)
+  2. A task unclaimed by any agent for longer than the configured TTL is marked expired and the originator receives an error event on the SSE progress stream
+  3. An agent crash mid-task produces a structured error event on the SSE progress stream within the detection window
+  4. The Command Center can consume all pipeline errors via a single API and display them in context (per-task errors, system-wide health)
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -143,7 +154,8 @@ Plans:
 | 9. CLI Runtime — Claude Code | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 10. Hooks Monitoring | v1.2 | 3/3 | Complete    | 2026-03-23 |
 | 11. Gemini CLI Runtime | v1.2 | 1/1 | Complete    | 2026-03-23 |
-| 12. OAuth Command Center Web Flow | v1.2 | 2/2 | Complete   | 2026-03-24 |
+| 12. OAuth Command Center Web Flow | v1.2 | 2/2 | Complete    | 2026-03-24 |
+| 13. Error Observability Pipeline | v1.2 | 0/? | Not started | - |
 
 ## Backlog
 
@@ -173,3 +185,13 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 1000: Error Observability Pipeline
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 999
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 1000 to break down)
