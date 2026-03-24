@@ -798,6 +798,79 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
   const isStreaming = streamUrl !== null && (sseStatus === 'connecting' || sseStatus === 'open');
 
+  /**
+   * Group filteredMessages into conversation groups for visual dividers.
+   *
+   * Algorithm:
+   *  - A "conversation group" is anchored to a non-null task_id.
+   *  - When we encounter a message with a new task_id we open a new group and
+   *    look backwards to capture any immediately preceding user messages (which
+   *    don't carry a task_id yet) into the same group — this keeps the user
+   *    prompt visually paired with its response.
+   *  - Messages that have no task_id and do not sit immediately before a task
+   *    group (e.g. the welcome message) remain as singleton ungrouped entries.
+   *
+   * Each group entry:
+   *   { taskId: string | null, messages: ChatMessage[], isFirstTaskGroup: boolean }
+   *
+   * `isFirstTaskGroup` is true for the very first group that has a non-null
+   * taskId — used to suppress the top divider on that group.
+   */
+  const groupedMessages = useMemo(() => {
+    type Group = { taskId: string | null; messages: typeof filteredMessages };
+    const groups: Group[] = [];
+
+    // Build a mutable working copy so we can reassign user messages to task groups
+    const remaining = [...filteredMessages];
+
+    // First pass: collect which indices are "absorbed" into a task group
+    // by pairing them with the immediately following task-id messages.
+    // We process from back-to-front to identify user messages just before a task group.
+
+    // Simple forward pass: assign each message a "group key"
+    // The group key is the task_id of the nearest following grouped message, if the
+    // current message is a no-task_id user message immediately before that group.
+    const groupKeys: Array<string | null> = remaining.map((m) => m.task_id ?? null);
+
+    // Look-ahead: if a null-key message is immediately followed by a non-null key,
+    // and the null-key message has role === 'user', absorb it into the next task group.
+    for (let i = 0; i < groupKeys.length - 1; i++) {
+      if (groupKeys[i] === null && remaining[i].role === 'user' && groupKeys[i + 1] !== null) {
+        groupKeys[i] = groupKeys[i + 1];
+      }
+    }
+
+    // Second pass: collect into groups preserving order
+    for (let i = 0; i < remaining.length; i++) {
+      const key = groupKeys[i];
+      const msg = remaining[i];
+
+      if (key === null) {
+        // Ungrouped singleton
+        groups.push({ taskId: null, messages: [msg] });
+      } else {
+        // Append to last group if same key, else start new group
+        const last = groups[groups.length - 1];
+        if (last && last.taskId === key) {
+          last.messages.push(msg);
+        } else {
+          groups.push({ taskId: key, messages: [msg] });
+        }
+      }
+    }
+
+    return groups;
+  }, [filteredMessages]);
+
+  /**
+   * The index of the first task group (non-null taskId) in groupedMessages.
+   * Dividers are only shown on task groups that come AFTER this first one.
+   */
+  const firstTaskGroupIndex = useMemo(
+    () => groupedMessages.findIndex((g) => g.taskId !== null),
+    [groupedMessages],
+  );
+
   return (
     <div className="flex flex-col h-full animate-fade-in" style={{ maxHeight: 'calc(100vh - 48px)' }}>
       {/* Search / filter toolbar */}
@@ -979,9 +1052,41 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           onScroll={handleScrollContainer}
           className="h-full overflow-y-auto scrollbar-thin px-6 py-4 space-y-3"
         >
-        {filteredMessages.map((msg) => (
-          <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} />
-        ))}
+        {groupedMessages.map((group, groupIdx) =>
+          group.taskId === null ? (
+            // Ungrouped messages (e.g. welcome message) — no divider, no wrapper
+            group.messages.map((msg) => (
+              <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} />
+            ))
+          ) : (
+            // Task conversation group — wrapped with optional divider header
+            <div
+              key={group.taskId}
+              data-testid="task-group"
+              data-task-id={group.taskId}
+              className="space-y-3"
+            >
+              {/* Divider — only render between task groups (not before the first one) */}
+              {groupIdx > firstTaskGroupIndex && (
+                <div
+                  data-testid="task-group-divider"
+                  className="flex items-center gap-2 my-1"
+                  role="separator"
+                  aria-label={`Task group ${group.taskId}`}
+                >
+                  <div className="flex-1 h-px bg-[var(--color-border)]" />
+                  <span className="text-[10px] font-mono-data text-[var(--color-text-dim)] px-2 py-0.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] select-none whitespace-nowrap">
+                    {group.taskId}
+                  </span>
+                  <div className="flex-1 h-px bg-[var(--color-border)]" />
+                </div>
+              )}
+              {group.messages.map((msg) => (
+                <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} />
+              ))}
+            </div>
+          )
+        )}
 
         {/* Welcome empty state — shown when only the system welcome message exists and no filters are active */}
         {messages.length <= 1 && !isFiltering && (
