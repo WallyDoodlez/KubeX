@@ -4,6 +4,22 @@
 
 ---
 
+- [x] **Iteration 77: Task history enrichment — capability + time-window filters**
+  - [x] Add `TimeWindow` type (`'all' | '1h' | '24h' | '7d'`) and `windowStart()` helper to `src/components/TaskHistoryPage.tsx`
+  - [x] Add `capability` and `window` URL param defaults to `PARAM_DEFAULTS`
+  - [x] Derive `allCapabilities` (distinct, sorted) via `useMemo` from task entries for capability dropdown
+  - [x] Add `capabilityFiltered` and `timeFiltered` memo layers in the filter pipeline (status → capability → time → search)
+  - [x] Add `handleCapabilityChange`, `handleTimeWindowChange`, and `handleClearFilters` handler functions
+  - [x] Extend `hasFilter` to include capability and time-window checks
+  - [x] Add **Capability filter** `<select>` dropdown with `data-testid="capability-filter"` — only rendered when tasks have capabilities; persists to URL via `capability=` param
+  - [x] Add **Time-window filter** button group (`data-testid="time-window-filter"`) with `All time / Last 1h / Last 24h / Last 7d` options; each button has `data-testid="time-filter-{w}"`; persists to URL via `window=` param
+  - [x] Add **"Clear filters ×"** button (`data-testid="clear-filters-btn"`) — visible only when any filter is active; resets status, capability, window, and search to defaults
+  - [x] Add `data-testid="status-filter-{s}"` to existing status filter buttons (needed for clear-filters tests)
+  - [x] Reorganise filter row into two sub-rows: (1) status + time-window + clear; (2) capability + search
+  - [x] Create `tests/e2e/task-history-enrichment.spec.ts` (20 tests) — capability dropdown presence/values/filtering, time-window rendering/defaults/filtering (1h/24h), clear-filters show/hide/reset, URL persistence for both new params, URL restoration on direct navigation, combined filter stacking, header count display
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1177/1177 passed (23 skipped)
+
 - [x] **Iteration 75: Enhanced global error boundary**
   - [x] Extract `ErrorFallback` as a named export from `src/components/ErrorBoundary.tsx` — accepts `error`, `onRetry`, and `inline` props; uses CSS custom properties throughout (no hardcoded hex) so it adapts to the light/dark theme toggle
   - [x] Add `data-testid` attributes on all key error UI elements: `error-boundary-card`, `error-boundary-heading`, `error-boundary-message`, `error-boundary-retry`, `error-boundary-reload`, `error-boundary-inline`, `error-boundary-fullscreen`
