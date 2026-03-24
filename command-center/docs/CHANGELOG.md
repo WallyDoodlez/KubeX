@@ -4,6 +4,23 @@
 
 ---
 
+## Iteration 60: Collapsible Sidebar — icon-only mode
+
+**Files modified:** `src/components/Layout.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/sidebar-collapse.spec.ts`
+
+**Changes:**
+- Added `sidebarCollapsed` state to `Layout.tsx`, persisted via `useLocalStorage('kubex-sidebar-collapsed', false)`.
+- Added `toggleSidebarCollapsed` callback; wired to a new toggle button at the bottom of the sidebar (desktop only, `hidden md:block`).
+- Sidebar `<aside>` uses inline `style={{ width: sidebarCollapsed ? '56px' : '224px', transition: 'width 200ms ease-in-out' }}` for smooth CSS width transition. `data-collapsed="true|false"` attribute added.
+- When collapsed on desktop: nav buttons switch to `justify-center` icon-only layout; labels and descriptions are hidden (conditionally rendered); brand text hides (only the `K` logo remains); footer version text hides.
+- Nav buttons gain `title={item.label}` when collapsed so native tooltips show the label on hover.
+- Toggle button shows `«` (with "Collapse" label) when expanded and `»` when collapsed; `data-testid="sidebar-collapse-toggle"`.
+- Mobile behavior is fully preserved — hamburger/overlay sidebar remains unchanged; `data-collapsed` always reads `false` on mobile viewports.
+- **Build:** clean. **Tests:** 14/14 sidebar-collapse E2E tests pass.
+
+---
+
 ## Iteration 59: Kubex Config Viewer
 
 **Files modified:** `src/api.ts`, `src/types.ts`, `src/components/ContainersPanel.tsx`, `command-center/IMPROVEMENTS.md`, `docs/CHANGELOG.md`

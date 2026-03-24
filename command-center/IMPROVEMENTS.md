@@ -4,6 +4,31 @@
 
 ---
 
+- [ ] **Iteration 61: Service info tooltips and descriptions on Dashboard**
+  - [ ] Add descriptive subtitles/tooltips to each service health card on the Dashboard explaining what each service does:
+    - **Gateway** — "Routes tasks to agents, enforces policies, streams results via SSE"
+    - **Registry** — "Tracks registered agents and their capabilities"
+    - **Kubex Manager** — "Spawns, manages, and monitors Kubex containers"
+    - **Broker** — "Distributes tasks to available agents based on capability matching"
+  - [ ] Show the description as a subtitle line below the service name on each health card (muted text, small font).
+  - [ ] Add an info icon (ℹ) next to each service name that shows a richer tooltip on hover with: service purpose, port, key endpoints.
+  - [ ] Purely frontend — no new backend endpoints needed. Descriptions are static knowledge about the architecture.
+  - [ ] E2E tests: descriptions visible on health cards, info tooltips present, tooltip content matches expected text.
+  - [ ] Build: npm run build — clean
+  - [ ] Test: npx playwright test — all pass
+  - [ ] Update `docs/CHANGELOG.md`
+
+- [x] **Iteration 60: Collapsible sidebar — icon-only mode**
+  - [x] Add a collapse/expand toggle button at the bottom of the sidebar (or top). When collapsed, sidebar shrinks to icon-only width (~56px), showing only nav icons without labels.
+  - [x] Persist collapse state in localStorage so it survives page reloads.
+  - [x] Show tooltip on hover over icon-only nav items (the label text).
+  - [x] Smooth CSS transition for width change. Main content area expands to fill the freed space.
+  - [x] Mobile behavior unchanged (sidebar already collapses via hamburger menu).
+  - [x] E2E tests: toggle button present, collapse reduces width, expand restores width, state persists after reload, tooltips visible on collapsed items.
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 14/14 sidebar-collapse tests pass (all pass)
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 59: Kubex Config Viewer**
   - [x] Add `KubexConfigResponse` type to `src/types.ts`
   - [x] Add `getKubexConfig(kubexId)` API function to `src/api.ts` — calls `GET /kubexes/{id}/config` on Manager
