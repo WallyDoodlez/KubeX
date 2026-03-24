@@ -47,6 +47,7 @@ services:
       - BROKER_URL=http://kubex-broker:8060
       - SERVICE_NAME=gateway
       - LLM_API_KEYS_PATH=/app/secrets/llm-api-keys.json
+      - KUBEX_MGMT_TOKEN=${MANAGER_TOKEN}
     networks:
       - kubex-internal
       - kubex-external
