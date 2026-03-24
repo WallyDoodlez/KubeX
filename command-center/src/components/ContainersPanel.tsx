@@ -21,6 +21,7 @@ import CopyButton from './CopyButton';
 import KubexConfigPanel from './KubexConfigPanel';
 import KubexInstallDepPanel from './KubexInstallDepPanel';
 import KubexCredentialPanel from './KubexCredentialPanel';
+import { useToast } from '../context/ToastContext';
 
 // Status filter options
 type StatusFilter = 'all' | 'running' | 'created' | 'stopped' | 'error';
@@ -55,6 +56,7 @@ export default function ContainersPanel() {
   const [bulkKillConfirmOpen, setBulkKillConfirmOpen] = useState(false);
   const [bulkActionInProgress, setBulkActionInProgress] = useState(false);
   const { selectedIds, selectedCount, toggleOne, toggleAll, clearSelection, isSelected } = useSelection();
+  const { addToast } = useToast();
 
   // URL query params — search, status filter, sort key/direction, page
   const [qp, setQp] = useQueryParams(CONTAINERS_PARAM_DEFAULTS);
@@ -183,25 +185,42 @@ export default function ContainersPanel() {
     const { kubexId, action } = confirmTarget;
     setConfirmTarget(null);
     setActionIn(kubexId);
-    if (action === 'kill') await killKubex(kubexId);
-    else if (action === 'restart') await restartKubex(kubexId);
-    else if (action === 'respawn') await respawnKubex(kubexId);
-    else if (action === 'delete') await deleteKubex(kubexId);
+    let res;
+    if (action === 'kill') res = await killKubex(kubexId);
+    else if (action === 'restart') res = await restartKubex(kubexId);
+    else if (action === 'respawn') res = await respawnKubex(kubexId);
+    else res = await deleteKubex(kubexId);
     setActionIn(null);
+    if (res.ok) {
+      const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+      addToast(`${actionLabel} ${kubexId} — success`, 'success');
+    } else {
+      addToast(`Failed to ${action} ${kubexId}: ${res.error ?? `HTTP ${res.status}`}`, 'error');
+    }
     await load();
   }
 
   async function handleStart(kubexId: string) {
     setActionIn(kubexId);
-    await startKubex(kubexId);
+    const res = await startKubex(kubexId);
     setActionIn(null);
+    if (res.ok) {
+      addToast(`Started ${kubexId}`, 'success');
+    } else {
+      addToast(`Failed to start ${kubexId}: ${res.error ?? `HTTP ${res.status}`}`, 'error');
+    }
     await load();
   }
 
   async function handleStop(kubexId: string) {
     setActionIn(kubexId);
-    await stopKubex(kubexId);
+    const res = await stopKubex(kubexId);
     setActionIn(null);
+    if (res.ok) {
+      addToast(`Stopped ${kubexId}`, 'success');
+    } else {
+      addToast(`Failed to stop ${kubexId}: ${res.error ?? `HTTP ${res.status}`}`, 'error');
+    }
     await load();
   }
 
@@ -209,7 +228,15 @@ export default function ContainersPanel() {
     setBulkKillConfirmOpen(false);
     setBulkActionInProgress(true);
     const ids = Array.from(selectedIds);
-    await Promise.allSettled(ids.map((id) => killKubex(id)));
+    const results = await Promise.allSettled(ids.map((id) => killKubex(id)));
+    const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').length;
+    const succeededCount = ids.length - failed;
+    if (succeededCount > 0) {
+      addToast(`Killed ${succeededCount} kubex${succeededCount !== 1 ? 'es' : ''}`, 'success');
+    }
+    if (failed > 0) {
+      addToast(`${failed} kubex${failed !== 1 ? 'es' : ''} failed to kill`, 'error');
+    }
     clearSelection();
     setBulkActionInProgress(false);
     await load();
@@ -218,7 +245,15 @@ export default function ContainersPanel() {
   async function handleBulkStart() {
     setBulkActionInProgress(true);
     const ids = Array.from(selectedIds);
-    await Promise.allSettled(ids.map((id) => startKubex(id)));
+    const results = await Promise.allSettled(ids.map((id) => startKubex(id)));
+    const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').length;
+    const succeededCount = ids.length - failed;
+    if (succeededCount > 0) {
+      addToast(`Started ${succeededCount} kubex${succeededCount !== 1 ? 'es' : ''}`, 'success');
+    }
+    if (failed > 0) {
+      addToast(`${failed} kubex${failed !== 1 ? 'es' : ''} failed to start`, 'error');
+    }
     clearSelection();
     setBulkActionInProgress(false);
     await load();
