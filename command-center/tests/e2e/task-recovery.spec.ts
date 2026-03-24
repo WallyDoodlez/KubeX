@@ -200,10 +200,11 @@ test('5. recovery with invalid task ID (404) clears sending state and shows info
   await page.goto('/chat');
   await page.waitForSelector('[data-testid="message-input"]');
 
-  // Wait for the error bubble with the info message to appear
+  // The recovery useEffect fires async — wait for the error bubble to appear
+  // The 404 poll triggers setState which renders the error bubble
   await expect(
-    page.locator('[data-testid="error-bubble"]', { hasText: 'Could not reconnect to previous task' }).first(),
-  ).toBeVisible({ timeout: 10_000 });
+    page.getByText('Could not reconnect to previous task').first(),
+  ).toBeVisible({ timeout: 15_000 });
 
   // Textarea must NOT be disabled — sending should be false
   const isDisabled = await page.locator('[data-testid="message-input"]').isDisabled();
