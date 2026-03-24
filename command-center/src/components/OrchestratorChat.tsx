@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
+import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import type { Plugin } from 'unified';
+import type { Root, Text, Element, ElementContent } from 'hast';
+import { visit, SKIP } from 'unist-util-visit';
 import CopyButton from './CopyButton';
 import MermaidBlock from './MermaidBlock';
 import TaskTimeline from './TaskTimeline';
@@ -1056,7 +1060,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           group.taskId === null ? (
             // Ungrouped messages (e.g. welcome message) — no divider, no wrapper
             group.messages.map((msg) => (
-              <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} />
+              <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} searchQuery={chatSearch} />
             ))
           ) : (
             // Task conversation group — wrapped with optional divider header
@@ -1082,7 +1086,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 </div>
               )}
               {group.messages.map((msg) => (
-                <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} />
+                <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} searchQuery={chatSearch} />
               ))}
             </div>
           )
@@ -1780,6 +1784,98 @@ const MessageFeedback = memo(function MessageFeedback({ messageId }: { messageId
   );
 });
 
+// ── Search highlighting ────────────────────────────────────────────────
+
+/**
+ * Splits `text` into alternating plain and highlighted segments for a
+ * case-insensitive search query. Returns React nodes with `<mark>` wrapping
+ * each matched occurrence. Returns a plain string when query is empty.
+ */
+function highlightText(text: string, query: string): ReactNode {
+  if (!query.trim()) return text;
+
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+
+  if (parts.length === 1) return text;
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark
+            key={i}
+            data-testid="search-highlight"
+            style={{
+              background: 'rgba(251, 191, 36, 0.35)',
+              color: 'inherit',
+              borderRadius: '2px',
+              padding: '0 1px',
+            }}
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * A rehype plugin that walks text nodes in the HAST tree and wraps occurrences
+ * of `query` in `<mark>` elements. Used to highlight search matches inside
+ * ReactMarkdown-rendered result bubbles.
+ *
+ * Uses unist-util-visit (already a transitive dependency) to traverse the tree.
+ * Replaces matched text nodes with arrays of text + mark element nodes so the
+ * DOM receives real <mark> elements — no rehype-raw required.
+ */
+function createRehypeHighlightSearch(query: string): Plugin<[], Root> {
+  return () => (tree: Root) => {
+    if (!query.trim()) return;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+
+    visit(tree, 'text', (node: Text, index: number | undefined, parent) => {
+      // Skip code blocks — don't highlight inside syntax-highlighted code
+      if (
+        parent &&
+        'tagName' in parent &&
+        (parent as Element).tagName === 'code'
+      ) {
+        return;
+      }
+
+      const parts = node.value.split(regex);
+      if (parts.length === 1 || index === undefined || !parent || !('children' in parent)) return;
+
+      const newNodes: ElementContent[] = [];
+      for (const part of parts) {
+        regex.lastIndex = 0;
+        if (regex.test(part)) {
+          newNodes.push({
+            type: 'element',
+            tagName: 'mark',
+            properties: { 'data-testid': 'search-highlight' },
+            children: [{ type: 'text', value: part }],
+          } as Element);
+        } else if (part) {
+          newNodes.push({ type: 'text', value: part } as Text);
+        }
+      }
+
+      // Splice the replacement nodes into parent.children at index
+      (parent.children as ElementContent[]).splice(index, 1, ...newNodes);
+
+      // Skip the newly inserted nodes to avoid reprocessing
+      return [SKIP, index + newNodes.length];
+    });
+  };
+}
+
 // ── Chat bubble ───────────────────────────────────────────────────────
 
 /** Returns true if the text looks like raw JSON (starts with { or [) */
@@ -1801,10 +1897,12 @@ const ChatBubble = memo(function ChatBubble({
   message,
   onRetry,
   disabled,
+  searchQuery = '',
 }: {
   message: ChatMessage;
   onRetry?: (retryCapability: string | undefined, retryMessage: string | undefined) => void;
   disabled?: boolean;
+  searchQuery?: string;
 }) {
   const isUser = message.role === 'user';
   const isResult = message.role === 'result';
@@ -1819,7 +1917,7 @@ const ChatBubble = memo(function ChatBubble({
     return (
       <div className="flex justify-center" data-testid="system-message">
         <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-3 py-1">
-          {message.content}
+          {highlightText(message.content, searchQuery)}
         </span>
       </div>
     );
@@ -1834,7 +1932,7 @@ const ChatBubble = memo(function ChatBubble({
       <div className="flex justify-end">
         <div className="max-w-xl">
           <div className="rounded-2xl rounded-tr-sm bg-emerald-500/15 border border-emerald-500/25 px-4 py-2.5">
-            <p className="text-sm text-[var(--color-text)]">{message.content}</p>
+            <p className="text-sm text-[var(--color-text)]">{highlightText(message.content, searchQuery)}</p>
             {showBadge && (
               <span
                 data-testid="capability-badge"
@@ -1883,7 +1981,7 @@ const ChatBubble = memo(function ChatBubble({
                 </button>
               )}
             </div>
-            <p className="text-sm text-[var(--color-text)]">{message.content}</p>
+            <p className="text-sm text-[var(--color-text)]">{highlightText(message.content, searchQuery)}</p>
             {message.phases && message.phases.length > 0 && (
               <div className="mt-2 pt-2 border-t border-red-500/15">
                 <TaskTimeline phases={message.phases} data-testid="error-bubble-timeline" />
@@ -1957,7 +2055,7 @@ const ChatBubble = memo(function ChatBubble({
                 data-testid="json-content"
                 className="text-sm text-[var(--color-text)] whitespace-pre-wrap break-words font-mono-data"
               >
-                {message.content}
+                {highlightText(message.content, searchQuery)}
               </pre>
             ) : (
               <div
@@ -1971,7 +2069,7 @@ const ChatBubble = memo(function ChatBubble({
               >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeHighlight]}
+                  rehypePlugins={[rehypeHighlight, createRehypeHighlightSearch(searchQuery)]}
                   components={{
                     h1: ({ children }) => (
                       <h1 style={{ color: 'var(--color-text)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.5rem', marginTop: '0.75rem' }}>{children}</h1>

@@ -4,6 +4,18 @@
 
 ---
 
+- [x] **Iteration 72: Search result highlighting**
+  - [x] Add `highlightText(text, query)` utility inside `OrchestratorChat.tsx` — splits text on case-insensitive regex matches, returns React nodes with `<mark data-testid="search-highlight">` wrapping each occurrence; regex special characters are escaped; empty query returns the plain string unchanged
+  - [x] Add `createRehypeHighlightSearch(query)` rehype plugin — uses `unist-util-visit` (already a transitive dep) to walk text nodes in the HAST tree and splice in `<mark>` element nodes for each match; skips text inside `<code>` blocks to avoid corrupting syntax highlighting; returns early when query is blank
+  - [x] Add `searchQuery?: string` prop to `ChatBubble` (memo-wrapped) — passed down from the parent map over `filteredMessages`/`groupedMessages` as `chatSearch`
+  - [x] Apply `highlightText()` in: user bubble `<p>`, error bubble `<p>`, system bubble `<span>`, result bubble JSON `<pre>`
+  - [x] Apply `createRehypeHighlightSearch()` as a second rehype plugin in the `ReactMarkdown` call for markdown result bubbles
+  - [x] Add `mark[data-testid="search-highlight"]` CSS rule to `src/index.css` with amber highlight style
+  - [x] Import `type { ReactNode }` from `react`, `type { Plugin }` from `unified`, `type { Root, Text, Element, ElementContent }` from `hast`, `{ visit, SKIP }` from `unist-util-visit`
+  - [x] Create `tests/e2e/search-highlight.spec.ts` (15 tests) — no marks without search, user bubble highlighting, case-insensitive, multiple occurrences, partial word, JSON result bubble, data-testid attribute, clearing search removes marks, role filter hides marked bubbles, error bubble highlighting, non-matching text not wrapped, toolbar clear removes marks, mark is a `<mark>` tag, regex special chars don't crash, count badge visible with highlights
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1093/1093 passed (23 skipped)
+
 - [x] **Iteration 70: Task Cancel UI**
   - [x] Add `cancelTask(taskId)` to `src/api.ts` — `POST ${GATEWAY}/tasks/:id/cancel`
   - [x] Add `cancelling` state and `handleCancel()` to `OrchestratorChat.tsx` — eagerly closes the SSE stream and clears sending/phase state, then calls `cancelTask`; surfaces "cancelled by user" error bubble on success
