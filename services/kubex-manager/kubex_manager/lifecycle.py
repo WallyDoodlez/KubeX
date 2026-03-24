@@ -52,8 +52,10 @@ def _to_host_path(container_path: str) -> str:
         result = os.path.join(host_root, container_path[5:])  # skip "/app/"
     else:
         result = container_path
-    # Docker bind mounts require absolute paths; resolve relative ones
-    if not os.path.isabs(result):
+    # Docker bind mounts require absolute paths; resolve relative ones.
+    # On Linux, os.path.isabs("D:/...") returns False for Windows drive paths,
+    # so also check for the X:/ pattern to avoid mangling with os.path.abspath.
+    if not os.path.isabs(result) and not (len(result) >= 3 and result[1] == ":" and result[2] in "/\\"):
         result = os.path.abspath(result)
     return result
 
@@ -437,6 +439,12 @@ class KubexLifecycle:
             env["KUBEX_AGENT_ID"] = agent_id
             env["KUBEX_BOUNDARY"] = boundary
             env["BROKER_URL"] = os.environ.get("BROKER_URL", "http://kubex-broker:8060")
+            # Pass Redis URL so the harness can publish lifecycle events (AUTH-01)
+            redis_url = os.environ.get("REDIS_URL", "")
+            if redis_url:
+                # Agent needs DB 0 for lifecycle pub/sub — strip any /N suffix
+                base_url = redis_url.rsplit("/", 1)[0] if "/" in redis_url.rsplit("@", 1)[-1] else redis_url
+                env["REDIS_URL"] = base_url
 
             capabilities = agent_cfg.get("capabilities", [])
             if capabilities:

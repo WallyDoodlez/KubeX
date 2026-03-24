@@ -1504,6 +1504,18 @@ class TestToHostPath:
         assert "cli-credentials" in result
         assert "claude-code" in result
 
+    def test_windows_drive_path_not_mangled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Windows drive paths (D:/...) are not mangled by os.path.abspath on Linux.
+
+        When running inside a Linux container with a Windows host path, os.path.isabs
+        returns False for 'D:/...'. The function must detect Windows drive letter
+        patterns and skip abspath to avoid prepending the container's cwd.
+        """
+        monkeypatch.setenv("KUBEX_HOST_PROJECT_DIR", "D:/dev/dev/openclaw")
+        result = _to_host_path("/app/secrets/cli-credentials/claude-code")
+        assert result == os.path.join("D:/dev/dev/openclaw", "secrets/cli-credentials/claude-code")
+        assert not result.startswith("/app/"), f"Path should not start with /app/: {result}"
+
 
 # ===========================================================================
 # TestGeminiCredentialMount

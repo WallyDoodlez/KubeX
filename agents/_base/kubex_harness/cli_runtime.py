@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -143,8 +144,8 @@ MAX_OUTPUT_BYTES = 1_048_576
 # Progress chunk batch window in milliseconds (D-10)
 PROGRESS_BATCH_MS = 500
 
-# Redis URL default
-_REDIS_URL = "redis://redis:6379"
+# Redis URL — prefer REDIS_URL env var (includes auth) over hardcoded default
+_REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
 
 # Credential wait timeout in seconds (1 hour)
 _CREDENTIAL_TIMEOUT_S = 3600.0
@@ -838,8 +839,8 @@ class CLIRuntime:
         channel = f"lifecycle:{self.config.agent_id}"
         try:
             await self._redis.publish(channel, json.dumps(payload))
-        except Exception:
-            pass  # State publish must never block task processing
+        except Exception as exc:
+            logger.warning("Failed to publish state %s: %s", state.value, exc)
 
     # ------------------------------------------------------------------
     # Progress streaming
