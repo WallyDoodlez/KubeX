@@ -4,6 +4,16 @@
 
 ---
 
+- [x] **Iteration 78: Dashboard activity feed improvements — status filters, show more, agent click-through, task ID display**
+  - [x] Add status filter tabs (All / Allowed / Denied / Escalated / Pending) with entry counts to `ActivityFeed.tsx`; `role="tablist"` with `aria-selected` state; resets expanded state on filter change; `data-testid="activity-filter-{status}"` on each tab
+  - [x] Add show more / show less toggle — default 10 rows, expands to 50; `data-testid="activity-feed-show-more"` and `"activity-feed-show-less"`; show-more appears only when filtered count exceeds default limit
+  - [x] Make agent_id in each row a clickable button that navigates to `/agents/:agentId`; `data-testid="activity-row-agent-link"` with `aria-label="Navigate to agent {id}"`; styled as emerald link with hover underline and focus ring
+  - [x] Display `task_id` below action when present; `data-testid="activity-row-task-id"` with `font-mono-data` styling
+  - [x] Add `useNavigate` hook to `ActivityFeed` (no longer a pure memo — requires router context)
+  - [x] Update `tests/e2e/activity-feed.spec.ts` — add 21 new tests across 4 describe groups: status filter tabs (10 tests), show more/less (6 tests), agent click-through (3 tests), task ID display (2 tests); use `addInitScript` for pre-load localStorage seeding
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1198/1198 passed (23 skipped)
+
 - [x] **Iteration 77: Task history enrichment — capability + time-window filters**
   - [x] Add `TimeWindow` type (`'all' | '1h' | '24h' | '7d'`) and `windowStart()` helper to `src/components/TaskHistoryPage.tsx`
   - [x] Add `capability` and `window` URL param defaults to `PARAM_DEFAULTS`
