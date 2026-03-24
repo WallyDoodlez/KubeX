@@ -5,28 +5,72 @@ interface MermaidBlockProps {
   code: string;
 }
 
+/** Reads the current app theme from the <html> data-theme attribute. */
+function getAppTheme(): 'dark' | 'light' {
+  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+}
+
+/**
+ * Returns the Mermaid theme config for the given app theme.
+ * - dark  → mermaid 'dark' theme with emerald accent variables
+ * - light → mermaid 'default' theme with emerald accent variables
+ */
+function getMermaidConfig(appTheme: 'dark' | 'light'): Parameters<typeof mermaid.initialize>[0] {
+  if (appTheme === 'light') {
+    return {
+      startOnLoad: false,
+      theme: 'default',
+      themeVariables: {
+        primaryColor: '#10b981',
+        primaryTextColor: '#111827',
+        primaryBorderColor: '#d1d5db',
+        lineColor: '#6b7280',
+        secondaryColor: '#f3f4f6',
+        tertiaryColor: '#e5e7eb',
+        background: '#ffffff',
+        fontFamily: 'ui-monospace, monospace',
+      },
+      securityLevel: 'strict',
+    };
+  }
+  return {
+    startOnLoad: false,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#10b981',
+      primaryTextColor: '#e5e7eb',
+      primaryBorderColor: '#374151',
+      lineColor: '#6b7280',
+      secondaryColor: '#1f2937',
+      tertiaryColor: '#111827',
+      background: '#0a0a0a',
+      fontFamily: 'ui-monospace, monospace',
+    },
+    securityLevel: 'strict',
+  };
+}
+
 const MermaidBlock = memo(function MermaidBlock({ code }: MermaidBlockProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Track current app theme so we re-render the diagram when it changes
+  const [appTheme, setAppTheme] = useState<'dark' | 'light'>(getAppTheme);
+
+  // Observe data-theme changes on <html> via MutationObserver
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setAppTheme(getAppTheme());
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
-    // Initialize mermaid with dark theme
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: 'dark',
-      themeVariables: {
-        primaryColor: '#10b981',      // emerald-500
-        primaryTextColor: '#e5e7eb',
-        primaryBorderColor: '#374151',
-        lineColor: '#6b7280',
-        secondaryColor: '#1f2937',
-        tertiaryColor: '#111827',
-        background: '#0a0a0a',
-        fontFamily: 'ui-monospace, monospace',
-      },
-      securityLevel: 'strict',
-    });
+    mermaid.initialize(getMermaidConfig(appTheme));
 
     let cancelled = false;
     const id = `mermaid-${crypto.randomUUID().slice(0, 8)}`;
@@ -50,7 +94,7 @@ const MermaidBlock = memo(function MermaidBlock({ code }: MermaidBlockProps) {
     })();
 
     return () => { cancelled = true; };
-  }, [code]);
+  }, [code, appTheme]);
 
   if (error) {
     // Fallback: show raw code in a styled pre block
@@ -76,6 +120,7 @@ const MermaidBlock = memo(function MermaidBlock({ code }: MermaidBlockProps) {
     <div
       ref={containerRef}
       data-testid="mermaid-diagram"
+      data-mermaid-theme={appTheme}
       className="my-2 overflow-x-auto"
       dangerouslySetInnerHTML={{ __html: svg }}
     />

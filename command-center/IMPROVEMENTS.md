@@ -4,6 +4,17 @@
 
 ---
 
+- [x] **Iteration 74: Dark/light Mermaid theme**
+  - [x] Add `getAppTheme()` helper to `src/components/MermaidBlock.tsx` — reads `data-theme` attribute from `document.documentElement`; returns `'light'` or `'dark'`
+  - [x] Add `getMermaidConfig(appTheme)` — returns `mermaid.initialize()` options; dark uses `'dark'` theme with emerald accent variables; light uses `'default'` theme with light-mode palette
+  - [x] Add `appTheme` state to `MermaidBlock` — initialised via `useState(getAppTheme)` so it reflects the theme at mount time
+  - [x] Add `MutationObserver` useEffect in `MermaidBlock` — observes `attributeFilter: ['data-theme']` on `document.documentElement`; calls `setAppTheme(getAppTheme())` on change
+  - [x] Add `appTheme` to the `[code, appTheme]` dependency array of the render `useEffect` — triggers a re-render with the correct Mermaid theme whenever the toggle fires
+  - [x] Add `data-mermaid-theme={appTheme}` attribute to the diagram container div — used by E2E tests to verify theme
+  - [x] Create `tests/e2e/mermaid-theme.spec.ts` (8 tests) — dark by default, SVG in dark, toggle to light re-renders with light theme, SVG still present after light switch, round-trip dark→light→dark, attribute on container, light before dispatch, toggle button visible
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1127/1127 passed (23 skipped)
+
 - [x] **Iteration 73: Agent registration form**
   - [x] Add `AgentRegistrationBody` type to `src/types.ts` — fields: `agent_id`, `capabilities`, `status?`, `boundary?`, `metadata?`
   - [x] Add `registerAgent(body)` to `src/api.ts` — `POST ${REGISTRY}/agents`; imported `AgentRegistrationBody`
