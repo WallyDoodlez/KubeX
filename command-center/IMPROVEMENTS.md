@@ -4,6 +4,14 @@
 
 ---
 
+- [x] **Iteration 68: Agent status update**
+  - [x] Add `updateAgentStatus(agentId, status)` to `src/api.ts` — PATCH `${REGISTRY}/agents/{id}/status`
+  - [x] Add `AgentStatusControls` component in `AgentDetailPage.tsx` — four status buttons (running/busy/stopped/unknown); active status is highlighted and disabled; clicking calls PATCH; success/error inline feedback; 4s auto-clear; only visible on Overview tab
+  - [x] Fix `loadAgent` to accept `silent` flag — silent refresh after status update avoids unmounting tab content (preserves success message)
+  - [x] Add PATCH mock handler to `tests/e2e/mocks/handlers.ts`
+  - [x] Create `tests/e2e/agent-status-update.spec.ts` (12 tests) — panel visible, all buttons rendered, aria-pressed on active, disabled active, enabled inactive, success feedback, success auto-clear, error path, tab visibility isolation, nav back restores controls, aria-labels
+  - [x] Test: npx playwright test — 1037/1037 passed (23 skipped)
+
 - [x] **Iteration 67: Dashboard kubex status chart**
   - [x] Create `src/components/KubexStatusChart.tsx` — pure SVG/CSS donut chart; no external chart library; segments for each status (running/created/stopped/error/unknown); color-coded arcs using strokeDasharray trick; center label with total count; responsive legend table with count + percentage per status; `role="img"` with `aria-label` on SVG; `aria-label` on legend table; `data-testid` on container, SVG, arcs, legend, and legend rows; renders a "No kubexes running." fallback when list is empty
   - [x] Update `src/components/Dashboard.tsx` — add `Kubex[]` state (`kubexes`); extend `loadKubexes` to call `setKubexes(res.data)`; add `KubexStatusChart` import; add "Kubex Status" `CollapsibleSection` between stat cards and Service Health, with "View all →" action navigating to containers; subtitle shows "N kubexes total" or "Loading…"

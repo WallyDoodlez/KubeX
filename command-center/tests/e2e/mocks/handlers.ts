@@ -105,6 +105,20 @@ export const handlers = [
     return HttpResponse.json({ status: 'ok', message: 'Agent deregistered' });
   }),
 
+  // Update agent status — Registry
+  http.patch(`${REGISTRY}/agents/:agentId/status`, async ({ request, params }) => {
+    const { agentId } = params;
+    const body = await request.json() as { status?: string };
+    const agent = mockAgents.find((a) => a.agent_id === agentId);
+    if (!agent) {
+      return HttpResponse.json({ detail: 'Agent not found' }, { status: 404 });
+    }
+    if (body.status) {
+      agent.status = body.status;
+    }
+    return HttpResponse.json({ agent_id: agentId, status: body.status ?? agent.status });
+  }),
+
   // Kubexes — Manager
   http.get(`${MANAGER}/kubexes`, () => {
     return HttpResponse.json(mockKubexes);

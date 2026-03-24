@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAgents, dispatchTask, getAgentLifecycleStreamUrl, getAgentLifecycleAuthHeader } from '../api';
+import { getAgents, dispatchTask, getAgentLifecycleStreamUrl, getAgentLifecycleAuthHeader, updateAgentStatus } from '../api';
 import type { Agent, TrafficEntry } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
 import { useAppContext } from '../context/AppContext';
@@ -29,8 +29,8 @@ export default function AgentDetailPage() {
   const { trafficLog, addTrafficEntry } = useAppContext();
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
 
-  const loadAgent = useCallback(async () => {
-    setLoading(true);
+  const loadAgent = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     const res = await getAgents();
     if (res.ok && Array.isArray(res.data)) {
@@ -43,8 +43,11 @@ export default function AgentDetailPage() {
     } else {
       setError(res.error ?? `HTTP ${res.status}`);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [agentId]);
+
+  // Silent refresh callback — refreshes agent data without triggering loading skeleton
+  const silentRefresh = useCallback(() => { loadAgent(true); }, [loadAgent]);
 
   useEffect(() => {
     loadAgent();
@@ -105,7 +108,7 @@ export default function AgentDetailPage() {
       {/* Tabs */}
       <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab}>
         {activeTab === 'overview' && (
-          <OverviewTab agent={agent} onDispatchClick={() => setActiveTab('actions')} />
+          <OverviewTab agent={agent} onDispatchClick={() => setActiveTab('actions')} onStatusUpdated={silentRefresh} />
         )}
         {activeTab === 'actions' && (
           <ActionsTab agent={agent} trafficLog={agentTraffic} addTrafficEntry={addTrafficEntry} />
@@ -117,9 +120,111 @@ export default function AgentDetailPage() {
   );
 }
 
+// ── Agent Status Controls ─────────────────────────────────────────
+
+type AgentStatusValue = 'running' | 'stopped' | 'busy' | 'unknown';
+
+const STATUS_OPTIONS: { value: AgentStatusValue; label: string; color: string; bg: string; border: string }[] = [
+  { value: 'running', label: 'Running', color: 'text-emerald-400', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30' },
+  { value: 'busy', label: 'Busy', color: 'text-blue-400', bg: 'bg-blue-500/15', border: 'border-blue-500/30' },
+  { value: 'stopped', label: 'Stopped', color: 'text-red-400', bg: 'bg-red-500/15', border: 'border-red-500/30' },
+  { value: 'unknown', label: 'Unknown', color: 'text-[var(--color-text-muted)]', bg: 'bg-[var(--color-border)]', border: 'border-[var(--color-border-strong)]' },
+];
+
+function AgentStatusControls({
+  agent,
+  onStatusUpdated,
+}: {
+  agent: Agent;
+  onStatusUpdated: () => void;
+}) {
+  const [updating, setUpdating] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+  }, []);
+
+  async function handleStatusChange(newStatus: AgentStatusValue) {
+    if (updating || newStatus === agent.status) return;
+    setUpdating(true);
+    setResult(null);
+    const res = await updateAgentStatus(agent.agent_id, newStatus);
+    if (res.ok) {
+      setResult({ ok: true, message: `Status updated to "${newStatus}"` });
+      onStatusUpdated();
+    } else {
+      setResult({ ok: false, message: res.error ?? `HTTP ${res.status}` });
+    }
+    setUpdating(false);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setResult(null), 4000);
+  }
+
+  return (
+    <div
+      data-testid="agent-status-controls"
+      className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+    >
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
+        Change Status
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {STATUS_OPTIONS.map(({ value, label, color, bg, border }) => {
+          const isActive = agent.status === value;
+          return (
+            <button
+              key={value}
+              data-testid={`status-btn-${value}`}
+              onClick={() => handleStatusChange(value)}
+              disabled={updating || isActive}
+              aria-pressed={isActive}
+              aria-label={`Set agent status to ${label}`}
+              className={`
+                text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors
+                focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-[var(--color-surface)]
+                ${isActive
+                  ? `${color} ${bg} ${border} opacity-100 cursor-default ring-2 ${border.replace('border-', 'ring-')}`
+                  : `text-[var(--color-text-muted)] bg-[var(--color-bg)] border-[var(--color-border)] hover:${color} hover:${bg} hover:${border}`
+                }
+                disabled:opacity-40 disabled:cursor-not-allowed
+              `}
+            >
+              {isActive && <span className="mr-1.5">●</span>}
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {updating && (
+        <p data-testid="status-update-loading" className="text-[10px] text-[var(--color-text-muted)] mt-2 animate-pulse">
+          Updating…
+        </p>
+      )}
+      {result && !updating && (
+        <p
+          data-testid={result.ok ? 'status-update-success' : 'status-update-error'}
+          className={`text-[10px] mt-2 ${result.ok ? 'text-emerald-400' : 'text-red-400'}`}
+        >
+          {result.ok ? '✓ ' : '✗ '}{result.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Tab content ──────────────────────────────────────────────────────
 
-function OverviewTab({ agent, onDispatchClick }: { agent: Agent; onDispatchClick: () => void }) {
+function OverviewTab({
+  agent,
+  onDispatchClick,
+  onStatusUpdated,
+}: {
+  agent: Agent;
+  onDispatchClick: () => void;
+  onStatusUpdated: () => void;
+}) {
   return (
     <div className="space-y-4">
       {/* Info grid */}
@@ -129,6 +234,9 @@ function OverviewTab({ agent, onDispatchClick }: { agent: Agent; onDispatchClick
         <InfoCard label="Boundary" value={agent.boundary} />
         {agent.registered_at && <InfoCard label="Registered" value={agent.registered_at} mono />}
       </div>
+
+      {/* Status controls */}
+      <AgentStatusControls agent={agent} onStatusUpdated={onStatusUpdated} />
 
       {/* Capabilities */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">

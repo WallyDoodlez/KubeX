@@ -155,6 +155,13 @@ export async function deregisterAgent(agentId: string): Promise<FetchResult<unkn
   return apiFetch<unknown>('DELETE', `${REGISTRY}/agents/${encodeURIComponent(agentId)}`);
 }
 
+export async function updateAgentStatus(
+  agentId: string,
+  status: 'running' | 'stopped' | 'busy' | 'unknown',
+): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>('PATCH', `${REGISTRY}/agents/${encodeURIComponent(agentId)}/status`, { status });
+}
+
 // ── Kubexes (Manager) ────────────────────────────────────────────────
 
 export async function getKubexes(): Promise<FetchResult<Kubex[]>> {
