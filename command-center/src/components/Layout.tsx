@@ -22,6 +22,7 @@ import UserMenu from './UserMenu';
 import QuickDispatchModal from './QuickDispatchModal';
 import OnboardingTour from './OnboardingTour';
 import { useOnboarding } from '../hooks/useOnboarding';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 
 interface NavItem {
   label: string;
@@ -75,6 +76,10 @@ export default function Layout({ children }: LayoutProps) {
   const isMd = useMediaQuery('(min-width: 768px)');
   // On mobile: sidebar starts closed. On ≥ md: sidebar always open.
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // ── Collapsible sidebar (desktop icon-only mode) ─────────────────────
+  const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage<boolean>('kubex-sidebar-collapsed', false);
+  const toggleSidebarCollapsed = useCallback(() => setSidebarCollapsed((prev) => !prev), [setSidebarCollapsed]);
 
   // Close mobile sidebar when viewport grows to ≥ 768px
   useEffect(() => {
@@ -261,52 +266,71 @@ export default function Layout({ children }: LayoutProps) {
   const sidebarContent = (
     <>
       {/* Brand */}
-      <div className="px-4 py-5 border-b border-[var(--color-border)] flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+      <div
+        className={`border-b border-[var(--color-border)] flex items-center ${sidebarCollapsed && isMd ? 'justify-center px-2 py-5' : 'justify-between px-4 py-5'}`}
+      >
+        {sidebarCollapsed && isMd ? (
+          /* Collapsed: show only the K logo */
           <div
             aria-hidden="true"
             className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
           >
             K
           </div>
-          <div>
-            <p className="text-sm font-bold text-[var(--color-text)] leading-none">KubexClaw</p>
-            <p className="text-xs text-[var(--color-text-dim)] leading-none mt-0.5">Command Center</p>
-          </div>
-        </div>
-        {/* Close button — mobile only */}
-        <button
-          onClick={closeMobileSidebar}
-          data-testid="sidebar-close"
-          aria-label="Close navigation"
-          className="md:hidden flex items-center justify-center w-7 h-7 text-[var(--color-text-dim)] hover:text-[var(--color-text)] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-        >
-          <span aria-hidden="true" className="text-base">✕</span>
-        </button>
+        ) : (
+          <>
+            <div className="flex items-center gap-2.5">
+              <div
+                aria-hidden="true"
+                className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+              >
+                K
+              </div>
+              <div>
+                <p className="text-sm font-bold text-[var(--color-text)] leading-none">KubexClaw</p>
+                <p className="text-xs text-[var(--color-text-dim)] leading-none mt-0.5">Command Center</p>
+              </div>
+            </div>
+            {/* Close button — mobile only */}
+            <button
+              onClick={closeMobileSidebar}
+              data-testid="sidebar-close"
+              aria-label="Close navigation"
+              className="md:hidden flex items-center justify-center w-7 h-7 text-[var(--color-text-dim)] hover:text-[var(--color-text)] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              <span aria-hidden="true" className="text-base">✕</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Nav */}
-      <nav aria-label="Main navigation" className="flex-1 px-2 py-3 overflow-y-auto">
-        <p
-          id="nav-heading"
-          className="px-2 mb-2 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)]"
-          aria-hidden="true"
-        >
-          Navigation
-        </p>
-        <ul role="list" aria-labelledby="nav-heading" className="space-y-0.5">
+      <nav aria-label="Main navigation" className="flex-1 py-3 overflow-y-auto">
+        {!sidebarCollapsed || !isMd ? (
+          <p
+            id="nav-heading"
+            className="px-4 mb-2 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)]"
+            aria-hidden="true"
+          >
+            Navigation
+          </p>
+        ) : null}
+        <ul role="list" aria-labelledby="nav-heading" className={`space-y-0.5 ${sidebarCollapsed && isMd ? 'px-1' : 'px-2'}`}>
           {NAV_ITEMS.map((item) => {
             const active = location.pathname === item.path;
+            const isCollapsed = sidebarCollapsed && isMd;
             return (
               <li key={item.path}>
                 <button
                   onClick={() => navigate(item.path)}
                   aria-label={`${item.label} — ${item.description}`}
                   aria-current={active ? 'page' : undefined}
+                  title={isCollapsed ? item.label : undefined}
                   className={`
-                    w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all
+                    w-full flex items-center rounded-lg text-left transition-all
                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
                     focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-dark)]
+                    ${isCollapsed ? 'justify-center px-0 py-2.5 gap-0' : 'gap-3 px-3 py-2.5'}
                     ${active
                       ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
                       : 'text-[var(--color-text-dim)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-secondary)] border border-transparent'
@@ -315,19 +339,21 @@ export default function Layout({ children }: LayoutProps) {
                 >
                   <span
                     aria-hidden="true"
-                    className={`text-base w-5 text-center flex-shrink-0 ${active ? 'text-emerald-400' : ''}`}
+                    className={`text-base flex-shrink-0 ${isCollapsed ? 'w-auto text-center' : 'w-5 text-center'} ${active ? 'text-emerald-400' : ''}`}
                   >
                     {item.icon}
                   </span>
-                  <div className="min-w-0">
-                    <p className={`text-sm font-medium leading-none ${active ? 'text-emerald-300' : ''}`}>
-                      {item.label}
-                    </p>
-                    <p className="text-[10px] text-[var(--color-text-muted)] leading-none mt-0.5 truncate">
-                      {item.description}
-                    </p>
-                  </div>
-                  {item.label === 'Approvals' && pendingApprovalCount > 0 && !active && (
+                  {!isCollapsed && (
+                    <div className="min-w-0">
+                      <p className={`text-sm font-medium leading-none ${active ? 'text-emerald-300' : ''}`}>
+                        {item.label}
+                      </p>
+                      <p className="text-[10px] text-[var(--color-text-muted)] leading-none mt-0.5 truncate">
+                        {item.description}
+                      </p>
+                    </div>
+                  )}
+                  {!isCollapsed && item.label === 'Approvals' && pendingApprovalCount > 0 && !active && (
                     <span
                       aria-label={`${pendingApprovalCount} pending approvals`}
                       className="ml-auto text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-1.5 py-0.5 flex-shrink-0"
@@ -335,7 +361,7 @@ export default function Layout({ children }: LayoutProps) {
                       {pendingApprovalCount}
                     </span>
                   )}
-                  {active && (
+                  {!isCollapsed && active && (
                     <span aria-hidden="true" className="ml-auto w-1 h-4 rounded-full bg-emerald-400 flex-shrink-0" />
                   )}
                 </button>
@@ -346,8 +372,34 @@ export default function Layout({ children }: LayoutProps) {
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-[var(--color-border)]">
-        <p className="text-[10px] text-[var(--color-text-muted)] font-mono-data">v1.1 · stem cell kubex</p>
+      {!sidebarCollapsed || !isMd ? (
+        <div className="px-4 py-3 border-t border-[var(--color-border)]">
+          <p className="text-[10px] text-[var(--color-text-muted)] font-mono-data">v1.1 · stem cell kubex</p>
+        </div>
+      ) : null}
+
+      {/* Collapse/Expand toggle button — desktop only */}
+      <div className="hidden md:block border-t border-[var(--color-border)]">
+        <button
+          onClick={toggleSidebarCollapsed}
+          data-testid="sidebar-collapse-toggle"
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={`
+            w-full py-2 flex items-center text-xs text-[var(--color-text-dim)]
+            hover:bg-[var(--color-surface)] hover:text-[var(--color-text-secondary)]
+            transition-all focus-visible:outline-none focus-visible:ring-2
+            focus-visible:ring-emerald-500 focus-visible:ring-inset
+            ${sidebarCollapsed ? 'justify-center px-0' : 'justify-end px-3 gap-1.5'}
+          `}
+        >
+          <span aria-hidden="true" className="text-sm font-medium">
+            {sidebarCollapsed ? '»' : '«'}
+          </span>
+          {!sidebarCollapsed && (
+            <span className="text-[10px] uppercase tracking-wider">Collapse</span>
+          )}
+        </button>
       </div>
     </>
   );
@@ -422,15 +474,20 @@ export default function Layout({ children }: LayoutProps) {
         aria-label="Application navigation"
         data-testid="sidebar"
         data-sidebar-open={mobileSidebarOpen ? 'true' : 'false'}
+        data-collapsed={isMd && sidebarCollapsed ? 'true' : 'false'}
+        style={{
+          width: isMd ? (sidebarCollapsed ? '56px' : '224px') : '224px',
+          transition: 'width 200ms ease-in-out',
+        }}
         className={[
           // Layout & sizing
-          'w-56 flex-shrink-0 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface-dark)]',
+          'flex-shrink-0 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-surface-dark)]',
           // Desktop (≥ md): always in flow, no z-index needed
           'md:relative md:translate-x-0 md:z-auto',
           // Mobile (< md): fixed slide-over panel
           'fixed inset-y-0 left-0 z-40',
-          // Smooth slide animation
-          'transition-transform duration-300 ease-in-out',
+          // Smooth slide animation (mobile open/close)
+          'transition-[transform] duration-300 ease-in-out',
           // Mobile visibility: translate off-screen when closed
           !isMd && !mobileSidebarOpen ? '-translate-x-full' : 'translate-x-0',
         ].join(' ')}
