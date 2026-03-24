@@ -440,6 +440,95 @@ This is a **breaking change** to the Manager's auth model — the static bearer 
 
 ---
 
+## Skills API — Dynamic Skill Management
+
+> The stem cell Kubex model requires skills to be the primary configuration unit. Currently skills are static markdown files on disk (`skills/` directory), which means adding new skills requires a code change. The FE needs a Skills API to:
+> 1. List available skills in the Spawn Wizard (replacing capability-only selection)
+> 2. Enable dynamic skill creation/editing via the Command Center UI
+> 3. Allow the Manager to resolve skills from a store (Redis/DB) in addition to filesystem
+
+### 🔴 GET /skills — List all available skills
+
+- **Frontend need:** Spawn Wizard step 2 should show a skills picker (not just capabilities). Each skill includes name, category, description, and the capabilities it provides.
+- **Service:** Manager (`http://localhost:8090`) or new Skills service
+- **Expected response:**
+  ```json
+  [
+    {
+      "id": "knowledge/recall",
+      "name": "Recall",
+      "category": "knowledge",
+      "description": "Memory and recall capabilities for knowledge management",
+      "capabilities": ["knowledge_management", "recall"],
+      "source": "filesystem"
+    }
+  ]
+  ```
+- **Implementation suggestion:** Scan `skills/` directory tree for `SKILL.md` files. Parse metadata from frontmatter or directory structure. Merge with any dynamically created skills stored in Redis.
+- **Action needed:** Implement endpoint. The FE Spawn Wizard will switch from capability-only picker to skill picker once available.
+
+---
+
+### 🔴 GET /skills/{id} — Get skill content
+
+- **Frontend need:** Skill editor/viewer — show the full markdown content of a skill.
+- **Service:** Manager
+- **Expected response:**
+  ```json
+  {
+    "id": "knowledge/recall",
+    "name": "Recall",
+    "category": "knowledge",
+    "content": "You are an agent with recall capabilities...",
+    "capabilities": ["knowledge_management", "recall"],
+    "source": "filesystem",
+    "created_at": "2026-03-01T00:00:00Z",
+    "updated_at": "2026-03-20T10:30:00Z"
+  }
+  ```
+- **Action needed:** Implement endpoint. Read SKILL.md content from filesystem or Redis store.
+
+---
+
+### 🔴 POST /skills — Create a new skill dynamically
+
+- **Frontend need:** Skill creation wizard — write markdown, define metadata, instantly available to any Kubex without code changes.
+- **Service:** Manager
+- **Request body:**
+  ```json
+  {
+    "id": "custom/my-skill",
+    "name": "My Custom Skill",
+    "category": "custom",
+    "content": "You are an agent that...",
+    "capabilities": ["my_capability"]
+  }
+  ```
+- **Expected response:** 201 with the created skill object.
+- **Storage:** Redis hash or dedicated store. The Manager's `SkillResolver` should check this store in addition to the filesystem.
+- **Action needed:** Implement endpoint + update `SkillResolver` to merge filesystem and dynamic skills.
+
+---
+
+### 🔴 PUT /skills/{id} — Update a skill
+
+- **Frontend need:** Skill editor — modify content/metadata of dynamic skills. Filesystem skills should be read-only (or warn that changes won't persist across deploys).
+- **Service:** Manager
+- **Request body:** Same as POST, partial updates allowed.
+- **Expected response:** 200 with updated skill object.
+- **Action needed:** Implement alongside POST. Only dynamic (Redis-stored) skills should be editable. Filesystem skills return 403 or a warning.
+
+---
+
+### 🔴 DELETE /skills/{id} — Remove a dynamic skill
+
+- **Frontend need:** Skill management — remove skills that are no longer needed.
+- **Service:** Manager
+- **Expected response:** 204 on success. Filesystem skills return 403.
+- **Action needed:** Implement alongside POST/PUT. Only dynamic skills can be deleted.
+
+---
+
 ## Summary Table
 
 | # | Endpoint | Service | Status | Blocker? |
@@ -468,3 +557,8 @@ This is a **breaking change** to the Manager's auth model — the static bearer 
 | 22 | `POST /token` | Auth Service | 🔴 MISSING | Yes (OAuth token exchange) |
 | 23 | `GET /userinfo` | Auth Service | 🔴 MISSING | No (user profile display) |
 | 24 | `GET /logout` | Auth Service | 🔴 MISSING | No (logout redirect, degrades gracefully) |
+| 25 | `GET /skills` | Manager | 🔴 MISSING | Yes (Spawn Wizard skill picker) |
+| 26 | `GET /skills/{id}` | Manager | 🔴 MISSING | Yes (skill viewer/editor) |
+| 27 | `POST /skills` | Manager | 🔴 MISSING | Yes (dynamic skill creation) |
+| 28 | `PUT /skills/{id}` | Manager | 🔴 MISSING | No (skill editing) |
+| 29 | `DELETE /skills/{id}` | Manager | 🔴 MISSING | No (skill removal) |
