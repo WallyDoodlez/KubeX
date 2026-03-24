@@ -18,6 +18,12 @@
 
 ## Open Bugs
 
+_No open bugs._
+
+---
+
+## Fixed Bugs
+
 ### BUG-005: Task recovery can permanently lock chat input
 - **Severity:** P1
 - **Status:** FIXED
@@ -30,11 +36,7 @@
   1. **Recovery timeout (30s):** The recovery `useEffect` now sets a `setTimeout` of 30 seconds. If `sending` is still `true` after the timeout (no result arrived), the timeout forcibly clears `kubex-active-task`, `streamUrl`, `livePhases`, `terminalLines`, sets `sending=false`, and surfaces an error bubble: "Could not reconnect to previous task."
   2. **Invalid/expired task ID (404):** In the stale-task poll path, if `getTaskResult` returns `!rr.ok` (e.g., 404 Task Not Found), everything is cleared immediately (no attempt to reconnect SSE) and an error bubble is shown.
   3. **SSE exhaustion:** `handleSSEComplete` already clears `kubex-active-task` when retries exhaust (unchanged from BUG-004).
-- **Fixed in:** (see commit "fix(command-center): BUG-005 — add recovery timeout to prevent permanent input lock")
-
----
-
-## Fixed Bugs
+- **Fixed in:** 38dc2ba
 
 ### BUG-004: Pending task state lost on navigation
 - **Severity:** P2
