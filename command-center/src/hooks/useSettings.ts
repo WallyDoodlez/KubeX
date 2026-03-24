@@ -6,6 +6,28 @@ import { useLocalStorage } from './useLocalStorage';
 export type PollingInterval = 5000 | 10000 | 15000 | 30000 | 60000;
 export type PageSize = 10 | 20 | 50 | 100;
 
+/** Per-type toast visibility preferences. */
+export interface NotificationPrefs {
+  /** Master switch — when false no toasts are shown regardless of type prefs. */
+  toastsEnabled: boolean;
+  /** Show success toasts. */
+  showSuccess: boolean;
+  /** Show error toasts. */
+  showError: boolean;
+  /** Show warning toasts. */
+  showWarning: boolean;
+  /** Show info toasts. */
+  showInfo: boolean;
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  toastsEnabled: true,
+  showSuccess: true,
+  showError: true,
+  showWarning: true,
+  showInfo: true,
+};
+
 export interface AppSettings {
   /** Global polling interval in ms (default: 10 000) */
   pollingInterval: PollingInterval;
@@ -13,12 +35,15 @@ export interface AppSettings {
   defaultPageSize: PageSize;
   /** Whether to enable auto-refresh for data panels (default: true) */
   autoRefresh: boolean;
+  /** Notification/toast visibility preferences. */
+  notificationPrefs: NotificationPrefs;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   pollingInterval: 10000,
   defaultPageSize: 20,
   autoRefresh: true,
+  notificationPrefs: DEFAULT_NOTIFICATION_PREFS,
 };
 
 export const POLLING_INTERVAL_OPTIONS: { value: PollingInterval; label: string }[] = [
