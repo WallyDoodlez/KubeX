@@ -4,6 +4,28 @@
 
 ---
 
+## Iteration 62: Kubex Dependency Installer UI
+
+**Files modified:** `src/api.ts`, `src/types.ts`, `src/components/ContainersPanel.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `src/components/KubexInstallDepPanel.tsx`, `tests/e2e/kubex-install-dep.spec.ts`
+
+**Changes:**
+- Added `InstallDepBody` and `InstallDepResponse` interfaces to `src/types.ts`.
+- Added `installKubexDep(kubexId, body)` to `src/api.ts` — authenticated `POST` to `${MANAGER}/kubexes/{id}/install-dep`, wiring the existing backend endpoint for the first time from the frontend.
+- Created `src/components/KubexInstallDepPanel.tsx` — an inline panel that renders below a running KubexRow when the "+ Pkg" button is clicked. Features:
+  - Package name text input (auto-focused on panel open) with monospace font and placeholder that changes by type (`e.g. requests==2.31.0` for pip, `e.g. jq` for cli).
+  - Type selector (`pip` / `cli (apt-get)`) defaulting to `pip`.
+  - Install button disabled when input is empty or a request is in flight; shows spinner + "Installing…" during request.
+  - Install history list — each attempt logged with ✓ (success) or ✗ (error), newest first. Input cleared on success.
+  - `role="region"` + `aria-label` for screen reader accessibility.
+- Updated `ContainersPanel.tsx` `KubexRow`:
+  - Added `installOpen: boolean` state.
+  - Added "+ Pkg" button (`data-testid="kubex-install-dep-btn-{id}"`, `aria-expanded`) in the Actions cell — visible only when `status === 'running'`.
+  - Button toggles `KubexInstallDepPanel` rendered inline after the config panel slot (both can be open simultaneously).
+- **Build:** clean (tsc + vite). **Tests:** 951/951 passed (20 skipped); 19 new install-dep E2E tests cover button visibility, panel open/close/toggle, form element states, success/error flows, multi-install history, and accessibility attributes.
+
+---
+
 ## Iteration 61: Service Info Tooltips and Descriptions on Dashboard
 
 **Files modified:** `src/components/ServiceCard.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

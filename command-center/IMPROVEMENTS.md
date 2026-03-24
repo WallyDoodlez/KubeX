@@ -4,6 +4,16 @@
 
 ---
 
+- [x] **Iteration 62: Kubex dependency installer UI**
+  - [x] Add `InstallDepBody` and `InstallDepResponse` types to `src/types.ts`
+  - [x] Add `installKubexDep(kubexId, body)` API function to `src/api.ts` — calls `POST /kubexes/{id}/install-dep` on Manager
+  - [x] Create `src/components/KubexInstallDepPanel.tsx` — inline panel with: package name text input (auto-focused on open), pip/cli type selector, Install button (disabled when input empty), install history list showing success (✓) or error (✗) entries per attempt
+  - [x] Update `src/components/ContainersPanel.tsx` — KubexRow gains `installOpen` state; "+ Pkg" button appears in Actions column for running kubexes only; clicking toggles `KubexInstallDepPanel` inline below the row
+  - [x] Create `tests/e2e/kubex-install-dep.spec.ts` (19 tests covering: button visibility on running/stopped, panel open/close/toggle, aria-expanded, form elements, default type, disabled state, success flow, input cleared on success, cli type, error flow, multi-install history accumulation, accessibility attributes)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 951/951 passed (20 skipped), 19 new install-dep tests all pass
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 61: Service info tooltips and descriptions on Dashboard**
   - [x] Add descriptive subtitles/tooltips to each service health card on the Dashboard explaining what each service does:
     - **Gateway** — "Routes tasks to agents, enforces policies, streams results via SSE"

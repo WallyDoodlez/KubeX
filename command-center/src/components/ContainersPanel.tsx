@@ -19,6 +19,7 @@ import SelectionBar from './SelectionBar';
 import { exportAsJSON } from '../utils/export';
 import CopyButton from './CopyButton';
 import KubexConfigPanel from './KubexConfigPanel';
+import KubexInstallDepPanel from './KubexInstallDepPanel';
 
 // Status filter options
 type StatusFilter = 'all' | 'running' | 'created' | 'stopped' | 'error';
@@ -520,6 +521,7 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
   const isStopped = kubex.status === 'stopped' || kubex.status === 'error';
   const isCreated = kubex.status === 'created';
   const [configOpen, setConfigOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
 
   return (
     <div
@@ -655,12 +657,34 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
               {actionIn ? '…' : 'Kill'}
             </button>
           )}
+
+          {/* Install Pkg — shown only when running */}
+          {isRunning && (
+            <button
+              onClick={() => setInstallOpen((v) => !v)}
+              data-testid={`kubex-install-dep-btn-${kubex.kubex_id}`}
+              title={installOpen ? 'Close package installer' : 'Install a runtime package into this container'}
+              aria-expanded={installOpen}
+              className={`px-2 py-1 text-[10px] rounded border transition-colors ${
+                installOpen
+                  ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300'
+                  : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
+              }`}
+            >
+              + Pkg
+            </button>
+          )}
         </div>
       </div>
 
       {/* Expandable config panel */}
       {configOpen && (
         <KubexConfigPanel kubexId={kubex.kubex_id} />
+      )}
+
+      {/* Expandable install-dep panel — only when running */}
+      {installOpen && isRunning && (
+        <KubexInstallDepPanel kubexId={kubex.kubex_id} />
       )}
     </div>
   );

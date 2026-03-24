@@ -4,6 +4,8 @@ import type {
   CreateKubexBody,
   CreateKubexResponse,
   HealthResponse,
+  InstallDepBody,
+  InstallDepResponse,
   Kubex,
   KubexConfigResponse,
   TaskRequest,
@@ -233,6 +235,18 @@ export async function getKubexConfig(kubexId: string): Promise<FetchResult<Kubex
     'GET',
     `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/config`,
     undefined,
+    managerHeaders(),
+  );
+}
+
+export async function installKubexDep(
+  kubexId: string,
+  body: InstallDepBody,
+): Promise<FetchResult<InstallDepResponse>> {
+  return apiFetch<InstallDepResponse>(
+    'POST',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/install-dep`,
+    body,
     managerHeaders(),
   );
 }

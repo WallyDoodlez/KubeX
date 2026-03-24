@@ -236,3 +236,20 @@ export interface KubexConfigResponse {
   config_path: string | null;
   config: Record<string, unknown> | null;
 }
+
+// ── Kubex Dependency Install ──────────────────────────────────────────
+
+/** Request body for POST /kubexes/{id}/install-dep */
+export interface InstallDepBody {
+  package: string;
+  type: 'pip' | 'cli';
+}
+
+/** Response from POST /kubexes/{id}/install-dep */
+export interface InstallDepResponse {
+  kubex_id: string;
+  package: string;
+  type: string;
+  status: string;
+  runtime_deps: string[];
+}
