@@ -55,6 +55,16 @@ const mockKubexes = [
     started_at: null,
     config: { memory_limit: '256m', cpu_quota: 25000 },
   },
+  {
+    kubex_id: 'kubex-c2bb65b5-1a8d-4b3c',
+    agent_id: 'agent-gamma-099',
+    status: 'stopped',
+    image: 'kubex-base:latest',
+    container_name: 'kubex_gamma_099',
+    created_at: '2026-03-21T14:30:00Z',
+    started_at: null,
+    config: { memory_limit: '128m', cpu_quota: 10000 },
+  },
 ];
 
 // ── Handlers ─────────────────────────────────────────────────────────

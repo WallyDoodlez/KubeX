@@ -4,6 +4,14 @@
 
 ---
 
+- [x] **Iteration 67: Dashboard kubex status chart**
+  - [x] Create `src/components/KubexStatusChart.tsx` — pure SVG/CSS donut chart; no external chart library; segments for each status (running/created/stopped/error/unknown); color-coded arcs using strokeDasharray trick; center label with total count; responsive legend table with count + percentage per status; `role="img"` with `aria-label` on SVG; `aria-label` on legend table; `data-testid` on container, SVG, arcs, legend, and legend rows; renders a "No kubexes running." fallback when list is empty
+  - [x] Update `src/components/Dashboard.tsx` — add `Kubex[]` state (`kubexes`); extend `loadKubexes` to call `setKubexes(res.data)`; add `KubexStatusChart` import; add "Kubex Status" `CollapsibleSection` between stat cards and Service Health, with "View all →" action navigating to containers; subtitle shows "N kubexes total" or "Loading…"
+  - [x] Update `tests/e2e/mocks/handlers.ts` — add third mock kubex with `stopped` status so mock data covers three distinct statuses for richer chart rendering
+  - [x] Create `tests/e2e/kubex-status-chart.spec.ts` (12 tests) — section present, collapsible section element, chart container visible, "View all →" navigation, toggle collapse/expand (aria-expanded), subtitle content, chart renders SVG or fallback, conditional SVG aria-label, conditional legend aria-label, conditional legend rows with counts/percentages, heading text; data-specific tests skip gracefully when backend has no kubexes
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1025/1025 passed (23 skipped)
+
 - [x] **Iteration 65: Kubex credential management**
   - [x] Add `KubexRuntime`, `InjectCredentialBody`, `InjectCredentialResponse` types to `src/types.ts`
   - [x] Add `injectKubexCredentials(kubexId, body)` to `src/api.ts` — authenticated `POST /kubexes/{id}/credentials` to Manager
