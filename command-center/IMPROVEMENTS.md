@@ -4,6 +4,28 @@
 
 ---
 
+- [ ] **Iteration 57: Skills management page + Spawn Wizard skill picker** ⚠️ BLOCKED — requires `GET /skills` and `POST /skills` endpoints (see `docs/FE-BE-REQUESTS.md`). Skip until BE implements the Skills API.
+  - [ ] Pre-check: verify `GET /skills` endpoint exists on Manager (port 8090). If 404 → skip this iteration entirely.
+  - [ ] Create `/skills` route and `SkillsManagement.tsx` page — list all available skills from `GET /skills`, grouped by category. Show name, description, capabilities, source badge (filesystem/dynamic).
+  - [ ] Add skill detail view — click a skill to see full prompt content via `GET /skills/{id}`. Read-only for filesystem skills.
+  - [ ] Update Spawn Wizard Step 2 — replace capability-only picker with a skill picker. Capabilities are auto-derived from selected skills. Keep "Advanced" option to manually specify capabilities.
+  - [ ] Add sidebar nav link for Skills page.
+  - [ ] E2E tests (mocked): skills page renders, skill list grouped by category, skill detail shows content, spawn wizard skill picker works.
+  - [ ] Build: npm run build — clean
+  - [ ] Test: npx playwright test — all pass
+  - [ ] Update `docs/CHANGELOG.md`
+
+- [ ] **Iteration 58: Skill import/export UI** ⚠️ BLOCKED — requires `POST /skills/import` and `GET /skills/{id}/export` endpoints (see `docs/FE-BE-REQUESTS.md`). Skip until BE implements portable skill packages.
+  - [ ] Pre-check: verify `POST /skills/import` endpoint exists on Manager. If 404 → skip this iteration entirely.
+  - [ ] Add "Import Skill" button on Skills page — file upload (`.kubex-skill.yaml`) or paste YAML content. Validates and calls `POST /skills/import`.
+  - [ ] Add "Export" button on each skill row — calls `GET /skills/{id}/export`, triggers YAML file download.
+  - [ ] Add "Create Skill" form — name, category, capabilities, markdown prompt editor. Calls `POST /skills` to create a dynamic skill.
+  - [ ] Success/error states for import, validation error display.
+  - [ ] E2E tests (mocked): import button present, export button present, create form renders.
+  - [ ] Build: npm run build — clean
+  - [ ] Test: npx playwright test — all pass
+  - [ ] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 56: Kubex lifecycle controls — Stop, Restart, Respawn**
   - [x] Add `stopKubex`, `restartKubex`, `respawnKubex` to `src/api.ts` — wire POST /kubexes/{id}/stop, /restart, /respawn endpoints (all backed by Manager).
   - [x] Extend `ConfirmDialog.tsx` — add `'warning'` variant (amber button + refresh icon) alongside existing `'danger'` and `'default'`.

@@ -529,6 +529,72 @@ This is a **breaking change** to the Manager's auth model — the static bearer 
 
 ---
 
+## Portable Skill Packages — Import/Export
+
+> Skills need to be portable so they can be shared between stacks, teams, and environments. The repo's `skills/` directory provides defaults, but custom skills should be importable at runtime without code changes or redeployment.
+
+### Skill Package Format (proposed)
+
+A single YAML manifest (`.kubex-skill.yaml`):
+
+```yaml
+apiVersion: kubex/v1
+kind: Skill
+metadata:
+  name: web-scraping
+  category: data-collection
+  version: 1.0.0
+  author: team-x
+  capabilities:
+    - web_scraping
+    - data_extraction
+spec:
+  prompt: |
+    You are an agent specialized in web scraping.
+    Use BeautifulSoup to parse HTML...
+  dependencies:
+    pip: [beautifulsoup4, requests]
+  config:
+    timeout_seconds: 30
+```
+
+### Boot-time behavior
+
+On stack startup, the Manager should auto-import all `skills/*/SKILL.md` files from the repo filesystem into the skills store (Redis) as **read-only defaults** with `source: "filesystem"`. Dynamic skills created via API get `source: "dynamic"` and are fully editable.
+
+### 🔴 POST /skills/import — Import a portable skill package
+
+- **Frontend need:** "Import Skill" button in the skills management page. User uploads a `.kubex-skill.yaml` file or pastes YAML content.
+- **Service:** Manager (`http://localhost:8090`)
+- **Request body:** `Content-Type: application/yaml` or `multipart/form-data` with the YAML file.
+- **Expected behavior:**
+  1. Validate the YAML against the `kubex/v1` Skill schema (reject malformed packages).
+  2. Store in Redis (or DB) — immediately available for Kubex spawning.
+  3. If a skill with the same `metadata.name` + `metadata.category` exists and is `source: "dynamic"`, overwrite it. If `source: "filesystem"`, reject with 409 (cannot overwrite defaults via import).
+- **Expected response:** 201 with the imported skill object.
+- **Action needed:** Define and implement the `kubex/v1` Skill schema. Add YAML parsing + validation. Store in Redis hash `skills:{category}/{name}`.
+
+---
+
+### 🔴 GET /skills/{id}/export — Export a skill as portable YAML
+
+- **Frontend need:** "Export" button on each skill in the management page. Downloads a `.kubex-skill.yaml` file.
+- **Service:** Manager
+- **Expected response:** `Content-Type: application/yaml` — the full skill package YAML.
+- **Action needed:** Serialize the skill record (including prompt content, metadata, dependencies, config) into the `kubex/v1` YAML format.
+
+---
+
+### 🔴 POST /skills/import-bundle — Import multiple skills at once
+
+- **Frontend need:** Bulk import — user uploads a zip containing multiple `.kubex-skill.yaml` files.
+- **Service:** Manager
+- **Request body:** `Content-Type: multipart/form-data` with a `.zip` file.
+- **Expected response:** 200 with `{ imported: [...], failed: [...], skipped: [...] }`.
+- **Action needed:** Implement after single import is stable. Lower priority.
+
+---
+
 ## Summary Table
 
 | # | Endpoint | Service | Status | Blocker? |
@@ -562,3 +628,6 @@ This is a **breaking change** to the Manager's auth model — the static bearer 
 | 27 | `POST /skills` | Manager | 🔴 MISSING | Yes (dynamic skill creation) |
 | 28 | `PUT /skills/{id}` | Manager | 🔴 MISSING | No (skill editing) |
 | 29 | `DELETE /skills/{id}` | Manager | 🔴 MISSING | No (skill removal) |
+| 30 | `POST /skills/import` | Manager | 🔴 MISSING | Yes (skill import) |
+| 31 | `GET /skills/{id}/export` | Manager | 🔴 MISSING | No (skill export) |
+| 32 | `POST /skills/import-bundle` | Manager | 🔴 MISSING | No (bulk import) |
