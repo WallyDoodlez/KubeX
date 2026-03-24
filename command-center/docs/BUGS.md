@@ -20,7 +20,21 @@
 
 ## Open Bugs
 
-_(None — all known bugs fixed)_
+### BUG-003: OrchestratorChat dispatches to wrong capability name
+- **Severity:** P1
+- **Status:** OPEN
+- **Found:** 2026-03-24
+- **Component:** `src/components/OrchestratorChat.tsx`
+- **Description:** Messages sent from the orchestrator chat dispatch to capability `orchestrate`, but the orchestrator agent listens on `task_orchestration`. Tasks are published to the Broker under the wrong stream key and never consumed. The chat shows "Streaming..." indefinitely.
+- **Root cause:** `OrchestratorChat.tsx` uses `orchestrate` as the default/fallback capability (see `retryCapability` logic), but the orchestrator agent registers with capabilities `['task_orchestration', 'task_management']`. The Broker publishes to a stream keyed by the capability name, so the message lands in `orchestrate` (which nobody reads) instead of `task_orchestration`.
+- **Reproduction:**
+  1. Open Command Center → Orchestrator Chat
+  2. Send any message (e.g. "hello")
+  3. Observe: "Streaming..." forever
+  4. Check Broker logs: `capability: "orchestrate"` published
+  5. Check orchestrator logs: polling `task_orchestration` — never picks up the task
+- **Fix needed:** Change the default capability in `OrchestratorChat.tsx` from `orchestrate` to `task_orchestration`
+- **Workaround:** Manually type `task_orchestration` in the capability field before sending
 
 ---
 
