@@ -343,3 +343,117 @@ class TestSkillCheckEndpoint:
             f"Invalid decision value: {data['decision']}"
         )
         assert data["agent_id"] == "instagram-scraper"
+
+
+# ─────────────────────────────────────────────
+# Phase 12 — AUTH-01: Gateway lifecycle SSE endpoint
+# ─────────────────────────────────────────────
+
+
+class TestLifecycleSSE:
+    """Tests for GET /agents/{agent_id}/lifecycle SSE endpoint (AUTH-01).
+
+    Contract:
+        GET /agents/{agent_id}/lifecycle
+        Auth: Bearer token required (401 without valid token)
+        Response: text/event-stream with lifecycle state events from Redis DB 0
+        Event format: data: {"agent_id": "...", "state": "...", "timestamp": "..."}\n\n
+    """
+
+    def setup_method(self) -> None:
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../services/gateway"))
+        from fastapi.testclient import TestClient
+        from gateway.main import app
+        app.state.gateway_service.redis_db0 = None
+        app.state.gateway_service.redis_db1 = None
+        app.state.gateway_service.budget_tracker = None
+        app.state.gateway_service.rate_limiter = None
+        self.client = TestClient(app, raise_server_exceptions=False)
+        self.auth_header = {"Authorization": "Bearer kubex-mgmt-token"}
+
+    def test_auth_required_no_header_returns_401(self) -> None:
+        """GET /agents/{id}/lifecycle without Authorization header returns 401."""
+        resp = self.client.get("/agents/test-agent/lifecycle")
+        assert resp.status_code == 401
+
+    def test_auth_required_wrong_token_returns_401(self) -> None:
+        """GET /agents/{id}/lifecycle with wrong token returns 401."""
+        resp = self.client.get(
+            "/agents/test-agent/lifecycle",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        assert resp.status_code == 401
+
+    def test_auth_valid_returns_event_stream(self) -> None:
+        """GET /agents/{id}/lifecycle with valid Bearer token returns text/event-stream."""
+        from unittest.mock import MagicMock
+        from gateway.main import app
+
+        # Set up a mock redis_db0 with a pubsub that immediately closes
+        mock_pubsub = MagicMock()
+        mock_pubsub.subscribe = AsyncMock()
+        mock_pubsub.unsubscribe = AsyncMock()
+        mock_pubsub.aclose = AsyncMock()
+
+        async def empty_listen():
+            return
+            yield  # make it an async generator
+
+        mock_pubsub.listen = empty_listen
+        mock_redis = MagicMock()
+        mock_redis.pubsub.return_value = mock_pubsub
+        app.state.gateway_service.redis_db0 = mock_redis
+
+        resp = self.client.get(
+            "/agents/test-agent/lifecycle",
+            headers=self.auth_header,
+        )
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers.get("content-type", "")
+
+    def test_redis_unavailable_yields_error_and_closes(self) -> None:
+        """When redis_db0 is None, SSE yields error event and closes."""
+        from gateway.main import app
+
+        app.state.gateway_service.redis_db0 = None
+
+        resp = self.client.get(
+            "/agents/test-agent/lifecycle",
+            headers=self.auth_header,
+        )
+        assert resp.status_code == 200
+        body = resp.text
+        assert "Redis not available" in body
+
+    def test_stream_events_from_redis_pubsub(self) -> None:
+        """When Redis publishes a lifecycle event, SSE yields the event data."""
+        from unittest.mock import MagicMock
+        from gateway.main import app
+
+        event_payload = json.dumps({
+            "agent_id": "a1",
+            "state": "ready",
+            "timestamp": "2026-03-24T00:00:00",
+        })
+
+        mock_pubsub = MagicMock()
+        mock_pubsub.subscribe = AsyncMock()
+        mock_pubsub.unsubscribe = AsyncMock()
+        mock_pubsub.aclose = AsyncMock()
+
+        async def mock_listen():
+            yield {"type": "subscribe", "data": 1}
+            yield {"type": "message", "data": event_payload}
+
+        mock_pubsub.listen = mock_listen
+        mock_redis = MagicMock()
+        mock_redis.pubsub.return_value = mock_pubsub
+        app.state.gateway_service.redis_db0 = mock_redis
+
+        resp = self.client.get(
+            "/agents/a1/lifecycle",
+            headers=self.auth_header,
+        )
+        assert resp.status_code == 200
+        body = resp.text
+        assert f"data: {event_payload}" in body

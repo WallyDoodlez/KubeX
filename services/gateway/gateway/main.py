@@ -11,8 +11,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from kubex_common.errors import (
     ErrorResponse,
     IdentityResolutionError,
@@ -37,6 +38,24 @@ proxy_router = APIRouter(tags=["proxy"])
 # Key for storing task originator in Redis
 TASK_ORIGINATOR_PREFIX = "task:originator:"
 TASK_ORIGINATOR_TTL = 86400  # 24 hours
+
+# ---------------------------------------------------------------------------
+# Auth (ported from kubex-manager for D-04)
+# ---------------------------------------------------------------------------
+_BEARER_SCHEME = HTTPBearer(auto_error=False)
+_MGMT_TOKEN = os.environ.get("KUBEX_MGMT_TOKEN", "kubex-mgmt-token")
+
+
+def verify_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_BEARER_SCHEME),  # noqa: B008
+) -> None:
+    """Verify Bearer token for management API endpoints."""
+    if credentials is None or credentials.credentials != _MGMT_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing Bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 # ─────────────────────────────────────────────
@@ -700,6 +719,51 @@ async def stream_task_progress(task_id: str, request: Request) -> StreamingRespo
                         break
                     if data.get("final") is True:
                         break
+        finally:
+            await pubsub.unsubscribe(channel)
+            await pubsub.aclose()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ─────────────────────────────────────────────
+# Agent lifecycle endpoints (Phase 12 — AUTH-01)
+# ─────────────────────────────────────────────
+
+
+@router.get(
+    "/agents/{agent_id}/lifecycle",
+    dependencies=[Depends(verify_token)],
+)
+async def stream_agent_lifecycle(
+    agent_id: str, request: Request
+) -> StreamingResponse:
+    """SSE stream of agent lifecycle state transitions.
+
+    Subscribes to Redis pub/sub channel 'lifecycle:{agent_id}' on DB 0.
+    Event format: data: {"agent_id": "...", "state": "...", "timestamp": "..."}\n\n
+    Stream runs until the client disconnects (no terminal event).
+    """
+    gateway: GatewayService = request.app.state.gateway_service
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        if gateway.redis_db0 is None:
+            yield f"data: {json.dumps({'error': 'Redis not available'})}\n\n"
+            return
+
+        channel = f"lifecycle:{agent_id}"
+        pubsub = gateway.redis_db0.pubsub()
+        try:
+            await pubsub.subscribe(channel)
+            async for message in pubsub.listen():
+                if await request.is_disconnected():
+                    break
+                if message["type"] == "message":
+                    yield f"data: {message['data']}\n\n"
         finally:
             await pubsub.unsubscribe(channel)
             await pubsub.aclose()
