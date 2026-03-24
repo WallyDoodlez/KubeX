@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-03-24T00:43:15.528Z"
+stopped_at: Completed 12-02-PLAN.md
+last_updated: "2026-03-24T00:47:13.273Z"
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -57,6 +57,7 @@ Plan: 2 of 2
 | Phase 10-hooks-monitoring P02 | 509 | 2 tasks | 3 files |
 | Phase 11-gemini-cli-runtime P01 | 358 | 3 tasks | 5 files |
 | Phase 12-oauth-command-center-web-flow P01 | 237 | 3 tasks | 4 files |
+| Phase 12 P02 | 121 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,8 @@ Recent decisions affecting current work:
 - [Phase 11-gemini-cli-runtime]: CLI_CREDENTIAL_MOUNTS[gemini-cli] corrected from /root/.config/gemini to /root/.gemini (actual Gemini CLI path)
 - [Phase 12-oauth-command-center-web-flow]: D-04 ported: verify_token Bearer auth added to Gateway using same KUBEX_MGMT_TOKEN env var as Manager
 - [Phase 12-oauth-command-center-web-flow]: AUTH-03 resolved by D-09: agent-side pre-flight in _execute_task_inner is sufficient; no Gateway dispatch-time check needed
+- [Phase 12]: Handoff doc supersedes docs/HANDOFF-oauth-command-center.md (Phase 9) — Phase 9 doc described gaps; Phase 12 doc is the authoritative post-implementation reference
+- [Phase 12]: FE must use fetch() + ReadableStream instead of native EventSource for lifecycle SSE — EventSource API does not support custom headers required for Bearer auth
 
 ### Pending Todos
 
@@ -121,6 +124,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T00:43:15.525Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-03-24T00:47:13.271Z
+Stopped at: Completed 12-02-PLAN.md
 Resume file: None

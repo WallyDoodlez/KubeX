@@ -36,7 +36,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details.
 - [x] **Phase 9: CLI Runtime — Claude Code** — PTY supervisor and credential management, Claude Code as first runtime (completed 2026-03-22)
 - [x] **Phase 10: Hooks Monitoring** — Zero-token passive observability via Claude Code hooks HTTP endpoint (completed 2026-03-23)
 - [x] **Phase 11: Gemini CLI Runtime** — Extend CLI runtime to Gemini CLI via PTY subprocess (completed 2026-03-23)
-- [ ] **Phase 12: OAuth Command Center Web Flow** — Web-based OAuth provisioning, replacing docker-exec HITL
+- [x] **Phase 12: OAuth Command Center Web Flow** — Web-based OAuth provisioning, replacing docker-exec HITL (completed 2026-03-24)
 
 ## Phase Details
 
@@ -124,11 +124,11 @@ Plans:
   1. The Command Center web UI provides an OAuth flow for a target container; completing the flow provisions the token without the user running any CLI commands
   2. A container spawned with a pre-provisioned token from the web flow starts in READY state, bypassing CREDENTIAL_WAIT entirely
   3. A CLI agent with missing or expired credentials rejects the dispatched task at execution time and transitions to CREDENTIAL_WAIT state with a clear error (per D-09: agent-side pre-flight in _execute_task_inner; no Gateway dispatch-time check needed)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 12-01-PLAN.md — Gateway lifecycle SSE endpoint with Bearer auth, Manager credential path fix, AUTH-03 confirmation
-- [ ] 12-02-PLAN.md — FE handoff document with API contracts, sequence diagrams, edge cases
+- [x] 12-02-PLAN.md — FE handoff document with API contracts, sequence diagrams, edge cases
 
 ## Progress
 
@@ -143,7 +143,7 @@ Plans:
 | 9. CLI Runtime — Claude Code | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 10. Hooks Monitoring | v1.2 | 3/3 | Complete    | 2026-03-23 |
 | 11. Gemini CLI Runtime | v1.2 | 1/1 | Complete    | 2026-03-23 |
-| 12. OAuth Command Center Web Flow | v1.2 | 1/2 | In Progress|  |
+| 12. OAuth Command Center Web Flow | v1.2 | 2/2 | Complete   | 2026-03-24 |
 
 ## Backlog
 
