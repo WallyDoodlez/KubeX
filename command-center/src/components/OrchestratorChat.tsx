@@ -435,6 +435,25 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         setLivePhases(buildPhases('Connecting'));
         (async () => {
           const rr = await getTaskResult(taskId);
+
+          if (!rr.ok) {
+            // Task ID not found or backend error (e.g. 404) — clear everything
+            localStorage.removeItem('kubex-active-task');
+            setSending(false);
+            setLivePhases([]);
+            setRecovering(false);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                role: 'error',
+                content: 'Could not reconnect to previous task. It may have completed or timed out.',
+                timestamp: new Date(),
+              } as ChatMessage,
+            ]);
+            return;
+          }
+
           if (
             rr.ok &&
             rr.data &&
@@ -470,6 +489,31 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           setRecovering(false);
         })();
       }
+
+      // Recovery timeout: if sending is still true after 30s, force-clear everything
+      const recoveryTimeout = setTimeout(() => {
+        setSending((prev) => {
+          if (prev) {
+            localStorage.removeItem('kubex-active-task');
+            setStreamUrl(null);
+            setLivePhases([]);
+            setRecovering(false);
+            setTerminalLines([]);
+            setMessages((msgs) => [
+              ...msgs,
+              {
+                id: crypto.randomUUID(),
+                role: 'error',
+                content: 'Could not reconnect to previous task. It may have completed or timed out.',
+                timestamp: new Date(),
+              } as ChatMessage,
+            ]);
+          }
+          return false; // always clear sending
+        });
+      }, 30000);
+
+      return () => clearTimeout(recoveryTimeout);
     } catch {
       localStorage.removeItem('kubex-active-task');
       setRecovering(false);
