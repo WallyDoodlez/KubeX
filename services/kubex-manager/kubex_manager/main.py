@@ -538,11 +538,13 @@ async def inject_credentials(
             ).model_dump(),
         )
 
-    # Resolve credential path from runtime type
+    # Credential file paths per CLI runtime — must match CREDENTIAL_PATHS in
+    # kubex_harness/cli_runtime.py and CLI_CREDENTIAL_MOUNTS in lifecycle.py.
+    # Duplicated here because Manager should not import the agent harness package (D-06).
     cred_paths = {
         "claude-code": "/root/.claude/.credentials.json",
         "codex-cli": "/root/.codex/.credentials.json",
-        "gemini-cli": "/root/.config/gemini/credentials.json",
+        "gemini-cli": "/root/.gemini/oauth_creds.json",  # Corrected: was /root/.config/gemini/credentials.json
     }
     cred_path = cred_paths.get(body.runtime)
     if cred_path is None:

@@ -1523,3 +1523,106 @@ class TestGeminiNoHookSettings:
         from kubex_manager.lifecycle import KubexLifecycle
         source = inspect.getsource(KubexLifecycle.create_kubex)
         assert 'runtime == "claude-code"' in source
+
+
+# ===========================================================================
+# TestCredentialInjectionPaths (Phase 12 — AUTH-02)
+# ===========================================================================
+
+
+class TestCredentialInjectionPaths:
+    """Verify inject_credentials uses correct filesystem paths per CLI runtime (AUTH-02).
+
+    Per D-05/D-06/D-07: Manager should not import the agent harness package.
+    The cred_paths dict in main.py must match CREDENTIAL_PATHS in cli_runtime.py.
+
+    Contract:
+        POST /kubexes/{kubex_id}/credentials
+        Auth: Bearer token required
+        Body: {"runtime": str, "credential_data": dict}
+        Response: {"status": "injected", "kubex_id": ..., "runtime": ..., "path": ...}
+        - gemini-cli  → /root/.gemini/oauth_creds.json
+        - claude-code → /root/.claude/.credentials.json
+        - codex-cli   → /root/.codex/.credentials.json
+        - unknown     → 422 {"error": "UnknownRuntime"}
+    """
+
+    def setup_method(self) -> None:
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../services/kubex-manager"))
+        from fastapi.testclient import TestClient as FastAPITestClient
+        from kubex_manager.main import app as manager_app
+
+        # Provide a mock lifecycle so _get_lifecycle works
+        mock_record = MagicMock()
+        mock_record.container_id = "deadbeef001"
+        mock_lifecycle = MagicMock()
+        mock_lifecycle.get_kubex.return_value = mock_record
+        manager_app.state.lifecycle = mock_lifecycle
+
+        self.app = manager_app
+        self.client = FastAPITestClient(manager_app, raise_server_exceptions=False)
+        self.auth_header = {"Authorization": "Bearer kubex-mgmt-token"}
+
+    def _make_docker_mock(self) -> MagicMock:
+        """Return a mock Docker client whose container.exec_run succeeds."""
+        mock_container = MagicMock()
+        mock_sock = MagicMock()
+        mock_sock.sendall = MagicMock()
+        mock_sock.close = MagicMock()
+        mock_container.exec_run.return_value = (0, MagicMock(_sock=mock_sock))
+        mock_docker_client = MagicMock()
+        mock_docker_client.containers.get.return_value = mock_container
+        return mock_docker_client
+
+    @patch("docker.from_env")
+    def test_gemini_cli_uses_correct_path(self, mock_from_env: MagicMock) -> None:
+        """inject_credentials for gemini-cli uses /root/.gemini/oauth_creds.json."""
+        mock_from_env.return_value = self._make_docker_mock()
+
+        resp = self.client.post(
+            "/kubexes/kubex-001/credentials",
+            headers=self.auth_header,
+            json={"runtime": "gemini-cli", "credential_data": {"token": "abc"}},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["path"] == "/root/.gemini/oauth_creds.json"
+
+    @patch("docker.from_env")
+    def test_claude_code_uses_correct_path(self, mock_from_env: MagicMock) -> None:
+        """inject_credentials for claude-code uses /root/.claude/.credentials.json."""
+        mock_from_env.return_value = self._make_docker_mock()
+
+        resp = self.client.post(
+            "/kubexes/kubex-001/credentials",
+            headers=self.auth_header,
+            json={"runtime": "claude-code", "credential_data": {"token": "abc"}},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["path"] == "/root/.claude/.credentials.json"
+
+    @patch("docker.from_env")
+    def test_codex_cli_uses_correct_path(self, mock_from_env: MagicMock) -> None:
+        """inject_credentials for codex-cli uses /root/.codex/.credentials.json."""
+        mock_from_env.return_value = self._make_docker_mock()
+
+        resp = self.client.post(
+            "/kubexes/kubex-001/credentials",
+            headers=self.auth_header,
+            json={"runtime": "codex-cli", "credential_data": {"token": "abc"}},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["path"] == "/root/.codex/.credentials.json"
+
+    def test_unknown_runtime_returns_422(self) -> None:
+        """inject_credentials with unknown runtime returns 422 UnknownRuntime."""
+        resp = self.client.post(
+            "/kubexes/kubex-001/credentials",
+            headers=self.auth_header,
+            json={"runtime": "unknown-cli", "credential_data": {"token": "abc"}},
+        )
+        assert resp.status_code == 422
+        data = resp.json()
+        assert data["error"] == "UnknownRuntime"
