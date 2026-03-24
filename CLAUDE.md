@@ -92,3 +92,15 @@ When using Claude Code sub-agents for implementation work, follow this three-tie
 - Worker prompts MUST be self-contained — include file paths and expected patterns, not doc references.
 - Use `mode: "bypassPermissions"` and `model: "sonnet"` for all sub-agents.
 - If a worker fails, the Team Lead retries or adjusts — do not escalate to Host unless blocked.
+
+## Loop & Autonomous Work Protocol
+
+When running iterative/looped work (e.g. improvement iterations, continuous improvement cycles):
+
+### Always Delegate via Agents
+- **Spawn a Team Lead agent** for each iteration/task. The Host reads only the tracker file and dispatches.
+- The Team Lead reads source files, plans the work, spawns **parallel Worker agents**, reviews output, then builds/tests/commits.
+- The Host receives a summary and updates the tracker. This keeps the main context lean for many iterations.
+
+### Push After Each Iteration
+- After each iteration is committed, push to remote immediately.

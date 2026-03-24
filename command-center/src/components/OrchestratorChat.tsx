@@ -84,6 +84,9 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const activeTaskIdRef = useRef<string | null>(null);
   const activeCapRef = useRef<string>('');
 
+  // Task recovery state — true while we are reconnecting to a persisted in-flight task
+  const [recovering, setRecovering] = useState(false);
+
   // Task progress timeline — tracks live phases while a task is running
   const PHASE_LABELS = ['Dispatched', 'Connecting', 'Streaming', 'Completed'] as const;
   type PhaseLabel = (typeof PHASE_LABELS)[number];
@@ -226,6 +229,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
     if (data.type === 'result' || data.type === 'completed') {
       const completedPhases = buildPhasesCompleted();
+      localStorage.removeItem('kubex-active-task');
       setSending(false);
       setStreamUrl(null);
       setHitlRequest(null);
@@ -261,6 +265,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
     if (data.type === 'failed' || data.type === 'cancelled') {
       const failedPhases = buildPhasesFailed();
+      localStorage.removeItem('kubex-active-task');
       setSending(false);
       setStreamUrl(null);
       setHitlRequest(null);
@@ -353,6 +358,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               task_id: taskId,
             });
 
+            localStorage.removeItem('kubex-active-task');
             resolved = true;
             break;
           }
@@ -360,6 +366,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
         if (!resolved) {
           // All retries exhausted — task still pending or unreachable
+          localStorage.removeItem('kubex-active-task');
           setLivePhases([]);
           setMessages((msgs) => [
             ...msgs,
@@ -394,6 +401,79 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       setLivePhases(buildPhases('Streaming'));
     }
   }, [sseStatus, sending]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On mount: detect and recover any in-flight task that was persisted before navigation
+  useEffect(() => {
+    const stored = localStorage.getItem('kubex-active-task');
+    if (!stored) return;
+
+    try {
+      const { taskId, capability: cap, startedAt } = JSON.parse(stored) as {
+        taskId: string;
+        capability: string;
+        message: string;
+        startedAt: string;
+      };
+
+      const age = Date.now() - new Date(startedAt).getTime();
+      const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+
+      activeTaskIdRef.current = taskId;
+      activeCapRef.current = cap;
+      setRecovering(true);
+
+      if (age < STALE_THRESHOLD) {
+        // Recent enough — try reconnecting the SSE stream
+        setSending(true);
+        setLivePhases(buildPhases('Connecting'));
+        setStreamUrl(getTaskStreamUrl(taskId));
+        setRecovering(false);
+      } else {
+        // Task is old — poll for a result rather than reconnecting SSE
+        setSending(true);
+        setLivePhases(buildPhases('Connecting'));
+        (async () => {
+          const rr = await getTaskResult(taskId);
+          if (
+            rr.ok &&
+            rr.data &&
+            (rr.data.status === 'completed' || rr.data.status === 'failed' || rr.data.status === 'cancelled')
+          ) {
+            const resultText =
+              typeof rr.data.result === 'string'
+                ? rr.data.result
+                : rr.data.result !== undefined
+                ? JSON.stringify(rr.data.result, null, 2)
+                : JSON.stringify(rr.data, null, 2);
+
+            const isSuccess = rr.data.status === 'completed';
+            setLivePhases([]);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                role: isSuccess ? 'result' : 'error',
+                content: isSuccess ? resultText : `Task ${rr.data!.status}: ${resultText}`,
+                timestamp: new Date(),
+                task_id: taskId,
+                raw: rr.data,
+                phases: isSuccess ? buildPhasesCompleted() : buildPhasesFailed(),
+              } as ChatMessage,
+            ]);
+            localStorage.removeItem('kubex-active-task');
+            setSending(false);
+          } else {
+            // Still running — reconnect SSE and let it drive the result
+            setStreamUrl(getTaskStreamUrl(taskId));
+          }
+          setRecovering(false);
+        })();
+      }
+    } catch {
+      localStorage.removeItem('kubex-active-task');
+      setRecovering(false);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive spinner label from SSE status
   function sendingLabel(status: SSEStatus): string {
@@ -482,6 +562,12 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     const taskId = res.data.task_id;
     activeTaskIdRef.current = taskId;
     activeCapRef.current = cap;
+
+    // Persist active task so we can recover after navigation
+    localStorage.setItem(
+      'kubex-active-task',
+      JSON.stringify({ taskId, capability: cap, message: msg, startedAt: new Date().toISOString() }),
+    );
 
     addMessage({
       role: 'system',
@@ -873,6 +959,17 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               taskId={hitlRequest.taskId}
               onSubmit={handleHITLSubmit}
             />
+          </div>
+        )}
+
+        {recovering && (
+          <div className="flex justify-start" data-testid="task-recovery-indicator">
+            <div className="rounded-2xl rounded-tl-sm bg-[var(--color-surface)] border border-amber-500/40 px-4 py-3">
+              <p className="text-[11px] text-amber-400 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                Reconnecting to task…
+              </p>
+            </div>
           </div>
         )}
 

@@ -16,15 +16,24 @@
 - **P2** — feature partially broken, workaround exists
 - **P3** — cosmetic, minor UX annoyance
 
----
-
 ## Open Bugs
 
-*(No open bugs)*
+_No open bugs._
 
 ---
 
 ## Fixed Bugs
+
+### BUG-004: Pending task state lost on navigation
+- **Severity:** P2
+- **Status:** FIXED
+- **Found:** 2026-03-24
+- **Fixed:** 2026-03-24
+- **Component:** `src/components/OrchestratorChat.tsx`
+- **Description:** When a task is in-flight (streaming/pending), navigating away from the chat page and coming back loses all pending state — the typing indicator, SSE connection, and task tracking disappear.
+- **Root cause:** `sending`, `streamUrl`, `activeTaskIdRef`, `terminalLines`, and the SSE connection are all ephemeral React state/refs. Component unmount kills the SSE EventSource and clears all state. On remount there is no record of the in-flight task.
+- **Fix:** Persist active task context (`taskId`, `capability`, `message`, `startedAt`) to `kubex-active-task` in localStorage on dispatch. On component mount, check for a stored task. If younger than 5 minutes, reconnect the SSE stream; if older, poll `getTaskResult` for a completed result and fall back to SSE if still running. Clear `kubex-active-task` on every terminal event (result/completed/failed/cancelled) in `handleSSEMessage` and `handleSSEComplete`. Added `[data-testid="task-recovery-indicator"]` element shown while reconnecting.
+- **Fixed in:** see commit `fix(command-center): BUG-004 — persist and recover pending task state on navigation`
 
 ### BUG-003: OrchestratorChat dispatches to wrong capability name
 - **Severity:** P1
