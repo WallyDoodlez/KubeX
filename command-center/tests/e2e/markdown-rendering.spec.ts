@@ -74,7 +74,7 @@ async function dispatchAndGetResult(
     });
   });
 
-  // Fill message and send (using default "orchestrate" capability)
+  // Fill message and send (using default "task_orchestration" capability)
   await page.locator('[data-testid="message-input"]').fill('test message');
   await page.locator('button', { hasText: 'Send' }).click();
 

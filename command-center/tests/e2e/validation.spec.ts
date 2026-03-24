@@ -11,7 +11,7 @@ test.describe('Input Validation', () => {
     await expect(sendButton).toBeDisabled();
   });
 
-  test('send button is enabled with only message filled (capability defaults to orchestrate)', async ({ page }) => {
+  test('send button is enabled with only message filled (capability defaults to task_orchestration)', async ({ page }) => {
     await page.locator('[data-testid="message-input"]').fill('test message');
     const sendButton = page.locator('button', { hasText: 'Send' });
     await expect(sendButton).toBeEnabled();

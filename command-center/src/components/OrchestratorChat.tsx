@@ -277,7 +277,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         content: `Task ${data.type}: ${reason}`,
         timestamp: new Date(),
         task_id: taskId ?? undefined,
-        retryCapability: cap !== 'orchestrate' ? cap : undefined,
+        retryCapability: cap !== 'task_orchestration' ? cap : undefined,
         phases: failedPhases,
       });
 
@@ -369,7 +369,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               content: `Stream ended without result for task ${taskId}. The task may still be running — check Task History for its status.`,
               timestamp: new Date(),
               task_id: taskId,
-              retryCapability: cap !== 'orchestrate' ? cap : undefined,
+              retryCapability: cap !== 'task_orchestration' ? cap : undefined,
               phases: buildPhasesFailed(),
             } as ChatMessage,
           ]);
@@ -407,9 +407,9 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     const msg = message.trim();
     if (!msg || sending) return;
 
-    // Use explicitly chosen capability (from Advanced panel), or default to "orchestrate"
+    // Use explicitly chosen capability (from Advanced panel), or default to "task_orchestration"
     const capRaw = capability.trim();
-    const cap = capRaw || 'orchestrate';
+    const cap = capRaw || 'task_orchestration';
 
     // Validate capability only when one was explicitly provided
     if (capRaw) {
@@ -1024,7 +1024,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 }}
                 onKeyDown={handleKeyDown}
                 list="capabilities-list"
-                placeholder="e.g. orchestrate"
+                placeholder="e.g. task_orchestration"
                 disabled={sending}
                 className="
                   w-full px-3 py-2 rounded-lg text-sm font-mono-data

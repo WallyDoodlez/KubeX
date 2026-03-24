@@ -43,9 +43,9 @@ async function routeTaskResult(page: import('@playwright/test').Page, result = '
  * Fill the chat inputs and click Send, then wait for the system dispatch
  * confirmation bubble to appear (confirms task was dispatched).
  *
- * When `capability` is provided and differs from the default "orchestrate",
+ * When `capability` is provided and differs from the default "task_orchestration",
  * the Advanced panel is opened to set it explicitly. Otherwise, just the
- * message is filled and sent (default capability = "orchestrate").
+ * message is filled and sent (default capability = "task_orchestration").
  */
 async function sendChatMessage(
   page: import('@playwright/test').Page,
@@ -60,7 +60,7 @@ async function sendChatMessage(
   }
 
   // Open Advanced panel and set explicit capability when a non-default value is needed
-  if (capability && capability !== 'orchestrate') {
+  if (capability && capability !== 'task_orchestration') {
     await page.locator('[data-testid="advanced-toggle"]').click();
     await page.locator('[data-testid="capability-input"]').fill(capability);
   }

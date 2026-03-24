@@ -170,7 +170,7 @@ test('4. clicking retry with an explicit capability opens the Advanced panel and
 
 test('5. retry with no explicit capability does not open the Advanced panel', async ({ page }) => {
   // Close Advanced panel if open (it starts closed by default)
-  const errorBubble = await triggerDispatchError(page, 'Default orchestrate task');
+  const errorBubble = await triggerDispatchError(page, 'Default task_orchestration task');
 
   // Ensure Advanced panel is closed before retry
   const advancedPanel = page.locator('[data-testid="advanced-panel"]');

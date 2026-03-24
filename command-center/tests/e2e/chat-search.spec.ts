@@ -80,7 +80,7 @@ async function dispatchAndGetResult(
   });
 
   // Open Advanced panel and set capability when a non-default value is needed
-  if (capability && capability !== 'orchestrate') {
+  if (capability && capability !== 'task_orchestration') {
     await page.locator('[data-testid="advanced-toggle"]').click();
     await page.locator('[data-testid="capability-input"]').fill(capability);
   }
