@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, memo } from 'react';
 import type { Kubex } from '../types';
-import { getKubexes, killKubex, startKubex, stopKubex, restartKubex, respawnKubex } from '../api';
+import { getKubexes, killKubex, startKubex, stopKubex, restartKubex, respawnKubex, deleteKubex } from '../api';
 import StatusBadge from './StatusBadge';
 import { usePolling } from '../hooks/usePolling';
 import { useSearch } from '../hooks/useSearch';
@@ -49,7 +49,7 @@ export default function ContainersPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionIn, setActionIn] = useState<string | null>(null);
-  const [confirmTarget, setConfirmTarget] = useState<{ kubexId: string; action: 'kill' | 'restart' | 'respawn' } | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{ kubexId: string; action: 'kill' | 'restart' | 'respawn' | 'delete' } | null>(null);
   // Bulk selection
   const [bulkKillConfirmOpen, setBulkKillConfirmOpen] = useState(false);
   const [bulkActionInProgress, setBulkActionInProgress] = useState(false);
@@ -173,6 +173,10 @@ export default function ContainersPanel() {
     setConfirmTarget({ kubexId, action: 'respawn' });
   }
 
+  function requestDelete(kubexId: string) {
+    setConfirmTarget({ kubexId, action: 'delete' });
+  }
+
   async function handleConfirmedAction() {
     if (!confirmTarget) return;
     const { kubexId, action } = confirmTarget;
@@ -181,6 +185,7 @@ export default function ContainersPanel() {
     if (action === 'kill') await killKubex(kubexId);
     else if (action === 'restart') await restartKubex(kubexId);
     else if (action === 'respawn') await respawnKubex(kubexId);
+    else if (action === 'delete') await deleteKubex(kubexId);
     setActionIn(null);
     await load();
   }
@@ -379,6 +384,7 @@ export default function ContainersPanel() {
                       onStop={() => handleStop(kubex.kubex_id)}
                       onRestart={() => requestRestart(kubex.kubex_id)}
                       onRespawn={() => requestRespawn(kubex.kubex_id)}
+                      onDelete={() => requestDelete(kubex.kubex_id)}
                     />
                   ))}
                 </div>
@@ -441,6 +447,8 @@ export default function ContainersPanel() {
             ? 'Kill Kubex'
             : confirmTarget?.action === 'restart'
             ? 'Restart Kubex'
+            : confirmTarget?.action === 'delete'
+            ? 'Delete Kubex'
             : 'Respawn Kubex'
         }
         message={
@@ -448,13 +456,17 @@ export default function ContainersPanel() {
             ? `Are you sure you want to kill kubex "${confirmTarget?.kubexId}"?`
             : confirmTarget?.action === 'restart'
             ? `Restart kubex "${confirmTarget?.kubexId}"? The container will be stopped and restarted.`
+            : confirmTarget?.action === 'delete'
+            ? `Permanently delete kubex "${confirmTarget?.kubexId}"? This removes the record from Manager. The container is not stopped — kill it first if still running.`
             : `Respawn kubex "${confirmTarget?.kubexId}"? The container will be killed and a new one created from the persisted config.`
         }
         confirmLabel={
           confirmTarget?.action === 'kill' ? 'Kill' :
-          confirmTarget?.action === 'restart' ? 'Restart' : 'Respawn'
+          confirmTarget?.action === 'restart' ? 'Restart' :
+          confirmTarget?.action === 'delete' ? 'Delete' :
+          'Respawn'
         }
-        variant={confirmTarget?.action === 'kill' ? 'danger' : 'warning'}
+        variant={confirmTarget?.action === 'kill' || confirmTarget?.action === 'delete' ? 'danger' : 'warning'}
         onConfirm={handleConfirmedAction}
         onCancel={() => setConfirmTarget(null)}
       />
@@ -512,11 +524,12 @@ interface KubexRowProps {
   onStop: () => void;
   onRestart: () => void;
   onRespawn: () => void;
+  onDelete: () => void;
 }
 
 // Wrapped in React.memo — ContainersPanel re-renders on every 10s poll tick.
 // KubexRow skips re-render when its own props haven't changed.
-const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, focused, rowProps, onSelect, onKill, onStart, onStop, onRestart, onRespawn }: KubexRowProps) {
+const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, focused, rowProps, onSelect, onKill, onStart, onStop, onRestart, onRespawn, onDelete }: KubexRowProps) {
   const isRunning = kubex.status === 'running';
   const isStopped = kubex.status === 'stopped' || kubex.status === 'error';
   const isCreated = kubex.status === 'created';
@@ -674,6 +687,17 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
               + Pkg
             </button>
           )}
+
+          {/* Delete — shown for all kubexes; removes the Manager record */}
+          <button
+            onClick={onDelete}
+            disabled={actionIn}
+            data-testid={`kubex-delete-${kubex.kubex_id}`}
+            title="Delete kubex record from Manager"
+            className="px-2 py-1 text-[10px] rounded border border-red-500/20 text-red-500/70 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/5 transition-colors disabled:opacity-50"
+          >
+            {actionIn ? '…' : 'Delete'}
+          </button>
         </div>
       </div>
 

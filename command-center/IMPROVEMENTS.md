@@ -4,6 +4,21 @@
 
 ---
 
+- [x] **Iteration 64: Kubex delete confirmation**
+  - [x] Add `deleteKubex(kubexId)` to `src/api.ts` — authenticated `DELETE /kubexes/{id}` to Manager
+  - [x] Add `http.delete` handler for `${MANAGER}/kubexes/:kubexId` in `tests/e2e/mocks/handlers.ts` (204 response)
+  - [x] Update `ContainersPanel.tsx`:
+    - Extend `confirmTarget` action union to include `'delete'`
+    - Add `requestDelete(kubexId)` function
+    - Handle `delete` action in `handleConfirmedAction` (calls `deleteKubex`)
+    - Add `onDelete` prop to `KubexRowProps` and `KubexRow`
+    - Add "Delete" button (`data-testid="kubex-delete-{id}"`) in Actions column — visible for all kubexes
+    - Extend `ConfirmDialog` title/message/label/variant for `delete` action (danger variant; message warns "kill it first if still running")
+  - [x] Create `tests/e2e/kubex-delete.spec.ts` (12 tests covering: button visibility for running/stopped, dialog open, kubex ID in message, Delete confirm button, Cancel dismisses, confirm calls DELETE + refreshes, dialog shows for running kubex, running kubex dialog warns, correct test IDs, focusable via keyboard, only targeted kubex affected)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 983/984 passed (1 pre-existing flaky in command-palette, 20 skipped); 12 new kubex-delete tests all pass
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 63: Agent Detail — Live Output Tab with real lifecycle SSE**
   - [x] Add `getAgentLifecycleStreamUrl(agentId)` and `getAgentLifecycleAuthHeader()` helpers to `src/api.ts`
   - [x] Replace `LiveOutputTab` placeholder in `src/components/AgentDetailPage.tsx` with a fetch-based SSE reader:

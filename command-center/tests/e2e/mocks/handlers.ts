@@ -125,6 +125,11 @@ export const handlers = [
     return HttpResponse.json({ status: 'ok', message: 'Kubex respawned' });
   }),
 
+  // Delete kubex — Manager
+  http.delete(`${MANAGER}/kubexes/:kubexId`, () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   // Kill all kubexes — Manager
   http.post(`${MANAGER}/kubexes/kill-all`, () => {
     return HttpResponse.json({ status: 'ok', message: 'All kubexes killed' });

@@ -251,6 +251,15 @@ export async function installKubexDep(
   );
 }
 
+export async function deleteKubex(kubexId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>(
+    'DELETE',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}`,
+    undefined,
+    managerHeaders(),
+  );
+}
+
 // ── Tasks (Gateway) ──────────────────────────────────────────────────
 
 export async function dispatchTask(

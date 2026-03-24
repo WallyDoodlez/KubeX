@@ -4,6 +4,25 @@
 
 ---
 
+## Iteration 64: Kubex Delete Confirmation
+
+**Files modified:** `src/api.ts`, `src/components/ContainersPanel.tsx`, `tests/e2e/mocks/handlers.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/kubex-delete.spec.ts`
+
+**Changes:**
+- Added `deleteKubex(kubexId)` to `src/api.ts` — issues an authenticated `DELETE` to `${MANAGER}/kubexes/{id}`, wiring the existing backend `DELETE /kubexes/{kubex_id}` endpoint for the first time from the frontend.
+- Added `http.delete` mock handler for `${MANAGER}/kubexes/:kubexId` (204) to `tests/e2e/mocks/handlers.ts`.
+- Updated `ContainersPanel.tsx`:
+  - Extended `confirmTarget` union type to include `'delete'`.
+  - Added `requestDelete(kubexId)` helper and `onDelete` call in `handleConfirmedAction`.
+  - Added `onDelete` prop through `KubexRowProps` and `KubexRow`.
+  - Added a "Delete" button (`data-testid="kubex-delete-{id}"`) in the Actions cell — visible for all kubexes regardless of status, styled in a muted-red to distinguish it as a permanent/destructive record operation.
+  - Extended the single `ConfirmDialog` block to handle `delete`: title "Delete Kubex", danger variant, message that includes the kubex ID and warns to kill the container first if still running, confirm label "Delete".
+- Created `tests/e2e/kubex-delete.spec.ts` — 12 E2E tests covering: button visibility (running and stopped), dialog open, kubex ID in message text, Delete confirm button present, Cancel dismisses without deleting, confirm triggers DELETE call and list refresh, dialog shown for running kubex, warning text for running containers, correct per-kubex test IDs, keyboard focusability, and per-target isolation when multiple kubexes are listed.
+- **Build:** clean (tsc + vite). **Tests:** 983/984 passed (1 pre-existing flaky in command-palette passes in isolation — timing issue in parallel run; 20 skipped); 12 new kubex-delete E2E tests all pass.
+
+---
+
 ## Iteration 63: Agent Detail — Live Output Tab
 
 **Files modified:** `src/api.ts`, `src/components/AgentDetailPage.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
