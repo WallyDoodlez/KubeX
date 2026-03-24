@@ -4,6 +4,8 @@ import type {
   CreateKubexBody,
   CreateKubexResponse,
   HealthResponse,
+  InjectCredentialBody,
+  InjectCredentialResponse,
   InstallDepBody,
   InstallDepResponse,
   Kubex,
@@ -256,6 +258,18 @@ export async function deleteKubex(kubexId: string): Promise<FetchResult<unknown>
     'DELETE',
     `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}`,
     undefined,
+    managerHeaders(),
+  );
+}
+
+export async function injectKubexCredentials(
+  kubexId: string,
+  body: InjectCredentialBody,
+): Promise<FetchResult<InjectCredentialResponse>> {
+  return apiFetch<InjectCredentialResponse>(
+    'POST',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/credentials`,
+    body,
     managerHeaders(),
   );
 }

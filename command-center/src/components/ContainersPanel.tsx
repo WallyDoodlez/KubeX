@@ -20,6 +20,7 @@ import { exportAsJSON } from '../utils/export';
 import CopyButton from './CopyButton';
 import KubexConfigPanel from './KubexConfigPanel';
 import KubexInstallDepPanel from './KubexInstallDepPanel';
+import KubexCredentialPanel from './KubexCredentialPanel';
 
 // Status filter options
 type StatusFilter = 'all' | 'running' | 'created' | 'stopped' | 'error';
@@ -535,6 +536,7 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
   const isCreated = kubex.status === 'created';
   const [configOpen, setConfigOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
+  const [credOpen, setCredOpen] = useState(false);
 
   return (
     <div
@@ -688,6 +690,23 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
             </button>
           )}
 
+          {/* Credentials — shown only when running */}
+          {isRunning && (
+            <button
+              onClick={() => setCredOpen((v) => !v)}
+              data-testid={`kubex-credentials-btn-${kubex.kubex_id}`}
+              title={credOpen ? 'Close credential injector' : 'Inject OAuth credentials into this container'}
+              aria-expanded={credOpen}
+              className={`px-2 py-1 text-[10px] rounded border transition-colors ${
+                credOpen
+                  ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300'
+                  : 'border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10'
+              }`}
+            >
+              Creds
+            </button>
+          )}
+
           {/* Delete — shown for all kubexes; removes the Manager record */}
           <button
             onClick={onDelete}
@@ -709,6 +728,11 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
       {/* Expandable install-dep panel — only when running */}
       {installOpen && isRunning && (
         <KubexInstallDepPanel kubexId={kubex.kubex_id} />
+      )}
+
+      {/* Expandable credential panel — only when running */}
+      {credOpen && isRunning && (
+        <KubexCredentialPanel kubexId={kubex.kubex_id} />
       )}
     </div>
   );

@@ -4,6 +4,33 @@
 
 ---
 
+## Iteration 65: Kubex Credential Management
+
+**Files modified:** `src/api.ts`, `src/types.ts`, `src/components/ContainersPanel.tsx`, `tests/e2e/mocks/handlers.ts`, `docs/CHANGELOG.md`
+**Files created:** `src/components/KubexCredentialPanel.tsx`, `tests/e2e/kubex-credentials.spec.ts`
+
+**Changes:**
+- Added `KubexRuntime`, `InjectCredentialBody`, and `InjectCredentialResponse` types to `src/types.ts`.
+- Added `injectKubexCredentials(kubexId, body)` to `src/api.ts` — issues an authenticated `POST` to `${MANAGER}/kubexes/{id}/credentials`, wiring the existing backend endpoint for the first time from the frontend.
+- Added `http.post` mock handler for `${MANAGER}/kubexes/:kubexId/credentials` to `tests/e2e/mocks/handlers.ts`.
+- Created `src/components/KubexCredentialPanel.tsx`:
+  - Inline collapsible panel (same pattern as `KubexInstallDepPanel`).
+  - Runtime selector with three options: `claude-code`, `codex-cli`, `gemini-cli`.
+  - JSON textarea for pasting credential blobs (e.g. `.credentials.json` contents).
+  - Client-side JSON validation: errors shown inline with `role="alert"`, inject button disabled until valid JSON object is present.
+  - Injection history list (newest first) with success (cyan) and error (red) rows.
+  - Textarea cleared after successful injection.
+  - Full accessibility: `role="region"`, `aria-label`, `aria-expanded`, `aria-label` on all controls.
+- Updated `ContainersPanel.tsx`:
+  - Added `import KubexCredentialPanel`.
+  - Added `credOpen` state to `KubexRow`.
+  - Added "Creds" button in the Actions cell — only visible when kubex is running, toggles the panel, styled cyan to distinguish from pkg installer (emerald) and destructive actions.
+  - Renders `<KubexCredentialPanel>` below the install-dep panel when `credOpen && isRunning`.
+- Created `tests/e2e/kubex-credentials.spec.ts` — 22 E2E tests covering: button visibility (running vs stopped), panel open/close toggle, aria-expanded state, form element presence, runtime selector defaults and options, inject button disabled when empty or invalid JSON, JSON error message and role=alert, inject button enabled on valid JSON, successful injection (claude-code and gemini-cli), textarea cleared after success, failed injection error history, accessibility attributes.
+- **Build:** clean (tsc + vite). **Tests:** 1006 passed, 20 skipped, 0 failed; all 22 new credential E2E tests pass.
+
+---
+
 ## Iteration 64: Kubex Delete Confirmation
 
 **Files modified:** `src/api.ts`, `src/components/ContainersPanel.tsx`, `tests/e2e/mocks/handlers.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

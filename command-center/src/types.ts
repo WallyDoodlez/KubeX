@@ -253,3 +253,22 @@ export interface InstallDepResponse {
   status: string;
   runtime_deps: string[];
 }
+
+// ── Kubex Credential Injection ────────────────────────────────────────
+
+/** Supported CLI runtimes for credential injection */
+export type KubexRuntime = 'claude-code' | 'codex-cli' | 'gemini-cli';
+
+/** Request body for POST /kubexes/{id}/credentials */
+export interface InjectCredentialBody {
+  runtime: KubexRuntime;
+  credential_data: Record<string, unknown>;
+}
+
+/** Response from POST /kubexes/{id}/credentials */
+export interface InjectCredentialResponse {
+  status: string;
+  kubex_id: string;
+  runtime: string;
+  path: string;
+}

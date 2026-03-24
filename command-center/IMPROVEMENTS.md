@@ -4,6 +4,21 @@
 
 ---
 
+- [x] **Iteration 65: Kubex credential management**
+  - [x] Add `KubexRuntime`, `InjectCredentialBody`, `InjectCredentialResponse` types to `src/types.ts`
+  - [x] Add `injectKubexCredentials(kubexId, body)` to `src/api.ts` — authenticated `POST /kubexes/{id}/credentials` to Manager
+  - [x] Add `http.post` handler for `${MANAGER}/kubexes/:kubexId/credentials` in `tests/e2e/mocks/handlers.ts`
+  - [x] Create `src/components/KubexCredentialPanel.tsx` — inline collapsible panel with runtime selector, JSON textarea with client-side validation, injection history, full a11y
+  - [x] Update `ContainersPanel.tsx`:
+    - Import `KubexCredentialPanel`
+    - Add `credOpen` state to `KubexRow`
+    - Add "Creds" button (cyan, only when running, toggles panel)
+    - Render `<KubexCredentialPanel>` when `credOpen && isRunning`
+  - [x] Create `tests/e2e/kubex-credentials.spec.ts` (22 tests: button visibility, toggle, aria-expanded, form elements, runtime options, disabled states, JSON validation errors, success/failure injection, textarea clear, a11y attributes)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1006 passed, 20 skipped, 0 failed; all 22 new credential E2E tests pass
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 64: Kubex delete confirmation**
   - [x] Add `deleteKubex(kubexId)` to `src/api.ts` — authenticated `DELETE /kubexes/{id}` to Manager
   - [x] Add `http.delete` handler for `${MANAGER}/kubexes/:kubexId` in `tests/e2e/mocks/handlers.ts` (204 response)

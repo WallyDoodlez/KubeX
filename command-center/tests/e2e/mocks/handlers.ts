@@ -130,6 +130,17 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  // Inject credentials — Manager
+  http.post(`${MANAGER}/kubexes/:kubexId/credentials`, ({ params }) => {
+    const { kubexId } = params;
+    return HttpResponse.json({
+      status: 'injected',
+      kubex_id: kubexId,
+      runtime: 'claude-code',
+      path: '/root/.claude/.credentials.json',
+    });
+  }),
+
   // Kill all kubexes — Manager
   http.post(`${MANAGER}/kubexes/kill-all`, () => {
     return HttpResponse.json({ status: 'ok', message: 'All kubexes killed' });
