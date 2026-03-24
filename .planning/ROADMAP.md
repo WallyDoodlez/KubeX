@@ -124,10 +124,10 @@ Plans:
   1. The Command Center web UI provides an OAuth flow for a target container; completing the flow provisions the token without the user running any CLI commands
   2. A container spawned with a pre-provisioned token from the web flow starts in READY state, bypassing CREDENTIAL_WAIT entirely
   3. A CLI agent with missing or expired credentials rejects the dispatched task at execution time and transitions to CREDENTIAL_WAIT state with a clear error (per D-09: agent-side pre-flight in _execute_task_inner; no Gateway dispatch-time check needed)
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 12-01-PLAN.md — Gateway lifecycle SSE endpoint with Bearer auth, Manager credential path fix, AUTH-03 confirmation
+- [x] 12-01-PLAN.md — Gateway lifecycle SSE endpoint with Bearer auth, Manager credential path fix, AUTH-03 confirmation
 - [ ] 12-02-PLAN.md — FE handoff document with API contracts, sequence diagrams, edge cases
 
 ## Progress
@@ -143,7 +143,7 @@ Plans:
 | 9. CLI Runtime — Claude Code | v1.2 | 4/4 | Complete   | 2026-03-22 |
 | 10. Hooks Monitoring | v1.2 | 3/3 | Complete    | 2026-03-23 |
 | 11. Gemini CLI Runtime | v1.2 | 1/1 | Complete    | 2026-03-23 |
-| 12. OAuth Command Center Web Flow | v1.2 | 0/2 | Not started | - |
+| 12. OAuth Command Center Web Flow | v1.2 | 1/2 | In Progress|  |
 
 ## Backlog
 
