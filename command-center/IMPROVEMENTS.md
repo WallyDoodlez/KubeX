@@ -4,6 +4,15 @@
 
 ---
 
+- [x] **Iteration 75: Enhanced global error boundary**
+  - [x] Extract `ErrorFallback` as a named export from `src/components/ErrorBoundary.tsx` — accepts `error`, `onRetry`, and `inline` props; uses CSS custom properties throughout (no hardcoded hex) so it adapts to the light/dark theme toggle
+  - [x] Add `data-testid` attributes on all key error UI elements: `error-boundary-card`, `error-boundary-heading`, `error-boundary-message`, `error-boundary-retry`, `error-boundary-reload`, `error-boundary-inline`, `error-boundary-fullscreen`
+  - [x] Add `inline?: boolean` prop to `ErrorBoundary` — when true renders a compact content-area card rather than a full-screen takeover, preserving the sidebar and header
+  - [x] Update `src/App.tsx` — wrap `<Routes>` in a second `<ErrorBoundary inline>` nested inside the existing outer boundary; inner catches route-level crashes and contains them to the content area; outer is a last-resort safety net
+  - [x] Create `tests/e2e/error-boundary.spec.ts` (15 tests) — no boundary visible on normal operation, testid absence under normal conditions, app shell intact across all 9 routes, per-route boundary absence checks
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1142/1142 passed (23 skipped)
+
 - [x] **Iteration 74: Dark/light Mermaid theme**
   - [x] Add `getAppTheme()` helper to `src/components/MermaidBlock.tsx` — reads `data-theme` attribute from `document.documentElement`; returns `'light'` or `'dark'`
   - [x] Add `getMermaidConfig(appTheme)` — returns `mermaid.initialize()` options; dark uses `'dark'` theme with emerald accent variables; light uses `'default'` theme with light-mode palette
