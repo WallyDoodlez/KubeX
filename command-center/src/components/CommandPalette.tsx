@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -60,6 +61,8 @@ function CommandPalette({ isOpen, onClose, extraCommands = [], onOpenQuickDispat
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(paletteRef, isOpen);
 
   // ── Built-in navigation commands ────────────────────────────────────
   const builtinCommands: CommandItem[] = [
@@ -218,6 +221,7 @@ function CommandPalette({ isOpen, onClose, extraCommands = [], onOpenQuickDispat
     >
       {/* Panel */}
       <div
+        ref={paletteRef}
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"

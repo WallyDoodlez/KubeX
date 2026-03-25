@@ -4,6 +4,8 @@ import type { Agent, TrafficEntry } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
 import { useFavorites } from '../hooks/useFavorites';
 import { useAppContext } from '../context/AppContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useToast } from '../context/ToastContext';
 
 interface QuickDispatchModalProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ const PRIORITIES: { value: Priority; label: string; color: string }[] = [
 function QuickDispatchModal({ isOpen, onClose, prefilledAgentId }: QuickDispatchModalProps) {
   const { addTrafficEntry } = useAppContext();
   const { favoritesSet } = useFavorites();
+  const { addToast } = useToast();
 
   // ── Form state ────────────────────────────────────────────────────
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -47,6 +50,8 @@ function QuickDispatchModal({ isOpen, onClose, prefilledAgentId }: QuickDispatch
 
   const capInputRef = useRef<HTMLInputElement>(null);
   const firstFocusRef = useRef<HTMLSelectElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(containerRef, isOpen);
 
   // ── Derived: capabilities for selected agent ──────────────────────
   const selectedAgent = agents.find((a) => a.agent_id === selectedAgentId);
@@ -199,11 +204,14 @@ function QuickDispatchModal({ isOpen, onClose, prefilledAgentId }: QuickDispatch
         message: taskId ? `Dispatched — task ${taskId}` : 'Dispatched successfully',
         taskId,
       });
+      addToast(taskId ? `Task dispatched — ID: ${taskId}` : 'Task dispatched', 'success');
     } else {
+      const errMsg = res.error ?? 'Dispatch failed';
       setResult({
         ok: false,
-        message: res.error ?? 'Dispatch failed',
+        message: errMsg,
       });
+      addToast(`Dispatch failed: ${errMsg}`, 'error');
     }
   }
 
@@ -234,6 +242,7 @@ function QuickDispatchModal({ isOpen, onClose, prefilledAgentId }: QuickDispatch
     >
       {/* Panel */}
       <div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-label="Quick dispatch"

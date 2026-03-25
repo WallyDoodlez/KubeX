@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { registerAgent } from '../api';
 import type { AgentRegistrationBody } from '../types';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useToast } from '../context/ToastContext';
 
 interface AgentRegisterModalProps {
   open: boolean;
@@ -50,6 +52,7 @@ function validateMetadata(raw: string): string | null {
 }
 
 export default function AgentRegisterModal({ open, onClose, onRegistered }: AgentRegisterModalProps) {
+  const { addToast } = useToast();
   const [agentId, setAgentId] = useState('');
   const [capabilities, setCapabilities] = useState('');
   const [boundary, setBoundary] = useState('default');
@@ -63,8 +66,8 @@ export default function AgentRegisterModal({ open, onClose, onRegistered }: Agen
   const [formStatus, setFormStatus] = useState<FormStatus>('idle');
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
-  const firstFieldRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -79,8 +82,6 @@ export default function AgentRegisterModal({ open, onClose, onRegistered }: Agen
       setMetaError(null);
       setFormStatus('idle');
       setResultMessage(null);
-      // Focus first field after render
-      setTimeout(() => firstFieldRef.current?.focus(), 50);
     }
   }, [open]);
 
@@ -98,35 +99,6 @@ export default function AgentRegisterModal({ open, onClose, onRegistered }: Agen
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
-
-  // Trap focus inside the dialog
-  useEffect(() => {
-    if (!open) return;
-    const el = dialogRef.current;
-    if (!el) return;
-    const focusable = el.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
-    if (!focusable.length) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    function trap(e: KeyboardEvent) {
-      if (e.key !== 'Tab') return;
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    }
-    el.addEventListener('keydown', trap);
-    return () => el.removeEventListener('keydown', trap);
-  }, [open]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -167,11 +139,14 @@ export default function AgentRegisterModal({ open, onClose, onRegistered }: Agen
     if (res.ok) {
       setFormStatus('success');
       setResultMessage(`Agent "${agentId.trim()}" registered successfully.`);
+      addToast(`Agent registered — ${agentId.trim()}`, 'success');
       // Notify parent to refresh agent list (but keep modal open to show success state)
       onRegistered();
     } else {
+      const errMsg = res.error ?? `HTTP ${res.status}`;
       setFormStatus('error');
-      setResultMessage(res.error ?? `HTTP ${res.status}`);
+      setResultMessage(errMsg);
+      addToast(`Registration failed: ${errMsg}`, 'error');
     }
   }
 
@@ -232,7 +207,6 @@ export default function AgentRegisterModal({ open, onClose, onRegistered }: Agen
               Agent ID <span className="text-red-400">*</span>
             </label>
             <input
-              ref={firstFieldRef}
               id="reg-agent-id"
               type="text"
               value={agentId}

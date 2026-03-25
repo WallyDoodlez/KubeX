@@ -4,6 +4,43 @@
 
 ---
 
+- [x] **Iteration 87: Dashboard recent tasks widget + Spawn Wizard unsaved-state guard**
+  - [x] `Dashboard.tsx` — `RecentTasksCard` component: last 5 dispatched tasks from `trafficLog`, each row shows truncated task ID, capability badge, status badge (allowed/denied/escalated), relative timestamp; empty state "No tasks dispatched yet."; "View all →" navigates to `/tasks`; `data-testid` attributes on card, rows, empty state
+  - [x] `types.ts` — Added `'tasks'` to `NavPage` union type
+  - [x] `App.tsx` — Added `tasks: '/tasks'` to `PAGE_TO_PATH` map
+  - [x] `SpawnWizard.tsx` — `isDirty` computed from agentId/boundary/selectedCaps when `spawnResult?.ok` is not set; `useEffect` attaches `beforeunload` listener when dirty, removes it when clean; listener calls `e.preventDefault()` + `e.returnValue = ''` for native browser dialog
+  - [x] 6 E2E tests in `tests/e2e/dashboard-recent-tasks.spec.ts` — empty state, 3/8-row rendering, 5-row limit, status badge, "View all →" navigation, card heading
+  - [x] 4 E2E tests in `tests/e2e/spawn-wizard-guard.spec.ts` — pristine form (no dialog), guard activates on input, guard inactive on clean form, guard clears after successful spawn
+  - [x] Build: npm run build — clean; Tests: 1268/1268 passed (23 skipped — OAuth); 1 pre-existing flaky autoscroll test unrelated to changes
+
+- [x] **Iteration 86: Toast feedback for async operations**
+  - [x] `QuickDispatchModal.tsx` — `addToast('Task dispatched — ID: {taskId}', 'success')` on success; `addToast('Dispatch failed: {error}', 'error')` on failure
+  - [x] `SpawnWizard.tsx` — `addToast('Kubex spawned — {kubexId}', 'success')` on success; `addToast('Spawn failed: {error}', 'error')` on failure
+  - [x] `OrchestratorChat.tsx` — `addToast('Task cancelled', 'success')` / `addToast('Cancel failed', 'error')` in `handleCancel`
+  - [x] `AgentRegisterModal.tsx` — `addToast('Agent registered — {agentId}', 'success')` / `addToast('Registration failed: {error}', 'error')`
+  - [x] `AgentsPanel.tsx` — single deregister `addToast('Agent deregistered — {agentId}', 'success')`, bulk `addToast('{N} agents deregistered', 'success')`, errors `addToast('Deregister failed', 'error')`; uses `Promise.all` + `.ok` check for bulk
+  - [x] 11 E2E tests in `tests/e2e/async-toasts.spec.ts` — success + error paths for all 5 operations
+  - [x] Build: npm run build — clean; Tests: 1259/1259 passed (23 skipped — OAuth)
+
+- [x] **Iteration 85: Reusable focus trap hook + modal accessibility**
+  - [x] Create `src/hooks/useFocusTrap.ts` — traps Tab/Shift+Tab within container, auto-focuses first element, restores focus on unmount; `enabled` param allows toggling with modal open state
+  - [x] Refactor `AgentRegisterModal.tsx` — replace 27-line inline focus trap with `useFocusTrap(dialogRef, open)` call
+  - [x] Apply `useFocusTrap` to `QuickDispatchModal.tsx`, `KeyboardShortcutsHelp.tsx`, `CommandPalette.tsx` — all now WCAG 2.4.3 compliant
+  - [x] Apply `useFocusTrap` to `NotificationCenter.tsx` via `dropdownRef` on the dropdown panel
+  - [x] `ConfirmDialog.tsx` — verified native `<dialog>` + `showModal()` handles focus trap natively; no changes needed
+  - [x] 8 E2E tests in `tests/e2e/focus-trap.spec.ts` — Tab/Shift+Tab containment for all 4 modals; focus restoration after close for QuickDispatch
+  - [x] Build: npm run build — clean; Tests: 1248/1248 passed (23 skipped — OAuth)
+
+- [x] **Iteration 84: Agent task metrics tab on Agent Detail page**
+  - [x] Create `src/components/AgentTaskMetrics.tsx` — filters `trafficLog` by `agent_id`, computes total/allowed/denied/escalated/pending/successPct, `React.memo`
+  - [x] Hero stat card: "N total · X allowed (Y%) · Z denied · W escalated" with coloured badges
+  - [x] Capability breakdown: horizontal bars for top-8 capabilities (derived from `capability ?? action`)
+  - [x] Recent failures: last 5 denied/escalated entries with status badge, policy rule, and timestamp
+  - [x] Empty state: "No task history recorded for this agent." when no traffic for this agent
+  - [x] Add "Task Metrics" tab to `AgentDetailPage.tsx` (between Actions and Live Output)
+  - [x] 14 E2E tests in `tests/e2e/agent-task-metrics.spec.ts` — all pass
+  - [x] Build: npm run build — clean; Tests: 1239/1239 passed (23 skipped — OAuth)
+
 - [x] **Iteration 82: Live-mode E2E test hardening — dual-mode assertions**
   - [x] Create `tests/e2e/helpers/live-assertions.ts` — dual-mode helper functions: `expectAnyResultBubble`, `expectAnyErrorBubble`, `expectResultText`, `expectErrorText`, `expectTaskDispatched`, `expectSendingComplete`, `expectResultTaskId`, `expectResultBubbleTimeline`, `expectTimelinePhase`, `expectResultLabel`
   - [x] Export all live-assertion helpers from `tests/e2e/helpers/index.ts` barrel
@@ -924,3 +961,24 @@
   - [x] E2E tests: `traffic-responsive.spec.ts` — 17 tests covering mobile/tablet/desktop viewports and resize transitions
   - [x] Build: npm run build — clean
   - [x] Test: npx playwright test — 1226 passed, 23 skipped (OAuth), 0 failed
+
+- [x] **Iteration 85: Reusable focus trap hook + modal accessibility**
+  - [x] Create `src/hooks/useFocusTrap.ts` — traps Tab/Shift+Tab, auto-focus, restores focus on unmount
+  - [x] Applied to `QuickDispatchModal.tsx`, `KeyboardShortcutsHelp.tsx`, `CommandPalette.tsx`, `NotificationCenter.tsx`
+  - [x] Refactored `AgentRegisterModal.tsx` — replaced 27-line inline impl with hook
+  - [x] Verified `ConfirmDialog.tsx` — native `<dialog>` handles focus trap
+  - [x] E2E tests: `focus-trap.spec.ts` — 8 tests
+  - [x] Test: npx playwright test — 1248 passed, 23 skipped
+
+- [x] **Iteration 86: Toast feedback for all async operations**
+  - [x] Wired `useToast()` into `QuickDispatchModal.tsx`, `OrchestratorChat.tsx` (cancel), `SpawnWizard.tsx`, `AgentRegisterModal.tsx`, `AgentsPanel.tsx` (deregister)
+  - [x] E2E tests: `async-toasts.spec.ts` — 11 tests
+  - [x] Test: npx playwright test — 1259 passed, 23 skipped
+
+- [ ] **Iteration 87: Dashboard recent tasks widget + Spawn Wizard unsaved-state guard**
+  - [ ] Add "Recent Tasks" card to `Dashboard.tsx` — shows last 5 dispatched tasks from `trafficLog` (task ID, capability, status badge, relative timestamp), with "View all" link to `/tasks`
+  - [ ] Empty state when no tasks: "No tasks dispatched yet"
+  - [ ] Add `beforeunload` guard to `SpawnWizard.tsx` — warns user before navigating away when form has been touched (any field filled in steps 1-3), disabled on success screen
+  - [ ] E2E tests: recent tasks card renders on dashboard, shows entries from traffic log, empty state when no data, spawn wizard warns on navigation away mid-flow
+  - [ ] Build: npm run build — clean
+  - [ ] Test: npx playwright test — all pass

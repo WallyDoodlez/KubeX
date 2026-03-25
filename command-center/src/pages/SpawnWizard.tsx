@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAgents, createKubex } from '../api';
 import type { CreateKubexBody } from '../types';
+import { useToast } from '../context/ToastContext';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -578,6 +579,7 @@ function buildConfig(
 }
 
 export default function SpawnWizard() {
+  const { addToast } = useToast();
   const [step, setStep] = useState(1);
 
   // Step 1 state
@@ -600,6 +602,27 @@ export default function SpawnWizard() {
   // Step 4 state
   const [spawning, setSpawning] = useState(false);
   const [spawnResult, setSpawnResult] = useState<{ ok: boolean; kubexId?: string; error?: string } | null>(null);
+
+  // ── Unsaved-state guard ───────────────────────────────────────────
+  // Warn user before navigating away when form has been touched and spawn hasn't succeeded yet.
+  const isDirty =
+    !spawnResult?.ok &&
+    (agentId.trim() !== '' || boundary.trim() !== 'default' || selectedCaps.length > 0);
+
+  useEffect(() => {
+    if (!isDirty) return;
+
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      // Modern browsers require returnValue to be set (even to '') to show the dialog.
+      e.returnValue = '';
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isDirty]);
 
   // Fetch known capabilities when entering step 2
   useEffect(() => {
@@ -664,8 +687,11 @@ export default function SpawnWizard() {
     setSpawning(false);
     if (res.ok && res.data) {
       setSpawnResult({ ok: true, kubexId: res.data.kubex_id });
+      addToast(`Kubex spawned — ${res.data.kubex_id}`, 'success');
     } else {
-      setSpawnResult({ ok: false, error: res.error ?? 'Unknown error from Manager.' });
+      const errMsg = res.error ?? 'Unknown error from Manager.';
+      setSpawnResult({ ok: false, error: errMsg });
+      addToast(`Spawn failed: ${errMsg}`, 'error');
     }
   }
 

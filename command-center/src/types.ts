@@ -219,7 +219,7 @@ export interface SkillCheckResponse {
 
 // ── Navigation ───────────────────────────────────────────────────────
 
-export type NavPage = 'dashboard' | 'agents' | 'traffic' | 'chat' | 'containers';
+export type NavPage = 'dashboard' | 'agents' | 'traffic' | 'chat' | 'containers' | 'tasks';
 
 // ── Spawn Wizard (Manager — POST /kubexes) ───────────────────────────
 

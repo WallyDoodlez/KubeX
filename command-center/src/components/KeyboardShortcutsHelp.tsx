@@ -1,4 +1,5 @@
-import { memo } from 'react';
+import { memo, useRef } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ShortcutRow {
   keys: string[];
@@ -34,6 +35,9 @@ interface KeyboardShortcutsHelpProps {
 }
 
 function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelpProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(containerRef, isOpen);
+
   if (!isOpen) return null;
 
   return (
@@ -48,6 +52,7 @@ function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelpProps) 
       }}
     >
       <div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-label="Keyboard shortcuts"

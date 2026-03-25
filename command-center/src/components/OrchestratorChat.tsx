@@ -12,6 +12,7 @@ import MermaidBlock from './MermaidBlock';
 import TaskTimeline from './TaskTimeline';
 import { dispatchTask, getTaskResult, getTaskAudit, getAgents, getTaskStreamUrl, provideInput, cancelTask } from '../api';
 import type { AuditEntry, ChatMessage, TrafficEntry, Agent, TaskPhaseEntry } from '../types';
+import { useToast } from '../context/ToastContext';
 import { validateCapability, validateMessage } from '../utils/validation';
 import { useSSE } from '../hooks/useSSE';
 import type { SSEStatus } from '../hooks/useSSE';
@@ -29,6 +30,7 @@ interface OrchestratorChatProps {
 }
 
 export default function OrchestratorChat({ onTrafficEntry, messages, setMessages }: OrchestratorChatProps) {
+  const { addToast } = useToast();
   const [capability, setCapability] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -668,6 +670,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     const res = await cancelTask(taskId);
     setCancelling(false);
     if (res.ok) {
+      addToast('Task cancelled', 'success');
       addMessage({
         role: 'error',
         content: `Task ${taskId} cancelled by user.`,
@@ -675,6 +678,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         task_id: taskId,
       });
     } else {
+      addToast('Cancel failed', 'error');
       addMessage({
         role: 'error',
         content: `Cancel failed: ${res.error ?? `HTTP ${res.status}`}`,

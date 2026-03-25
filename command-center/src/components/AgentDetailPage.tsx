@@ -11,10 +11,12 @@ import { SkeletonCard, SkeletonText } from './SkeletonLoader';
 import EmptyState from './EmptyState';
 import Breadcrumb from './Breadcrumb';
 import CopyButton from './CopyButton';
+import AgentTaskMetrics from './AgentTaskMetrics';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'actions', label: 'Actions' },
+  { id: 'task-metrics', label: 'Task Metrics' },
   { id: 'live-output', label: 'Live Output' },
   { id: 'config', label: 'Config' },
 ];
@@ -113,6 +115,7 @@ export default function AgentDetailPage() {
         {activeTab === 'actions' && (
           <ActionsTab agent={agent} trafficLog={agentTraffic} addTrafficEntry={addTrafficEntry} />
         )}
+        {activeTab === 'task-metrics' && <AgentTaskMetrics agentId={agent.agent_id} />}
         {activeTab === 'live-output' && <LiveOutputTab agentId={agent.agent_id} />}
         {activeTab === 'config' && <ConfigTab agent={agent} />}
       </Tabs>

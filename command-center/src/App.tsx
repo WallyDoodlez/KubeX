@@ -46,6 +46,7 @@ const PAGE_TO_PATH: Record<NavPage, string> = {
   traffic: '/traffic',
   chat: '/chat',
   containers: '/containers',
+  tasks: '/tasks',
 };
 
 function DashboardPage() {
