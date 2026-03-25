@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, MOCK_AGENTS } from './helpers';
 
 test.describe('Agents Panel', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
   });

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { MANAGER } from './helpers';
+import { mockBaseRoutes, MOCK_AGENTS, MANAGER } from './helpers';
 
 /**
  * Copy-to-clipboard — Iteration 30
@@ -14,6 +14,7 @@ import { MANAGER } from './helpers';
  */
 test.describe('CopyButton — component presence', () => {
   test('copy buttons are present on agents page in expanded row', async ({ page }) => {
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
 
@@ -59,6 +60,7 @@ test.describe('CopyButton — clipboard interaction', () => {
     // Grant clipboard permissions
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
 
@@ -98,6 +100,7 @@ test.describe('CopyButton — clipboard interaction', () => {
   test('CopyButton reverts aria-label to default after 1.5 s', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
     await expect(page.locator('[role="row"]').nth(1)).toBeVisible({ timeout: 10_000 });
@@ -160,6 +163,7 @@ test.describe('CopyButton — Agent Detail page', () => {
   test('agent detail page heading has a copy button next to agent ID', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
     await expect(page.locator('[role="row"]').nth(1)).toBeVisible({ timeout: 10_000 });
@@ -174,6 +178,7 @@ test.describe('CopyButton — Agent Detail page', () => {
   test('agent detail overview InfoCard for Agent ID has a copy button', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
     await expect(page.locator('[role="row"]').nth(1)).toBeVisible({ timeout: 10_000 });
@@ -190,6 +195,7 @@ test.describe('CopyButton — accessibility', () => {
   test('copy button is keyboard-operable on agents page', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
     await expect(page.locator('[role="row"]').nth(1)).toBeVisible({ timeout: 10_000 });
@@ -209,6 +215,7 @@ test.describe('CopyButton — accessibility', () => {
   });
 
   test('copy button has a title attribute for tooltip', async ({ page }) => {
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
     await expect(page.locator('[role="row"]').nth(1)).toBeVisible({ timeout: 10_000 });
@@ -226,6 +233,7 @@ test.describe('CopyButton — accessibility', () => {
   });
 
   test('copy button has an aria-label attribute', async ({ page }) => {
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
     await expect(page.locator('[role="row"]').nth(1)).toBeVisible({ timeout: 10_000 });

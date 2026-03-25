@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, MOCK_AGENTS } from './helpers';
 
 test.describe('Pinned/Favorite Agents', () => {
   test.beforeEach(async ({ page }) => {
+    // Set up mock routes so agents load without a live backend
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     // Clear favorites from localStorage before each test
     await page.goto('/agents');
     await page.evaluate(() => localStorage.removeItem('kubex-favorite-agents'));

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes } from './helpers';
 
 test.describe('Agent Detail Page', () => {
   test('navigates to agent detail via URL', async ({ page }) => {
@@ -47,6 +48,8 @@ test.describe('Agent Detail Page', () => {
   });
 
   test('direct URL to agent detail loads correctly', async ({ page }) => {
+    // Mock routes so health/agent fetches resolve quickly (no live backend needed)
+    await mockBaseRoutes(page);
     // Test that the route is properly registered
     await page.goto('/agents/my-test-agent');
     // Should not show a blank page — either agent detail or error
