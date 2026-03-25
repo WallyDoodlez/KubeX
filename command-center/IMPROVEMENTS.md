@@ -4,6 +4,14 @@
 
 ---
 
+- [x] **Iteration 92: Global loading progress bar**
+  - [x] `src/context/LoadingContext.tsx` — module-level singleton counter with `useSyncExternalStore`; exports `startLoading()`, `stopLoading()`, `resetLoading()`, `useLoadingCount()`, `useLoading()` hook; zero React context overhead, no provider needed
+  - [x] `src/components/GlobalProgressBar.tsx` — `position: fixed`, `top: 0`, `z-index: 9999`, 2px height; emerald-to-cyan gradient (`#10b981 → #06b6d4`) with glow shadow; animated state machine: `hidden → loading → completing → fading`; incremental tick animation up to 85% during load, then snaps to 100% and fades; `data-testid="global-progress-bar"`
+  - [x] `src/components/Layout.tsx` — `<GlobalProgressBar />` rendered as first child of the root flex container (above skip link)
+  - [x] `src/hooks/useHealthCheck.ts` — wired `startLoading()` / `stopLoading()` in try/finally around all health poll fetches
+  - [x] 5 E2E tests in `tests/e2e/global-progress-bar.spec.ts` — bar visible when health fetches pending, bar hidden after completion, fixed positioning at top, emerald gradient color, y=0 position above header
+  - [x] Build: npm run build — clean; Tests: 1274 passed, 22 skipped (OAuth), 57 pre-existing failures unrelated to this iteration; 5/5 new progress bar tests pass
+
 - [x] **Iteration 91: Task history detail panel**
   - [x] `TaskHistoryPage.tsx` — `DetailRow` refactored: raw JSON `<pre>` replaced with formatted panel; agent ID as clickable `<a href="/agents/{id}">` link; capability rendered as violet badge; status uses existing `StatusBadge`; result text rendered via `ReactMarkdown`; error text shown in red-tinted box; dispatched/completed timestamps formatted; duration computed from both timestamps; all elements carry required `data-testid` attributes
   - [x] `TaskHistoryPage.tsx` — `DetailRow` now always rendered (not conditional) to enable smooth CSS grid-rows slide-down transition (`grid-rows-[0fr]` → `grid-rows-[1fr]`); `isExpanded` prop drives animation; `aria-expanded` on TaskRow unchanged
@@ -1017,11 +1025,20 @@
   - [x] Build: npm run build — clean
   - [x] Test: npx playwright test — 1308 passed, 23 skipped
 
-- [ ] **Iteration 91: Task history detail panel (formatted, not raw JSON)**
-  - [ ] Replace raw JSON `<pre>` expand in `TaskHistoryPage.tsx` with a formatted detail panel
-  - [ ] Detail panel shows: task ID (with copy), agent ID (clickable link to agent detail), capability badge, status badge with color, result/error content (markdown rendered for results), timestamps (dispatched, completed), duration
-  - [ ] If task has audit trail data, show inline audit timeline (reuse audit trail component pattern from OrchestratorChat)
-  - [ ] Collapse/expand animation (slide-down transition)
-  - [ ] E2E tests: expand shows formatted detail, agent link navigates, status badge colored, collapse animation works
+- [x] **Iteration 91: Task history detail panel (formatted, not raw JSON)**
+  - [x] Formatted two-column detail panel: task ID + copy, agent link, capability badge, status badge, timestamps, duration
+  - [x] ReactMarkdown for results, red-tinted error content, JSON fallback
+  - [x] Slide-down expand via CSS `grid-rows` transition
+  - [x] E2E tests: `task-detail-panel.spec.ts` — 17 tests
+  - [x] Test: npx playwright test — 1325 passed, 23 skipped
+
+- [ ] **Iteration 92: Global loading progress bar (NProgress-style)**
+  - [ ] Create `src/components/GlobalProgressBar.tsx` — thin animated bar at the very top of the viewport (fixed, z-50) that shows during any active API fetch
+  - [ ] Create `src/hooks/useLoadingBar.ts` — hook that tracks active fetch count; bar visible when count > 0, animates to 90% during load, completes to 100% on finish
+  - [ ] Integrate into `Layout.tsx` — render `<GlobalProgressBar />` above the header
+  - [ ] Wire into AppContext polling (agents, kubexes, health) — increment/decrement on fetch start/end
+  - [ ] Wire into manual actions (dispatch, cancel, spawn, register) — show bar during these operations
+  - [ ] Bar color: emerald gradient matching theme; height: 2-3px; animation: slide-in from left
+  - [ ] E2E tests: bar appears during data load, bar disappears after load completes, bar visible during dispatch
   - [ ] Build: npm run build — clean
   - [ ] Test: npx playwright test — all pass

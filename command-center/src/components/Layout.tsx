@@ -23,6 +23,7 @@ import QuickDispatchModal from './QuickDispatchModal';
 import OnboardingTour from './OnboardingTour';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import GlobalProgressBar from './GlobalProgressBar';
 
 interface NavItem {
   label: string;
@@ -415,6 +416,9 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-bg)' }}>
+      {/* ── Global loading progress bar ──────────────────────────────── */}
+      <GlobalProgressBar />
+
       {/* ── Skip-to-content link (visible on focus) ─────────────────── */}
       <a
         href="#main-content"
