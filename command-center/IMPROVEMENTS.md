@@ -4,6 +4,16 @@
 
 ---
 
+- [x] **Iteration 88: BUG-007 fallback render fix + dashboard service tile cleanup**
+  - [x] `OrchestratorChat.tsx` — BUG-007 FE fix: 2s post-dispatch `setTimeout` polls `getTaskResult` once; if task is already terminal (completed/failed/cancelled) render result + close idle SSE stream; `activeTaskIdRef` guard prevents double-render if SSE or `handleSSEComplete` already resolved; also added on-SSE-open immediate check for belt-and-suspenders coverage
+  - [x] `ServiceCard.tsx` — Remove redundant inline `<p>` description paragraph (was duplicated in tile body AND tooltip); description now lives only in the "i" hover tooltip for cleaner tile layout; sparkline `"Response time (ms)"` label added with `data-testid="sparkline-label"`
+  - [x] `Dashboard.tsx` — `StatCard` gains optional `sparklineLabel` prop; "Registered Agents" card gets `sparklineLabel="Agent count"`, "Running Kubexes" card gets `sparklineLabel="Kubex count"`; label rendered as `data-testid="sparkline-label"` below sparkline when values length > 1
+  - [x] `command-center/docs/BUGS.md` — BUG-007 status updated to "FE FIXED (Iteration 88) — BE part still open"; detailed FE fix description and remaining BE work documented
+  - [x] New `tests/e2e/sse-race-condition.spec.ts` — 3 tests: race-condition result renders, input unlocked after fix, failed task error bubble
+  - [x] Updated `tests/e2e/service-info.spec.ts` — 4 inline-description tests updated to assert description NOT inline + IS in tooltip
+  - [x] Updated `tests/e2e/dashboard.spec.ts` — 3 new tests: service tile inline description absent, info tooltip buttons present, sparkline labels valid when visible
+  - [x] Build: npm run build — clean; Tests: 1275/1275 passed (23 skipped — OAuth)
+
 - [x] **Iteration 87: Dashboard recent tasks widget + Spawn Wizard unsaved-state guard**
   - [x] `Dashboard.tsx` — `RecentTasksCard` component: last 5 dispatched tasks from `trafficLog`, each row shows truncated task ID, capability badge, status badge (allowed/denied/escalated), relative timestamp; empty state "No tasks dispatched yet."; "View all →" navigates to `/tasks`; `data-testid` attributes on card, rows, empty state
   - [x] `types.ts` — Added `'tasks'` to `NavPage` union type
