@@ -158,11 +158,6 @@ const ServiceCard = memo(function ServiceCard({ service }: ServiceCardProps) {
             <span className="font-semibold text-[var(--color-text)]">{service.name}</span>
             {info && <InfoTooltip name={service.name} info={info} />}
           </div>
-          {info && (
-            <p className="text-[10px] text-[var(--color-text-muted)] pl-8 leading-snug">
-              {info.description}
-            </p>
-          )}
         </div>
         <StatusBadge status={service.status} />
       </div>
@@ -175,6 +170,7 @@ const ServiceCard = memo(function ServiceCard({ service }: ServiceCardProps) {
             height={28}
             color={service.status === 'healthy' ? '#34d399' : service.status === 'degraded' ? '#fbbf24' : '#f87171'}
           />
+          <p className="text-[10px] text-[var(--color-text-dim)] mt-0.5" data-testid="sparkline-label">Response time (ms)</p>
         </div>
       )}
 

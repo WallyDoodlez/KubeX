@@ -20,13 +20,14 @@
 
 ### BUG-007: Chat stuck on "Streaming" — SSE race condition on fast tasks
 - **Severity:** P1
-- **Status:** OPEN
+- **Status:** FE FIXED (Iteration 88) — BE part still open
 - **Found:** 2026-03-25
+- **Fixed (FE):** 2026-03-25
 - **Component:** `src/components/OrchestratorChat.tsx` + Backend SSE design
 - **Description:** Tasks that complete in < 3 seconds appear stuck on "Streaming..." forever. The task actually completes successfully on the backend — the result is stored and retrievable via `GET /tasks/{id}/result`. The FE eventually polls the result (BUG-001 retry fallback fires) and gets `status: "completed"` back, but still doesn't render the response.
 - **Root cause:** Two issues:
-  1. **SSE race condition:** The FE dispatches the task (`POST /actions` → 202), receives the task ID, then opens the SSE stream (`GET /tasks/{id}/stream`). But the orchestrator processes fast tasks in ~2 seconds — by the time the FE opens the SSE stream, the progress events have already been published to Redis pub/sub and are gone (pub/sub is fire-and-forget). The SSE stream sees nothing.
-  2. **Fallback poll not rendering:** The BUG-001 retry fallback (`handleSSEComplete`) does poll `GET /tasks/{id}/result` and gets a 200 with `status: "completed"`, but the result is not being rendered in the chat. The poll succeeds silently without updating the UI.
+  1. **SSE race condition:** The FE dispatches the task (`POST /actions` → 202), receives the task ID, then opens the SSE stream (`GET /tasks/{id}/stream`). But the orchestrator processes fast tasks in ~2 seconds — by the time the FE opens the SSE stream, the progress events have already been published to Redis pub/sub and are gone (pub/sub is fire-and-forget). The SSE stream sees nothing. The SSE then sits idle indefinitely — no errors, no events.
+  2. **Fallback poll not rendering:** The `handleSSEComplete` fallback was only triggered after SSE errors exhausted retries (~12s). It did work, but only after a long delay and only when SSE errored (not when SSE connected but sat idle).
 - **Evidence:**
   ```
   05:10:52 — POST /actions → 202 (task dispatched)
@@ -34,10 +35,11 @@
   05:10:56 — GET /tasks/{id}/stream (FE opens SSE — 2 seconds too late, events already gone)
   05:14:58 — GET /tasks/{id}/result → 200 (FE fallback poll gets the result but doesn't render it)
   ```
-- **Fix needed (two parts):**
-  1. **Backend:** Gateway SSE endpoint should check for an existing result in Redis when a client connects. If the task is already complete, immediately emit the result as the first SSE event instead of waiting for a pub/sub message that already fired. This eliminates the race condition.
-  2. **Frontend:** `handleSSEComplete` fallback must actually render the result when it gets a `status: "completed"` response from the poll. Currently the result is fetched but not displayed.
-- **Workaround:** Send a longer/complex task that takes > 5 seconds to process. The SSE stream opens in time and events arrive normally.
+- **FE Fix (Iteration 88):** Added a 2-second post-dispatch poll in `handleSend`. After dispatch, a `setTimeout(2000)` fires a single `getTaskResult` call. If the task is already terminal (completed/failed/cancelled), the result is rendered immediately and the SSE stream is closed. The guard `activeTaskIdRef.current !== capturedTaskId` ensures the poll is a no-op if SSE already handled the result. This covers the race window without affecting normal-duration tasks.
+- **BE Fix still needed:**
+  1. **Backend:** Gateway SSE endpoint should check for an existing result in Redis when a client connects. If the task is already complete, immediately emit the result as the first SSE event instead of waiting for a pub/sub message that already fired. This is the proper fix; the FE fix is a mitigation.
+- **Workaround (original):** Send a longer/complex task that takes > 5 seconds to process. The SSE stream opens in time and events arrive normally.
+- **Fixed (FE) in:** Iteration 88 commit
 
 ---
 

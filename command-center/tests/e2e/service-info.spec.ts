@@ -8,24 +8,33 @@ test.describe('Service Info Tooltips and Descriptions', () => {
     await expect(page.getByText('Service Health', { exact: true })).toBeVisible();
   });
 
-  test('Gateway card shows description subtitle containing "Routes tasks"', async ({ page }) => {
-    const description = page.locator('p', { hasText: 'Routes tasks' }).first();
-    await expect(description).toBeVisible();
+  // Iteration 88: inline description was removed — descriptions now live only in the tooltip.
+  // Verify descriptions are accessible via hover tooltip (not inline paragraph).
+
+  test('Gateway card description "Routes tasks" is in tooltip, not inline', async ({ page }) => {
+    // Inline description paragraph must be gone
+    await expect(page.locator('p.text-\\[10px\\]', { hasText: 'Routes tasks' })).not.toBeVisible();
+    // Tooltip must contain the description on hover
+    await page.locator('[data-testid="service-info-Gateway"]').hover();
+    await expect(page.locator('[role="tooltip"]').first()).toContainText('Routes tasks', { timeout: 3000 });
   });
 
-  test('Registry card shows description subtitle containing "Tracks registered agents"', async ({ page }) => {
-    const description = page.locator('p', { hasText: 'Tracks registered agents' }).first();
-    await expect(description).toBeVisible();
+  test('Registry card description "Tracks registered agents" is in tooltip, not inline', async ({ page }) => {
+    await expect(page.locator('p.text-\\[10px\\]', { hasText: 'Tracks registered agents' })).not.toBeVisible();
+    await page.locator('[data-testid="service-info-Registry"]').hover();
+    await expect(page.locator('[role="tooltip"]').first()).toContainText('Tracks registered agents', { timeout: 3000 });
   });
 
-  test('Manager card shows description subtitle containing "Spawns"', async ({ page }) => {
-    const description = page.locator('p', { hasText: 'Spawns' }).first();
-    await expect(description).toBeVisible();
+  test('Manager card description "Spawns" is in tooltip, not inline', async ({ page }) => {
+    await expect(page.locator('p.text-\\[10px\\]', { hasText: 'Spawns' })).not.toBeVisible();
+    await page.locator('[data-testid="service-info-Manager"]').hover();
+    await expect(page.locator('[role="tooltip"]').first()).toContainText('Spawns', { timeout: 3000 });
   });
 
-  test('Broker card shows description subtitle containing "Distributes tasks"', async ({ page }) => {
-    const description = page.locator('p', { hasText: 'Distributes tasks' }).first();
-    await expect(description).toBeVisible();
+  test('Broker card description "Distributes tasks" is in tooltip, not inline', async ({ page }) => {
+    await expect(page.locator('p.text-\\[10px\\]', { hasText: 'Distributes tasks' })).not.toBeVisible();
+    await page.locator('[data-testid="service-info-Broker"]').hover();
+    await expect(page.locator('[role="tooltip"]').first()).toContainText('Distributes tasks', { timeout: 3000 });
   });
 
   test('info icon is present on Gateway service card', async ({ page }) => {
