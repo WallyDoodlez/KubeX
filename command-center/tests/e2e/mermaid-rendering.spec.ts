@@ -12,7 +12,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { mockBaseRoutes, mockDispatch, GATEWAY } from './helpers';
+import { isLiveMode, mockBaseRoutes, mockDispatch, GATEWAY } from './helpers';
 
 /**
  * Dispatch a task via SSE and wait until the result bubble is visible.
@@ -47,6 +47,7 @@ async function dispatchAndGetResult(
 
 test.describe('OrchestratorChat — Mermaid diagram rendering in result bubbles (Iteration 45)', () => {
   test.beforeEach(async ({ page }) => {
+    test.skip(isLiveMode, 'Mermaid content assertions require mock SSE — live mode returns real agent responses');
     await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await page.goto('/chat');
   });

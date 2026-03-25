@@ -11,6 +11,7 @@
 import { test, expect } from '@playwright/test';
 import {
   isLiveMode,
+  isMockMode,
   GATEWAY,
   MOCK_TASK_ID,
   mockBaseRoutes,
@@ -18,13 +19,18 @@ import {
   mockSSEStream,
   mockTaskResult,
   MOCK_SSE_RESULT,
+  expectAnyResultBubble,
+  expectResultText,
+  expectResultLabel,
 } from './helpers';
 
 const TASK_ID = MOCK_TASK_ID;
 
 /**
- * Fill the chat inputs and click Send, then wait for the system dispatch
- * confirmation bubble to appear (confirms task was dispatched).
+ * Fill the chat inputs and click Send, then wait for the task to be dispatched.
+ *
+ * In mock mode: waits for the system bubble with the exact task ID.
+ * In live mode: waits for the typing indicator to appear (confirms dispatch started).
  *
  * When `capability` is provided and differs from the default "task_orchestration",
  * the Advanced panel is opened to set it explicitly. Otherwise, just the
@@ -51,10 +57,17 @@ async function sendChatMessage(
   await page.locator('[data-testid="message-input"]').fill(message);
   await page.locator('button', { hasText: 'Send' }).click();
 
-  // Wait until the system bubble with the task ID appears — confirms dispatch succeeded
-  await expect(
-    page.locator(`text=Task dispatched — ID: ${TASK_ID}`),
-  ).toBeVisible({ timeout: 10_000 });
+  if (isMockMode) {
+    // Wait until the system bubble with the task ID appears — confirms dispatch succeeded
+    await expect(
+      page.locator(`text=Task dispatched — ID: ${TASK_ID}`),
+    ).toBeVisible({ timeout: 10_000 });
+  } else {
+    // In live mode: wait for the typing indicator (dispatch started) or result bubble
+    await expect(
+      page.locator('[data-testid="typing-indicator"]'),
+    ).toBeVisible({ timeout: 15_000 });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -73,11 +86,11 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
     await page.goto('/chat');
     await sendChatMessage(page);
 
-    // The result bubble should appear with SSE result text
-    await expect(page.locator('text=SSE result text')).toBeVisible({ timeout: 10_000 });
+    // In mock mode: assert exact text. In live mode: assert a result bubble is shown.
+    await expectResultText(page, 'SSE result text', 30_000);
 
     // The result bubble should have the "Result" label (scoped to the emerald result bubble label, not the filter dropdown option)
-    await expect(page.locator('span.text-emerald-400', { hasText: 'Result' }).first()).toBeVisible();
+    await expectResultLabel(page, 30_000);
   });
 
   // ── Test 2: SSE stream ends without data → fallback getTaskResult is called ─
@@ -118,22 +131,26 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   test('"Dispatching…" label appears immediately after Send, then transitions to streaming state', async ({ page }) => {
     await mockDispatch(page, TASK_ID);
 
-    // Keep SSE stream open indefinitely (never resolves) so we can observe states
-    await page.route(`${GATEWAY}/tasks/${TASK_ID}/stream`, (route) => {
-      // Respond with headers only and keep connection alive — no body events
-      // Playwright route.fulfill with a body that never ends isn't directly supported,
-      // so we use an empty body; EventSource will open then trigger error/retry which
-      // still exercises the label logic.
-      route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        headers: { 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
-        body: '',
+    // Keep SSE stream open indefinitely (never resolves) so we can observe states.
+    // In live mode: mockDispatch is a no-op; the real /actions endpoint returns a live task ID,
+    // so we cannot intercept its specific SSE stream. This test checks UI state only.
+    if (isMockMode) {
+      await page.route(`${GATEWAY}/tasks/${TASK_ID}/stream`, (route) => {
+        // Respond with headers only and keep connection alive — no body events
+        // Playwright route.fulfill with a body that never ends isn't directly supported,
+        // so we use an empty body; EventSource will open then trigger error/retry which
+        // still exercises the label logic.
+        route.fulfill({
+          status: 200,
+          contentType: 'text/event-stream',
+          headers: { 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
+          body: '',
+        });
       });
-    });
 
-    // Also stub the fallback so the test doesn't hang waiting for real API
-    await mockTaskResult(page, TASK_ID);
+      // Also stub the fallback so the test doesn't hang waiting for real API
+      await mockTaskResult(page, TASK_ID);
+    }
 
     await page.goto('/chat');
 
@@ -144,10 +161,10 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
 
     await page.locator('button', { hasText: 'Send' }).click();
 
-    // After clicking Send, the spinner/label should appear quickly (within 3s)
+    // After clicking Send, the spinner/label should appear quickly (within 5s)
     // It will cycle through "Dispatching…" → "Connecting…" / "Streaming…" / "Waiting for result…"
     const sendingLabel = page.locator('[data-testid="sending-label"]');
-    await expect(sendingLabel).toBeVisible({ timeout: 3_000 });
+    await expect(sendingLabel).toBeVisible({ timeout: 5_000 });
 
     // Verify that one of the expected labels is shown
     const labelText = await sendingLabel.textContent();
@@ -184,6 +201,8 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   // ── Test 4: Error result via SSE is properly displayed in chat ───────────
 
   test('failed event via SSE is displayed as an error bubble in chat', async ({ page }) => {
+    test.skip(isLiveMode, 'SSE failed event simulation only works in mock mode');
+
     await mockDispatch(page, TASK_ID);
 
     // SSE stream emits a "failed" event
@@ -208,6 +227,8 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   });
 
   test('cancelled event via SSE is displayed as an error bubble in chat', async ({ page }) => {
+    test.skip(isLiveMode, 'SSE cancelled event simulation only works in mock mode');
+
     await mockDispatch(page, TASK_ID);
 
     // SSE stream emits a "cancelled" event
@@ -258,6 +279,8 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   // ── Test 6: No repeated polling after SSE carries result ──────────────────
 
   test('getTaskResult is NOT called when SSE delivers the result directly', async ({ page }) => {
+    test.skip(isLiveMode, 'Fallback call tracking requires known task ID — mock mode only');
+
     await mockDispatch(page, TASK_ID);
 
     // SSE delivers a complete result event

@@ -10,7 +10,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { mockBaseRoutes, mockDispatch, GATEWAY } from './helpers';
+import { isLiveMode, mockBaseRoutes, mockDispatch, GATEWAY } from './helpers';
 
 /** Dispatch a task and wait for a mermaid result bubble. */
 async function dispatchMermaidResult(page: import('@playwright/test').Page, taskId: string) {
@@ -44,6 +44,7 @@ async function dispatchMermaidResult(page: import('@playwright/test').Page, task
 
 test.describe('MermaidBlock — theme-aware rendering (Iteration 74)', () => {
   test.beforeEach(async ({ page }) => {
+    test.skip(isLiveMode, 'Mermaid theme tests require mock SSE with controlled content — live mode returns real agent responses');
     await mockBaseRoutes(page, { agents: [], kubexes: [] });
     // Start in dark mode (clear any saved light preference)
     await page.addInitScript(() => {

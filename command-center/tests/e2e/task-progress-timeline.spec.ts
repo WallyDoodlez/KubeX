@@ -20,6 +20,7 @@
 import { test, expect } from '@playwright/test';
 import {
   isLiveMode,
+  isMockMode,
   GATEWAY,
   mockBaseRoutes,
   mockDispatch,
@@ -141,8 +142,8 @@ test('04 — result bubble shows timeline with data-testid="result-bubble-timeli
   await goToChat(page);
   await sendMessage(page);
 
-  // Wait for result bubble to appear
-  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 10000 });
+  // Wait for result bubble to appear (generous timeout for live mode)
+  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('result-bubble-timeline')).toBeVisible();
 });
 
@@ -152,15 +153,22 @@ test('05 — result bubble timeline shows all four completed phases', async ({ p
   await goToChat(page);
   await sendMessage(page);
 
-  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 30_000 });
   const timeline = page.getByTestId('result-bubble-timeline');
   await expect(timeline).toBeVisible();
 
-  // All 4 phases should be present
-  await expect(timeline.getByTestId('timeline-phase-dispatched')).toBeVisible();
-  await expect(timeline.getByTestId('timeline-phase-connecting')).toBeVisible();
-  await expect(timeline.getByTestId('timeline-phase-streaming')).toBeVisible();
-  await expect(timeline.getByTestId('timeline-phase-completed')).toBeVisible();
+  if (isMockMode) {
+    // All 4 phases should be present (known in mock mode)
+    await expect(timeline.getByTestId('timeline-phase-dispatched')).toBeVisible();
+    await expect(timeline.getByTestId('timeline-phase-connecting')).toBeVisible();
+    await expect(timeline.getByTestId('timeline-phase-streaming')).toBeVisible();
+    await expect(timeline.getByTestId('timeline-phase-completed')).toBeVisible();
+  } else {
+    // In live mode: verify the timeline container is visible and non-empty
+    const phases = timeline.getByRole('listitem');
+    const count = await phases.count();
+    expect(count).toBeGreaterThan(0);
+  }
 });
 
 test('06 — result bubble timeline phases are all marked done', async ({ page }) => {
@@ -169,22 +177,32 @@ test('06 — result bubble timeline phases are all marked done', async ({ page }
   await goToChat(page);
   await sendMessage(page);
 
-  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 30_000 });
   const timeline = page.getByTestId('result-bubble-timeline');
+  await expect(timeline).toBeVisible();
 
-  // Each phase should have data-phase-status="done"
-  const dispatched = timeline.getByTestId('timeline-phase-dispatched');
-  const connecting = timeline.getByTestId('timeline-phase-connecting');
-  const streaming = timeline.getByTestId('timeline-phase-streaming');
-  const completed = timeline.getByTestId('timeline-phase-completed');
+  if (isMockMode) {
+    // Each phase should have data-phase-status="done"
+    const dispatched = timeline.getByTestId('timeline-phase-dispatched');
+    const connecting = timeline.getByTestId('timeline-phase-connecting');
+    const streaming = timeline.getByTestId('timeline-phase-streaming');
+    const completed = timeline.getByTestId('timeline-phase-completed');
 
-  await expect(dispatched).toHaveAttribute('data-phase-status', 'done');
-  await expect(connecting).toHaveAttribute('data-phase-status', 'done');
-  await expect(streaming).toHaveAttribute('data-phase-status', 'done');
-  await expect(completed).toHaveAttribute('data-phase-status', 'done');
+    await expect(dispatched).toHaveAttribute('data-phase-status', 'done');
+    await expect(connecting).toHaveAttribute('data-phase-status', 'done');
+    await expect(streaming).toHaveAttribute('data-phase-status', 'done');
+    await expect(completed).toHaveAttribute('data-phase-status', 'done');
+  } else {
+    // In live mode: verify the timeline is present and has at least one phase item
+    const phases = timeline.getByRole('listitem');
+    const count = await phases.count();
+    expect(count).toBeGreaterThan(0);
+  }
 });
 
 test('07 — error bubble (SSE failed event) shows timeline with data-testid="error-bubble-timeline"', async ({ page }) => {
+  test.skip(isLiveMode, 'SSE failed event simulation only works in mock mode');
+
   await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await setupFailedTask(page);
   await goToChat(page);
@@ -195,6 +213,8 @@ test('07 — error bubble (SSE failed event) shows timeline with data-testid="er
 });
 
 test('08 — failed task timeline shows "Failed" phase with status "failed"', async ({ page }) => {
+  test.skip(isLiveMode, 'SSE failed event simulation only works in mock mode');
+
   await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await setupFailedTask(page);
   await goToChat(page);
@@ -234,8 +254,8 @@ test('10 — live timeline disappears after task completes', async ({ page }) =>
   await goToChat(page);
   await sendMessage(page);
 
-  // Wait for result — live timeline should be gone
-  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 10000 });
+  // Wait for result — live timeline should be gone (generous timeout for live mode)
+  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('live-task-timeline')).not.toBeVisible();
 });
 
@@ -245,11 +265,18 @@ test('11 — timeline phase items are listitem role', async ({ page }) => {
   await goToChat(page);
   await sendMessage(page);
 
-  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 30_000 });
   const timeline = page.getByTestId('result-bubble-timeline');
   const phases = timeline.getByRole('listitem');
-  // 4 phases = 4 listitems
-  await expect(phases).toHaveCount(4);
+
+  if (isMockMode) {
+    // 4 phases = 4 listitems (known in mock mode)
+    await expect(phases).toHaveCount(4);
+  } else {
+    // In live mode: at least one phase item should be present
+    const count = await phases.count();
+    expect(count).toBeGreaterThan(0);
+  }
 });
 
 test('12 — timeline has aria-label for accessibility', async ({ page }) => {
@@ -258,7 +285,7 @@ test('12 — timeline has aria-label for accessibility', async ({ page }) => {
   await goToChat(page);
   await sendMessage(page);
 
-  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('result-bubble')).toBeVisible({ timeout: 30_000 });
   const timeline = page.getByTestId('result-bubble-timeline');
   await expect(timeline).toHaveAttribute('aria-label', 'Task progress timeline');
 });

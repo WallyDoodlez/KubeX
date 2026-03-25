@@ -8,3 +8,4 @@
 export * from './config';
 export * from './test-data';
 export * from './mock-routes';
+export * from './live-assertions';
