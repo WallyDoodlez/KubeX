@@ -877,3 +877,13 @@
   - [x] Build: npm run build — clean
   - [x] Test: npx playwright test — 1207 passed, 23 skipped
   - [x] Usage: `npx playwright test` (mocked, default) / `E2E_MODE=live npx playwright test --config playwright.live.config.ts` (live)
+
+- [x] **Iteration 81: Chat conversation export (Markdown + JSON)**
+  - [x] Add "Export" dropdown button to OrchestratorChat header (next to existing controls) with two options: "Export as Markdown" and "Export as JSON"
+  - [x] Markdown export: convert chat messages to a formatted `.md` file — user messages as `> ` blockquotes, results as code blocks with task ID headers, errors as `⚠️` blocks, system messages as italics, timestamps included
+  - [x] JSON export: download raw `kubex-chat-messages` localStorage array as `.json` file (useful for debugging/sharing)
+  - [x] Use existing `triggerDownload()` helper from `src/utils/export.ts` (extended with `exportAsMarkdown` + `convertToMarkdown`)
+  - [x] Export button disabled when chat is empty (no messages)
+  - [x] E2E tests: export button renders, dropdown opens, both options present, export disabled when empty, markdown export triggers download, JSON export triggers download (31 tests in export.spec.ts)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1208/1232 pass (23 skipped OAuth, 1 pre-existing parallel flake in command-palette)

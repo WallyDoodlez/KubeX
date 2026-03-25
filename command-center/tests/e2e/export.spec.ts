@@ -293,9 +293,10 @@ test.describe('Export — Orchestrator Chat', () => {
     await expect(page.getByTestId('chat-export-menu')).toHaveAttribute('aria-expanded', 'true');
   });
 
-  test('chat export has JSON option only (no CSV)', async ({ page }) => {
+  test('chat export has JSON and Markdown options (no CSV)', async ({ page }) => {
     await page.getByTestId('chat-export-menu').click();
     await expect(page.getByTestId('chat-export-menu-json')).toBeVisible();
+    await expect(page.getByTestId('chat-export-menu-md')).toBeVisible();
     await expect(page.getByTestId('chat-export-menu-csv')).not.toBeVisible();
   });
 
@@ -306,6 +307,15 @@ test.describe('Export — Orchestrator Chat', () => {
 
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/^chat-history-.*\.json$/);
+  });
+
+  test('chat Markdown export triggers a download with .md extension', async ({ page }) => {
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByTestId('chat-export-menu').click();
+    await page.getByTestId('chat-export-menu-md').click();
+
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^chat-history-.*\.md$/);
   });
 
   test('chat export dropdown closes on Escape', async ({ page }) => {

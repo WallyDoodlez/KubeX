@@ -19,7 +19,7 @@ import TerminalOutput from './TerminalOutput';
 import type { OutputLine } from './TerminalOutput';
 import HITLPrompt from './HITLPrompt';
 import ExportMenu from './ExportMenu';
-import { exportAsJSON } from '../utils/export';
+import { exportAsJSON, exportAsMarkdown } from '../utils/export';
 import RelativeTime from './RelativeTime';
 
 interface OrchestratorChatProps {
@@ -1276,6 +1276,9 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 timestamp: m.timestamp.toISOString(),
               }));
               exportAsJSON(rows, `chat-history-${new Date().toISOString().slice(0, 10)}`);
+            }}
+            onExportMarkdown={() => {
+              exportAsMarkdown(messages, `chat-history-${new Date().toISOString().slice(0, 10)}`);
             }}
           />
         </div>
