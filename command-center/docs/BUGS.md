@@ -20,7 +20,7 @@
 
 ### BUG-007: Chat stuck on "Streaming" — SSE race condition on fast tasks
 - **Severity:** P1
-- **Status:** FE FIXED (Iteration 88) — BE part still open
+- **Status:** BLOCKED — FE fixed (Iteration 88), waiting on BE to emit cached result on SSE connect
 - **Found:** 2026-03-25
 - **Fixed (FE):** 2026-03-25
 - **Component:** `src/components/OrchestratorChat.tsx` + Backend SSE design
