@@ -4,6 +4,15 @@
 
 ---
 
+- [x] **Iteration 85: Reusable focus trap hook + modal accessibility**
+  - [x] Create `src/hooks/useFocusTrap.ts` — traps Tab/Shift+Tab within container, auto-focuses first element, restores focus on unmount; `enabled` param allows toggling with modal open state
+  - [x] Refactor `AgentRegisterModal.tsx` — replace 27-line inline focus trap with `useFocusTrap(dialogRef, open)` call
+  - [x] Apply `useFocusTrap` to `QuickDispatchModal.tsx`, `KeyboardShortcutsHelp.tsx`, `CommandPalette.tsx` — all now WCAG 2.4.3 compliant
+  - [x] Apply `useFocusTrap` to `NotificationCenter.tsx` via `dropdownRef` on the dropdown panel
+  - [x] `ConfirmDialog.tsx` — verified native `<dialog>` + `showModal()` handles focus trap natively; no changes needed
+  - [x] 8 E2E tests in `tests/e2e/focus-trap.spec.ts` — Tab/Shift+Tab containment for all 4 modals; focus restoration after close for QuickDispatch
+  - [x] Build: npm run build — clean; Tests: 1248/1248 passed (23 skipped — OAuth)
+
 - [x] **Iteration 84: Agent task metrics tab on Agent Detail page**
   - [x] Create `src/components/AgentTaskMetrics.tsx` — filters `trafficLog` by `agent_id`, computes total/allowed/denied/escalated/pending/successPct, `React.memo`
   - [x] Hero stat card: "N total · X allowed (Y%) · Z denied · W escalated" with coloured badges
@@ -934,3 +943,14 @@
   - [x] E2E tests: `traffic-responsive.spec.ts` — 17 tests covering mobile/tablet/desktop viewports and resize transitions
   - [x] Build: npm run build — clean
   - [x] Test: npx playwright test — 1226 passed, 23 skipped (OAuth), 0 failed
+
+- [ ] **Iteration 85: Reusable focus trap hook + modal accessibility**
+  - [ ] Create `src/hooks/useFocusTrap.ts` — reusable hook that traps Tab/Shift+Tab within a container ref, auto-focuses first focusable element, restores focus on unmount
+  - [ ] Apply to `QuickDispatchModal.tsx` — currently no focus trap, Tab escapes to background
+  - [ ] Apply to `KeyboardShortcutsHelp.tsx` — no focus trap at all
+  - [ ] Apply to `CommandPalette.tsx` — has keyboard nav but Tab escapes
+  - [ ] Apply to `NotificationCenter.tsx` — dropdown without focus containment
+  - [ ] Verify `ConfirmDialog.tsx` — uses native `<dialog>`, confirm focus trap works or add hook
+  - [ ] E2E tests: Tab cycles within modal, Shift+Tab wraps backward, focus returns to trigger on close
+  - [ ] Build: npm run build — clean
+  - [ ] Test: npx playwright test — all pass
