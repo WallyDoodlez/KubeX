@@ -4,6 +4,15 @@
 
 ---
 
+- [x] **Iteration 86: Toast feedback for async operations**
+  - [x] `QuickDispatchModal.tsx` — `addToast('Task dispatched — ID: {taskId}', 'success')` on success; `addToast('Dispatch failed: {error}', 'error')` on failure
+  - [x] `SpawnWizard.tsx` — `addToast('Kubex spawned — {kubexId}', 'success')` on success; `addToast('Spawn failed: {error}', 'error')` on failure
+  - [x] `OrchestratorChat.tsx` — `addToast('Task cancelled', 'success')` / `addToast('Cancel failed', 'error')` in `handleCancel`
+  - [x] `AgentRegisterModal.tsx` — `addToast('Agent registered — {agentId}', 'success')` / `addToast('Registration failed: {error}', 'error')`
+  - [x] `AgentsPanel.tsx` — single deregister `addToast('Agent deregistered — {agentId}', 'success')`, bulk `addToast('{N} agents deregistered', 'success')`, errors `addToast('Deregister failed', 'error')`; uses `Promise.all` + `.ok` check for bulk
+  - [x] 11 E2E tests in `tests/e2e/async-toasts.spec.ts` — success + error paths for all 5 operations
+  - [x] Build: npm run build — clean; Tests: 1259/1259 passed (23 skipped — OAuth)
+
 - [x] **Iteration 85: Reusable focus trap hook + modal accessibility**
   - [x] Create `src/hooks/useFocusTrap.ts` — traps Tab/Shift+Tab within container, auto-focuses first element, restores focus on unmount; `enabled` param allows toggling with modal open state
   - [x] Refactor `AgentRegisterModal.tsx` — replace 27-line inline focus trap with `useFocusTrap(dialogRef, open)` call
@@ -944,13 +953,20 @@
   - [x] Build: npm run build — clean
   - [x] Test: npx playwright test — 1226 passed, 23 skipped (OAuth), 0 failed
 
-- [ ] **Iteration 85: Reusable focus trap hook + modal accessibility**
-  - [ ] Create `src/hooks/useFocusTrap.ts` — reusable hook that traps Tab/Shift+Tab within a container ref, auto-focuses first focusable element, restores focus on unmount
-  - [ ] Apply to `QuickDispatchModal.tsx` — currently no focus trap, Tab escapes to background
-  - [ ] Apply to `KeyboardShortcutsHelp.tsx` — no focus trap at all
-  - [ ] Apply to `CommandPalette.tsx` — has keyboard nav but Tab escapes
-  - [ ] Apply to `NotificationCenter.tsx` — dropdown without focus containment
-  - [ ] Verify `ConfirmDialog.tsx` — uses native `<dialog>`, confirm focus trap works or add hook
-  - [ ] E2E tests: Tab cycles within modal, Shift+Tab wraps backward, focus returns to trigger on close
+- [x] **Iteration 85: Reusable focus trap hook + modal accessibility**
+  - [x] Create `src/hooks/useFocusTrap.ts` — traps Tab/Shift+Tab, auto-focus, restores focus on unmount
+  - [x] Applied to `QuickDispatchModal.tsx`, `KeyboardShortcutsHelp.tsx`, `CommandPalette.tsx`, `NotificationCenter.tsx`
+  - [x] Refactored `AgentRegisterModal.tsx` — replaced 27-line inline impl with hook
+  - [x] Verified `ConfirmDialog.tsx` — native `<dialog>` handles focus trap
+  - [x] E2E tests: `focus-trap.spec.ts` — 8 tests
+  - [x] Test: npx playwright test — 1248 passed, 23 skipped
+
+- [ ] **Iteration 86: Toast feedback for all async operations**
+  - [ ] Wire `useToast()` into `QuickDispatchModal.tsx` — success toast on dispatch, error toast on failure
+  - [ ] Wire `useToast()` into `OrchestratorChat.tsx` — success toast on task cancel
+  - [ ] Wire `useToast()` into `SpawnWizard.tsx` — success toast on kubex spawn
+  - [ ] Wire `useToast()` into `AgentRegisterModal.tsx` — success/error toast on agent register
+  - [ ] Wire `useToast()` into `AgentsPanel.tsx` — toast on single/bulk deregister operations
+  - [ ] E2E tests: verify toasts appear after dispatch, cancel, spawn, register, deregister operations
   - [ ] Build: npm run build — clean
   - [ ] Test: npx playwright test — all pass
