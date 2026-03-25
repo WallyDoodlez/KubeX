@@ -4,6 +4,15 @@
 
 ---
 
+- [x] **Iteration 87: Dashboard recent tasks widget + Spawn Wizard unsaved-state guard**
+  - [x] `Dashboard.tsx` — `RecentTasksCard` component: last 5 dispatched tasks from `trafficLog`, each row shows truncated task ID, capability badge, status badge (allowed/denied/escalated), relative timestamp; empty state "No tasks dispatched yet."; "View all →" navigates to `/tasks`; `data-testid` attributes on card, rows, empty state
+  - [x] `types.ts` — Added `'tasks'` to `NavPage` union type
+  - [x] `App.tsx` — Added `tasks: '/tasks'` to `PAGE_TO_PATH` map
+  - [x] `SpawnWizard.tsx` — `isDirty` computed from agentId/boundary/selectedCaps when `spawnResult?.ok` is not set; `useEffect` attaches `beforeunload` listener when dirty, removes it when clean; listener calls `e.preventDefault()` + `e.returnValue = ''` for native browser dialog
+  - [x] 6 E2E tests in `tests/e2e/dashboard-recent-tasks.spec.ts` — empty state, 3/8-row rendering, 5-row limit, status badge, "View all →" navigation, card heading
+  - [x] 4 E2E tests in `tests/e2e/spawn-wizard-guard.spec.ts` — pristine form (no dialog), guard activates on input, guard inactive on clean form, guard clears after successful spawn
+  - [x] Build: npm run build — clean; Tests: 1268/1268 passed (23 skipped — OAuth); 1 pre-existing flaky autoscroll test unrelated to changes
+
 - [x] **Iteration 86: Toast feedback for async operations**
   - [x] `QuickDispatchModal.tsx` — `addToast('Task dispatched — ID: {taskId}', 'success')` on success; `addToast('Dispatch failed: {error}', 'error')` on failure
   - [x] `SpawnWizard.tsx` — `addToast('Kubex spawned — {kubexId}', 'success')` on success; `addToast('Spawn failed: {error}', 'error')` on failure
@@ -961,12 +970,15 @@
   - [x] E2E tests: `focus-trap.spec.ts` — 8 tests
   - [x] Test: npx playwright test — 1248 passed, 23 skipped
 
-- [ ] **Iteration 86: Toast feedback for all async operations**
-  - [ ] Wire `useToast()` into `QuickDispatchModal.tsx` — success toast on dispatch, error toast on failure
-  - [ ] Wire `useToast()` into `OrchestratorChat.tsx` — success toast on task cancel
-  - [ ] Wire `useToast()` into `SpawnWizard.tsx` — success toast on kubex spawn
-  - [ ] Wire `useToast()` into `AgentRegisterModal.tsx` — success/error toast on agent register
-  - [ ] Wire `useToast()` into `AgentsPanel.tsx` — toast on single/bulk deregister operations
-  - [ ] E2E tests: verify toasts appear after dispatch, cancel, spawn, register, deregister operations
+- [x] **Iteration 86: Toast feedback for all async operations**
+  - [x] Wired `useToast()` into `QuickDispatchModal.tsx`, `OrchestratorChat.tsx` (cancel), `SpawnWizard.tsx`, `AgentRegisterModal.tsx`, `AgentsPanel.tsx` (deregister)
+  - [x] E2E tests: `async-toasts.spec.ts` — 11 tests
+  - [x] Test: npx playwright test — 1259 passed, 23 skipped
+
+- [ ] **Iteration 87: Dashboard recent tasks widget + Spawn Wizard unsaved-state guard**
+  - [ ] Add "Recent Tasks" card to `Dashboard.tsx` — shows last 5 dispatched tasks from `trafficLog` (task ID, capability, status badge, relative timestamp), with "View all" link to `/tasks`
+  - [ ] Empty state when no tasks: "No tasks dispatched yet"
+  - [ ] Add `beforeunload` guard to `SpawnWizard.tsx` — warns user before navigating away when form has been touched (any field filled in steps 1-3), disabled on success screen
+  - [ ] E2E tests: recent tasks card renders on dashboard, shows entries from traffic log, empty state when no data, spawn wizard warns on navigation away mid-flow
   - [ ] Build: npm run build — clean
   - [ ] Test: npx playwright test — all pass

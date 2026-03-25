@@ -3,7 +3,7 @@ import { usePolling } from '../hooks/usePolling';
 import { useTimeSeries } from '../hooks/useTimeSeries';
 import { useCollapsible } from '../hooks/useCollapsible';
 import { useFavorites } from '../hooks/useFavorites';
-import type { Agent, Kubex, NavPage } from '../types';
+import type { Agent, Kubex, NavPage, TrafficEntry } from '../types';
 import { getAgents, getKubexes } from '../api';
 import { useAppContext } from '../context/AppContext';
 import ServiceCard from './ServiceCard';
@@ -193,6 +193,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         )}
       </CollapsibleSection>
 
+      {/* Recent Tasks */}
+      <RecentTasksCard trafficLog={trafficLog} onNavigate={onNavigate} />
+
       {/* Recent Activity Feed */}
       <CollapsibleSection
         sectionId="activity-feed"
@@ -298,6 +301,104 @@ function SectionHeader({
         >
           {action.label}
         </button>
+      )}
+    </div>
+  );
+}
+
+// ── Recent Tasks Card ─────────────────────────────────────────────────
+
+const RECENT_TASKS_LIMIT = 5;
+
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  allowed:   'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+  denied:    'bg-red-500/15 text-red-400 border-red-500/30',
+  escalated: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  pending:   'bg-slate-500/15 text-slate-400 border-slate-500/30',
+};
+
+function relativeTime(date: Date): string {
+  const seconds = Math.round((Date.now() - date.getTime()) / 1000);
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function RecentTasksCard({
+  trafficLog,
+  onNavigate,
+}: {
+  trafficLog: TrafficEntry[];
+  onNavigate: (page: NavPage) => void;
+}) {
+  // Most-recent first, take up to 5
+  const recentTasks = trafficLog.slice().sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, RECENT_TASKS_LIMIT);
+
+  return (
+    <div
+      data-testid="recent-tasks-card"
+      className="rounded-xl border border-[var(--color-border)] bg-gray-800 p-4"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">Recent Tasks</h2>
+          <p className="text-xs text-[var(--color-text-dim)]">Last {RECENT_TASKS_LIMIT} dispatched tasks</p>
+        </div>
+        <button
+          onClick={() => onNavigate('tasks')}
+          className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+          data-testid="recent-tasks-view-all"
+        >
+          View all →
+        </button>
+      </div>
+
+      {recentTasks.length === 0 ? (
+        <p
+          data-testid="recent-tasks-empty"
+          className="text-xs text-[var(--color-text-muted)] py-4 text-center"
+        >
+          No tasks dispatched yet.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {recentTasks.map((entry) => (
+            <div
+              key={entry.id}
+              data-testid="recent-task-row"
+              className="flex items-center gap-2 py-1.5 border-b border-[var(--color-border)] last:border-0"
+            >
+              {/* Task ID */}
+              <span className="font-mono-data text-[11px] text-[var(--color-text-dim)] truncate w-28 flex-shrink-0">
+                {entry.id.length > 12 ? `${entry.id.slice(0, 12)}…` : entry.id}
+              </span>
+
+              {/* Capability badge */}
+              {entry.capability && (
+                <span className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-secondary)] border border-[var(--color-border-strong)] flex-shrink-0">
+                  {entry.capability}
+                </span>
+              )}
+
+              {/* Status badge */}
+              <span
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${STATUS_BADGE_CLASSES[entry.status] ?? STATUS_BADGE_CLASSES['pending']}`}
+              >
+                {entry.status}
+              </span>
+
+              {/* Timestamp — push to right */}
+              <span className="ml-auto text-[10px] text-[var(--color-text-muted)] whitespace-nowrap flex-shrink-0">
+                {relativeTime(entry.timestamp)}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

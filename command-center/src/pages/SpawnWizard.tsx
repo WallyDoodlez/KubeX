@@ -603,6 +603,27 @@ export default function SpawnWizard() {
   const [spawning, setSpawning] = useState(false);
   const [spawnResult, setSpawnResult] = useState<{ ok: boolean; kubexId?: string; error?: string } | null>(null);
 
+  // ── Unsaved-state guard ───────────────────────────────────────────
+  // Warn user before navigating away when form has been touched and spawn hasn't succeeded yet.
+  const isDirty =
+    !spawnResult?.ok &&
+    (agentId.trim() !== '' || boundary.trim() !== 'default' || selectedCaps.length > 0);
+
+  useEffect(() => {
+    if (!isDirty) return;
+
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      // Modern browsers require returnValue to be set (even to '') to show the dialog.
+      e.returnValue = '';
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isDirty]);
+
   // Fetch known capabilities when entering step 2
   useEffect(() => {
     if (step === 2 && knownCaps.length === 0 && !capsLoading) {
