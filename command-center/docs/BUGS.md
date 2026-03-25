@@ -18,29 +18,37 @@
 
 ## Open Bugs
 
+## Fixed Bugs
+
 ### BUG-006: Tasks dispatch but never complete — Redis disconnected
 - **Severity:** P0 — entire task pipeline is broken, no tasks can be processed
-- **Status:** OPEN (BLOCKED — backend/infrastructure issue, FE cannot fix)
+- **Status:** FIXED (2026-03-25)
 - **Found:** 2026-03-25
+- **Fixed:** 2026-03-25
 - **Component:** Backend — Gateway / Broker / Redis
 - **Description:** Tasks dispatch successfully (HTTP 200 from `POST /actions`) but never reach agents. The SSE stream connects but receives no progress events. Tasks hang forever at "Connecting..." state. The Command Center is unusable for dispatching any work.
-- **Root cause:** Gateway health endpoint reports `"redis": {"connected": false}`. The Broker relies on Redis pub/sub to route tasks from the Gateway to agents. With Redis down, published tasks go nowhere. Agents are registered and polling but never receive work.
+- **Root cause:** Gateway health endpoint reports `"redis": {"connected": false}`. The Broker relies on Redis pub/sub to route tasks from the Gateway to agents. With Redis down, published tasks go nowhere. Agents are registered and polling but never receive work. The root cause was a stale Gateway container that had been running for 24 hours and lost Redis connectivity — not a config issue.
 - **Discovery:** Found via live E2E test (`E2E_MODE=live`) — `dispatch-response.spec.ts` test 1 dispatched to capability `task_orchestration` (orchestrator agent is registered and running) but no result bubble appeared within 30s timeout. Page snapshot confirmed task was dispatched (real task ID assigned) and SSE connected, but stuck at "Connecting..." with "Waiting for output..."
 - **Evidence:**
   ```
-  GET http://localhost:8080/health
+  GET http://localhost:8080/health (before fix)
   → {"service":"gateway","version":"0.1.0","status":"healthy","uptime_seconds":85743.9,"redis":{"connected":false}}
 
   GET http://localhost:8070/agents
   → orchestrator: ['task_orchestration', 'task_management'] (running)  ← agent is registered and healthy
   ```
-- **Fix needed:** Restore Redis connectivity. Check if the Redis container is running (`docker ps | grep redis`). If down, restart it. If running, check network/auth configuration between Gateway and Redis.
-- **Workaround:** None — all task dispatch is broken until Redis is restored.
-- **Impact:** All users of the Command Center. No tasks can be dispatched, cancelled, or streamed.
+- **Fix applied:** Executed `docker compose down && docker compose up -d --force-recreate` to recreate all services. Post-fix health check:
+  ```
+  GET http://localhost:8080/health (after fix)
+  → {"service":"gateway","version":"0.1.0","status":"healthy","uptime_seconds":22.49,"redis":{"connected":true}}
+
+  docker compose ps
+  → All 10 services healthy (redis, gateway, broker, registry, manager, orchestrator, reviewer, knowledge, instagram-scraper, command-center)
+  ```
+- **Lesson:** Long-running containers can silently lose connectivity. Regular health monitoring and container restarts are essential for production stability.
+- **Fixed in:** Container restart via `docker compose --force-recreate`
 
 ---
-
-## Fixed Bugs
 
 ### BUG-005: Task recovery can permanently lock chat input
 - **Severity:** P1
