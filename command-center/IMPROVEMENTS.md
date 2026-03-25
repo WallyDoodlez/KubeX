@@ -4,6 +4,12 @@
 
 ---
 
+- [x] **Iteration 91: Task history detail panel**
+  - [x] `TaskHistoryPage.tsx` — `DetailRow` refactored: raw JSON `<pre>` replaced with formatted panel; agent ID as clickable `<a href="/agents/{id}">` link; capability rendered as violet badge; status uses existing `StatusBadge`; result text rendered via `ReactMarkdown`; error text shown in red-tinted box; dispatched/completed timestamps formatted; duration computed from both timestamps; all elements carry required `data-testid` attributes
+  - [x] `TaskHistoryPage.tsx` — `DetailRow` now always rendered (not conditional) to enable smooth CSS grid-rows slide-down transition (`grid-rows-[0fr]` → `grid-rows-[1fr]`); `isExpanded` prop drives animation; `aria-expanded` on TaskRow unchanged
+  - [x] 17 E2E tests in `tests/e2e/task-detail-panel.spec.ts` — panel visibility, task ID display, copy button, agent link href, capability badge text, status badge text, result content (ReactMarkdown), error content, dispatched/completed timestamps, duration, collapse toggle, single-panel-at-a-time behavior
+  - [x] Build: npm run build — clean; Tests: 51/51 task-history tests pass (17 new + existing 34); 2 pre-existing agents.spec.ts failures unrelated to this iteration
+
 - [x] **Iteration 89: Favorite capabilities in Orchestrator Chat**
   - [x] `OrchestratorChat.tsx` — `favoriteCaps` state initialized from `localStorage` key `kubex-favorite-caps`; `toggleFavoriteCap` callback writes back to localStorage on every toggle
   - [x] `OrchestratorChat.tsx` — Star toggle button (`data-testid="cap-star-{capName}"`, ☆/★) added next to each cap in the "Known caps" row of the Advanced panel; starred caps show amber-styled filled star
@@ -1010,3 +1016,12 @@
   - [x] E2E tests: `approval-filters.spec.ts` — 21 tests
   - [x] Build: npm run build — clean
   - [x] Test: npx playwright test — 1308 passed, 23 skipped
+
+- [ ] **Iteration 91: Task history detail panel (formatted, not raw JSON)**
+  - [ ] Replace raw JSON `<pre>` expand in `TaskHistoryPage.tsx` with a formatted detail panel
+  - [ ] Detail panel shows: task ID (with copy), agent ID (clickable link to agent detail), capability badge, status badge with color, result/error content (markdown rendered for results), timestamps (dispatched, completed), duration
+  - [ ] If task has audit trail data, show inline audit timeline (reuse audit trail component pattern from OrchestratorChat)
+  - [ ] Collapse/expand animation (slide-down transition)
+  - [ ] E2E tests: expand shows formatted detail, agent link navigates, status badge colored, collapse animation works
+  - [ ] Build: npm run build — clean
+  - [ ] Test: npx playwright test — all pass
