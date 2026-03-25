@@ -17,6 +17,9 @@ import { TOUR_STEP_COUNT } from '../hooks/useOnboarding';
  *  2 — Keyboard Shortcuts Help (?)
  *  3 — Sidebar navigation
  *  4 — Connection Indicator + refresh countdown
+ *  5 — Notification Center (bell icon)
+ *  6 — Spawn Kubex Wizard (sidebar nav link)
+ *  7 — Approval Queue (sidebar nav link + HITL badge)
  */
 
 interface TourStep {
@@ -61,6 +64,27 @@ const STEPS: TourStep[] = [
     description:
       'The status indicator polls Gateway, Registry, Manager, Broker, and Redis every 15 seconds. The ring counts down to the next refresh — click it to see service details.',
     placement: 'bottom-left',
+  },
+  {
+    targetTestId: 'notification-bell',
+    title: 'Notification Center',
+    description:
+      'The bell icon collects system alerts, task completions, and escalation notices. Click it to view or clear notifications — a badge shows unread count. Toast pop-ups appear for real-time events.',
+    placement: 'bottom-left',
+  },
+  {
+    targetTestId: 'nav-spawn-kubex',
+    title: 'Spawn Kubex Wizard',
+    description:
+      'Use the Spawn Kubex wizard to launch a new worker container. The three-step wizard sets the agent identity, capabilities, and image — no manual Dockerfiles required.',
+    placement: 'right',
+  },
+  {
+    targetTestId: 'nav-approvals',
+    title: 'Approval Queue & HITL',
+    description:
+      'High-risk agent actions require human sign-off before execution. The Approvals page lists pending escalations — a badge on this link shows the count of actions waiting for your review.',
+    placement: 'right',
   },
 ];
 

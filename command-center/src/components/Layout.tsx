@@ -334,6 +334,7 @@ export default function Layout({ children }: LayoutProps) {
                   aria-label={`${item.label} — ${item.description}`}
                   aria-current={active ? 'page' : undefined}
                   title={isCollapsed ? item.label : undefined}
+                  data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                   className={`
                     w-full flex items-center rounded-lg text-left transition-all
                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
