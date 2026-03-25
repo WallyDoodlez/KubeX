@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNotifications } from '../context/NotificationContext';
 import type { NotificationEntry } from '../context/NotificationContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -87,6 +88,8 @@ export default function NotificationCenter() {
   const { notifications, unreadCount, markAllRead, clearAll } = useNotifications();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dropdownRef, open);
 
   // Close when clicking outside
   const handleOutsideClick = useCallback((e: MouseEvent) => {
@@ -171,6 +174,7 @@ export default function NotificationCenter() {
       {/* Dropdown */}
       {open && (
         <div
+          ref={dropdownRef}
           data-testid="notification-dropdown"
           role="dialog"
           aria-label="Notification history"
