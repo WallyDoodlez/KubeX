@@ -10,6 +10,7 @@ import { useTableKeyboardNav } from '../hooks/useTableKeyboardNav';
 import { useFavorites } from '../hooks/useFavorites';
 import type { Agent } from '../types';
 import { getAgents, deregisterAgent } from '../api';
+import { useToast } from '../context/ToastContext';
 import StatusBadge from './StatusBadge';
 import ConfirmDialog from './ConfirmDialog';
 import SearchInput from './SearchInput';
@@ -42,6 +43,7 @@ const AGENTS_PARAM_DEFAULTS = {
 
 export default function AgentsPanel() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -179,10 +181,16 @@ export default function AgentsPanel() {
 
   async function handleDeregister() {
     if (!confirmTarget) return;
+    const targetId = confirmTarget;
     setConfirmTarget(null);
-    setDeregistering(confirmTarget);
-    await deregisterAgent(confirmTarget);
+    setDeregistering(targetId);
+    const res = await deregisterAgent(targetId);
     setDeregistering(null);
+    if (res.ok) {
+      addToast(`Agent deregistered — ${targetId}`, 'success');
+    } else {
+      addToast('Deregister failed', 'error');
+    }
     await load();
   }
 
@@ -190,9 +198,15 @@ export default function AgentsPanel() {
     setBulkConfirmOpen(false);
     setBulkActionInProgress(true);
     const ids = Array.from(selectedIds);
-    await Promise.allSettled(ids.map((id) => deregisterAgent(id)));
+    const results = await Promise.all(ids.map((id) => deregisterAgent(id)));
+    const failCount = results.filter((r) => !r.ok).length;
     clearSelection();
     setBulkActionInProgress(false);
+    if (failCount === 0) {
+      addToast(`${ids.length} agent${ids.length === 1 ? '' : 's'} deregistered`, 'success');
+    } else {
+      addToast('Deregister failed', 'error');
+    }
     await load();
   }
 

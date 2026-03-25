@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAgents, createKubex } from '../api';
 import type { CreateKubexBody } from '../types';
+import { useToast } from '../context/ToastContext';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -578,6 +579,7 @@ function buildConfig(
 }
 
 export default function SpawnWizard() {
+  const { addToast } = useToast();
   const [step, setStep] = useState(1);
 
   // Step 1 state
@@ -664,8 +666,11 @@ export default function SpawnWizard() {
     setSpawning(false);
     if (res.ok && res.data) {
       setSpawnResult({ ok: true, kubexId: res.data.kubex_id });
+      addToast(`Kubex spawned — ${res.data.kubex_id}`, 'success');
     } else {
-      setSpawnResult({ ok: false, error: res.error ?? 'Unknown error from Manager.' });
+      const errMsg = res.error ?? 'Unknown error from Manager.';
+      setSpawnResult({ ok: false, error: errMsg });
+      addToast(`Spawn failed: ${errMsg}`, 'error');
     }
   }
 

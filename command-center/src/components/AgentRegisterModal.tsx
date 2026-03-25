@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { registerAgent } from '../api';
 import type { AgentRegistrationBody } from '../types';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useToast } from '../context/ToastContext';
 
 interface AgentRegisterModalProps {
   open: boolean;
@@ -51,6 +52,7 @@ function validateMetadata(raw: string): string | null {
 }
 
 export default function AgentRegisterModal({ open, onClose, onRegistered }: AgentRegisterModalProps) {
+  const { addToast } = useToast();
   const [agentId, setAgentId] = useState('');
   const [capabilities, setCapabilities] = useState('');
   const [boundary, setBoundary] = useState('default');
@@ -137,11 +139,14 @@ export default function AgentRegisterModal({ open, onClose, onRegistered }: Agen
     if (res.ok) {
       setFormStatus('success');
       setResultMessage(`Agent "${agentId.trim()}" registered successfully.`);
+      addToast(`Agent registered — ${agentId.trim()}`, 'success');
       // Notify parent to refresh agent list (but keep modal open to show success state)
       onRegistered();
     } else {
+      const errMsg = res.error ?? `HTTP ${res.status}`;
       setFormStatus('error');
-      setResultMessage(res.error ?? `HTTP ${res.status}`);
+      setResultMessage(errMsg);
+      addToast(`Registration failed: ${errMsg}`, 'error');
     }
   }
 
