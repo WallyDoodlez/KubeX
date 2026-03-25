@@ -122,10 +122,12 @@ export default function TrafficLog({ entries, onClear }: TrafficLogProps) {
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-[var(--color-text-dim)]">
-          <LegendDot color="emerald" label="allowed" />
-          <LegendDot color="red" label="denied" />
-          <LegendDot color="amber" label="escalated" />
-          <LegendDot color="blue" label="pending" />
+          <span className="hidden sm:flex items-center gap-3">
+            <LegendDot color="emerald" label="allowed" />
+            <LegendDot color="red" label="denied" />
+            <LegendDot color="amber" label="escalated" />
+            <LegendDot color="blue" label="pending" />
+          </span>
           <ExportMenu
             testId="traffic-export-menu"
             disabled={filteredEntries.length === 0}
@@ -209,61 +211,146 @@ const TrafficRow = memo(function TrafficRow({ entry }: { entry: TrafficEntry }) 
 
   return (
     <div
+      data-testid="traffic-row"
       className={`
         rounded-r-xl border border-[var(--color-border)] border-l-2 ${rowBorder}
         bg-[var(--color-surface)] px-4 py-3
-        grid grid-cols-[160px_140px_120px_1fr_120px_140px] gap-3 items-center
         hover:bg-[var(--color-surface-hover)] transition-colors text-xs
       `}
     >
-      {/* Timestamp */}
-      <RelativeTime
-        date={entry.timestamp}
-        className="font-mono-data text-[var(--color-text-dim)]"
-        data-testid="traffic-row-timestamp"
-      />
+      {/* ── Desktop grid (lg+): all 6 columns ── */}
+      <div className="hidden lg:grid grid-cols-[160px_140px_120px_1fr_120px_140px] gap-3 items-center">
+        {/* Timestamp */}
+        <RelativeTime
+          date={entry.timestamp}
+          className="font-mono-data text-[var(--color-text-dim)]"
+          data-testid="traffic-row-timestamp"
+        />
 
-      {/* Agent ID */}
-      <span className="font-mono-data text-[var(--color-text-secondary)] truncate" title={entry.agent_id}>
-        {entry.agent_id}
-      </span>
+        {/* Agent ID */}
+        <span className="font-mono-data text-[var(--color-text-secondary)] truncate" title={entry.agent_id}>
+          {entry.agent_id}
+        </span>
 
-      {/* Action */}
-      <span className="font-mono-data text-[var(--color-text)] truncate" title={entry.action}>
-        {entry.action}
-      </span>
+        {/* Action */}
+        <span className="font-mono-data text-[var(--color-text)] truncate" title={entry.action}>
+          {entry.action}
+        </span>
 
-      {/* Capability / target */}
-      <span className="text-[var(--color-text-dim)] truncate" title={entry.capability ?? entry.target ?? '—'}>
-        {entry.capability ?? entry.target ?? '—'}
-      </span>
+        {/* Capability / target */}
+        <span className="text-[var(--color-text-dim)] truncate" title={entry.capability ?? entry.target ?? '—'}>
+          {entry.capability ?? entry.target ?? '—'}
+        </span>
 
-      {/* Status */}
-      <span
-        className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full border font-medium ${statusStyle}`}
-      >
-        {entry.status}
-      </span>
+        {/* Status */}
+        <span
+          className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full border font-medium ${statusStyle}`}
+        >
+          {entry.status}
+        </span>
 
-      {/* Task ID / policy */}
-      {entry.task_id ? (
-        <span className="flex items-center gap-1 min-w-0">
+        {/* Task ID / policy */}
+        {entry.task_id ? (
+          <span className="flex items-center gap-1 min-w-0">
+            <span
+              className="font-mono-data text-[var(--color-text-muted)] truncate"
+              title={entry.task_id}
+            >
+              {entry.task_id}
+            </span>
+            <CopyButton text={entry.task_id} ariaLabel="Copy task ID" testId="copy-traffic-task-id" />
+          </span>
+        ) : (
           <span
             className="font-mono-data text-[var(--color-text-muted)] truncate"
-            title={entry.task_id}
+            title={entry.policy_rule ?? '—'}
           >
-            {entry.task_id}
+            {entry.policy_rule ?? '—'}
           </span>
-          <CopyButton text={entry.task_id} ariaLabel="Copy task ID" testId="copy-traffic-task-id" />
-        </span>
-      ) : (
+        )}
+      </div>
+
+      {/* ── Tablet grid (md–lg): 3 essential columns ── */}
+      <div className="hidden md:grid lg:hidden grid-cols-[1fr_120px_120px] gap-3 items-center">
+        {/* Capability / action */}
+        <div className="min-w-0">
+          <span className="font-mono-data text-[var(--color-text)] truncate block" title={entry.action}>
+            {entry.action}
+          </span>
+          <span className="text-[var(--color-text-dim)] truncate block" title={entry.capability ?? entry.target ?? '—'}>
+            {entry.capability ?? entry.target ?? '—'}
+          </span>
+        </div>
+
+        {/* Status */}
         <span
-          className="font-mono-data text-[var(--color-text-muted)] truncate"
-          title={entry.policy_rule ?? '—'}
+          className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full border font-medium ${statusStyle}`}
+          data-testid="traffic-row-status-tablet"
         >
-          {entry.policy_rule ?? '—'}
+          {entry.status}
         </span>
-      )}
+
+        {/* Task ID */}
+        {entry.task_id ? (
+          <span className="flex items-center gap-1 min-w-0">
+            <span
+              className="font-mono-data text-[var(--color-text-muted)] truncate"
+              title={entry.task_id}
+            >
+              {entry.task_id}
+            </span>
+            <CopyButton text={entry.task_id} ariaLabel="Copy task ID" testId="copy-traffic-task-id" />
+          </span>
+        ) : (
+          <span className="font-mono-data text-[var(--color-text-muted)] truncate">—</span>
+        )}
+      </div>
+
+      {/* ── Mobile card (<md): stacked layout ── */}
+      <div className="flex md:hidden flex-col gap-1.5" data-testid="traffic-row-mobile">
+        {/* Top row: status badge + timestamp */}
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${statusStyle}`}
+            data-testid="traffic-row-status-mobile"
+          >
+            {entry.status}
+          </span>
+          <RelativeTime
+            date={entry.timestamp}
+            className="font-mono-data text-[var(--color-text-dim)] text-[10px]"
+            data-testid="traffic-row-timestamp-mobile"
+          />
+        </div>
+
+        {/* Action + capability */}
+        <div className="min-w-0">
+          <span className="font-mono-data text-[var(--color-text)] block truncate" title={entry.action}>
+            {entry.action}
+          </span>
+          <span className="text-[var(--color-text-dim)] block truncate text-[10px]" title={entry.capability ?? entry.target ?? '—'}>
+            {entry.capability ?? entry.target ?? '—'}
+          </span>
+        </div>
+
+        {/* Agent ID */}
+        <span className="font-mono-data text-[var(--color-text-secondary)] truncate text-[10px]" title={entry.agent_id}>
+          {entry.agent_id}
+        </span>
+
+        {/* Task ID */}
+        {entry.task_id && (
+          <span className="flex items-center gap-1 min-w-0">
+            <span
+              className="font-mono-data text-[var(--color-text-muted)] truncate text-[10px]"
+              title={entry.task_id}
+            >
+              {entry.task_id}
+            </span>
+            <CopyButton text={entry.task_id} ariaLabel="Copy task ID" testId="copy-traffic-task-id" />
+          </span>
+        )}
+      </div>
     </div>
   );
 });
