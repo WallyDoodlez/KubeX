@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAgents, dispatchTask } from '../api';
+import { getAgents, dispatchTask, getAgentLifecycleStreamUrl, getAgentLifecycleAuthHeader, updateAgentStatus } from '../api';
 import type { Agent, TrafficEntry } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
 import { useAppContext } from '../context/AppContext';
@@ -29,8 +29,8 @@ export default function AgentDetailPage() {
   const { trafficLog, addTrafficEntry } = useAppContext();
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
 
-  const loadAgent = useCallback(async () => {
-    setLoading(true);
+  const loadAgent = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     const res = await getAgents();
     if (res.ok && Array.isArray(res.data)) {
@@ -43,8 +43,11 @@ export default function AgentDetailPage() {
     } else {
       setError(res.error ?? `HTTP ${res.status}`);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [agentId]);
+
+  // Silent refresh callback — refreshes agent data without triggering loading skeleton
+  const silentRefresh = useCallback(() => { loadAgent(true); }, [loadAgent]);
 
   useEffect(() => {
     loadAgent();
@@ -105,21 +108,123 @@ export default function AgentDetailPage() {
       {/* Tabs */}
       <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab}>
         {activeTab === 'overview' && (
-          <OverviewTab agent={agent} onDispatchClick={() => setActiveTab('actions')} />
+          <OverviewTab agent={agent} onDispatchClick={() => setActiveTab('actions')} onStatusUpdated={silentRefresh} />
         )}
         {activeTab === 'actions' && (
           <ActionsTab agent={agent} trafficLog={agentTraffic} addTrafficEntry={addTrafficEntry} />
         )}
-        {activeTab === 'live-output' && <LiveOutputTab />}
+        {activeTab === 'live-output' && <LiveOutputTab agentId={agent.agent_id} />}
         {activeTab === 'config' && <ConfigTab agent={agent} />}
       </Tabs>
     </div>
   );
 }
 
+// ── Agent Status Controls ─────────────────────────────────────────
+
+type AgentStatusValue = 'running' | 'stopped' | 'busy' | 'unknown';
+
+const STATUS_OPTIONS: { value: AgentStatusValue; label: string; color: string; bg: string; border: string }[] = [
+  { value: 'running', label: 'Running', color: 'text-emerald-400', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30' },
+  { value: 'busy', label: 'Busy', color: 'text-blue-400', bg: 'bg-blue-500/15', border: 'border-blue-500/30' },
+  { value: 'stopped', label: 'Stopped', color: 'text-red-400', bg: 'bg-red-500/15', border: 'border-red-500/30' },
+  { value: 'unknown', label: 'Unknown', color: 'text-[var(--color-text-muted)]', bg: 'bg-[var(--color-border)]', border: 'border-[var(--color-border-strong)]' },
+];
+
+function AgentStatusControls({
+  agent,
+  onStatusUpdated,
+}: {
+  agent: Agent;
+  onStatusUpdated: () => void;
+}) {
+  const [updating, setUpdating] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+  }, []);
+
+  async function handleStatusChange(newStatus: AgentStatusValue) {
+    if (updating || newStatus === agent.status) return;
+    setUpdating(true);
+    setResult(null);
+    const res = await updateAgentStatus(agent.agent_id, newStatus);
+    if (res.ok) {
+      setResult({ ok: true, message: `Status updated to "${newStatus}"` });
+      onStatusUpdated();
+    } else {
+      setResult({ ok: false, message: res.error ?? `HTTP ${res.status}` });
+    }
+    setUpdating(false);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setResult(null), 4000);
+  }
+
+  return (
+    <div
+      data-testid="agent-status-controls"
+      className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+    >
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-3">
+        Change Status
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {STATUS_OPTIONS.map(({ value, label, color, bg, border }) => {
+          const isActive = agent.status === value;
+          return (
+            <button
+              key={value}
+              data-testid={`status-btn-${value}`}
+              onClick={() => handleStatusChange(value)}
+              disabled={updating || isActive}
+              aria-pressed={isActive}
+              aria-label={`Set agent status to ${label}`}
+              className={`
+                text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors
+                focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-[var(--color-surface)]
+                ${isActive
+                  ? `${color} ${bg} ${border} opacity-100 cursor-default ring-2 ${border.replace('border-', 'ring-')}`
+                  : `text-[var(--color-text-muted)] bg-[var(--color-bg)] border-[var(--color-border)] hover:${color} hover:${bg} hover:${border}`
+                }
+                disabled:opacity-40 disabled:cursor-not-allowed
+              `}
+            >
+              {isActive && <span className="mr-1.5">●</span>}
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {updating && (
+        <p data-testid="status-update-loading" className="text-[10px] text-[var(--color-text-muted)] mt-2 animate-pulse">
+          Updating…
+        </p>
+      )}
+      {result && !updating && (
+        <p
+          data-testid={result.ok ? 'status-update-success' : 'status-update-error'}
+          className={`text-[10px] mt-2 ${result.ok ? 'text-emerald-400' : 'text-red-400'}`}
+        >
+          {result.ok ? '✓ ' : '✗ '}{result.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Tab content ──────────────────────────────────────────────────────
 
-function OverviewTab({ agent, onDispatchClick }: { agent: Agent; onDispatchClick: () => void }) {
+function OverviewTab({
+  agent,
+  onDispatchClick,
+  onStatusUpdated,
+}: {
+  agent: Agent;
+  onDispatchClick: () => void;
+  onStatusUpdated: () => void;
+}) {
   return (
     <div className="space-y-4">
       {/* Info grid */}
@@ -129,6 +234,9 @@ function OverviewTab({ agent, onDispatchClick }: { agent: Agent; onDispatchClick
         <InfoCard label="Boundary" value={agent.boundary} />
         {agent.registered_at && <InfoCard label="Registered" value={agent.registered_at} mono />}
       </div>
+
+      {/* Status controls */}
+      <AgentStatusControls agent={agent} onStatusUpdated={onStatusUpdated} />
 
       {/* Capabilities */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
@@ -175,16 +283,258 @@ function OverviewTab({ agent, onDispatchClick }: { agent: Agent; onDispatchClick
   );
 }
 
-function LiveOutputTab() {
+// ── Lifecycle event shape ──────────────────────────────────────────
+
+interface LifecycleEvent {
+  id: string;
+  agent_id?: string;
+  state?: string;
+  timestamp?: string;
+  raw: string;
+  receivedAt: Date;
+}
+
+type LiveOutputConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error' | 'closed';
+
+function LiveOutputTab({ agentId }: { agentId: string }) {
+  const [events, setEvents] = useState<LifecycleEvent[]>([]);
+  const [status, setStatus] = useState<LiveOutputConnectionStatus>('idle');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom when new events arrive
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [events.length]);
+
+  const disconnect = useCallback(() => {
+    abortRef.current?.abort();
+    readerRef.current?.cancel().catch(() => {});
+    readerRef.current = null;
+    abortRef.current = null;
+  }, []);
+
+  const connect = useCallback(async () => {
+    disconnect();
+    setStatus('connecting');
+    setErrorMsg(null);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const url = getAgentLifecycleStreamUrl(agentId);
+      const authHeader = getAgentLifecycleAuthHeader();
+      const headers: Record<string, string> = { Accept: 'text/event-stream' };
+      if (authHeader) headers['Authorization'] = authHeader;
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        setStatus('error');
+        setErrorMsg(`HTTP ${res.status} — ${res.statusText || 'connection refused'}`);
+        return;
+      }
+
+      if (!res.body) {
+        setStatus('error');
+        setErrorMsg('No response body — SSE not supported');
+        return;
+      }
+
+      setStatus('connected');
+      const reader = res.body.getReader();
+      readerRef.current = reader;
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE frames: split on double newline
+        const frames = buffer.split(/\n\n/);
+        buffer = frames.pop() ?? '';
+
+        for (const frame of frames) {
+          const lines = frame.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data:')) {
+              const raw = line.slice(5).trim();
+              if (!raw) continue;
+              let parsed: Record<string, unknown> = {};
+              try { parsed = JSON.parse(raw) as Record<string, unknown>; } catch { /* not JSON */ }
+              const ev: LifecycleEvent = {
+                id: crypto.randomUUID(),
+                agent_id: parsed.agent_id as string | undefined,
+                state: parsed.state as string | undefined,
+                timestamp: parsed.timestamp as string | undefined,
+                raw,
+                receivedAt: new Date(),
+              };
+              setEvents((prev) => [...prev.slice(-199), ev]); // cap at 200
+            }
+          }
+        }
+      }
+
+      setStatus('closed');
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') {
+        setStatus('closed');
+      } else {
+        setStatus('error');
+        setErrorMsg((err as Error).message ?? 'Stream error');
+      }
+    }
+  }, [agentId, disconnect]);
+
+  // Auto-connect when tab mounts
+  useEffect(() => {
+    connect();
+    return () => {
+      disconnect();
+    };
+  }, [connect, disconnect]);
+
+  const statusDot: Record<LiveOutputConnectionStatus, string> = {
+    idle: 'bg-[var(--color-text-muted)]',
+    connecting: 'bg-yellow-400 animate-pulse',
+    connected: 'bg-emerald-400 animate-pulse',
+    error: 'bg-red-400',
+    closed: 'bg-[var(--color-text-muted)]',
+  };
+
+  const statusLabel: Record<LiveOutputConnectionStatus, string> = {
+    idle: 'Not connected',
+    connecting: 'Connecting…',
+    connected: 'Live',
+    error: 'Error',
+    closed: 'Disconnected',
+  };
+
+  const stateColors: Record<string, string> = {
+    running: 'text-emerald-400',
+    busy: 'text-blue-400',
+    idle: 'text-[var(--color-text-secondary)]',
+    stopped: 'text-[var(--color-text-muted)]',
+    booting: 'text-yellow-400',
+    credential_wait: 'text-orange-400',
+    ready: 'text-emerald-400',
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
-        <p className="text-sm text-[var(--color-text-dim)]">
-          Live task output will appear here when an agent is actively executing a task.
-        </p>
-        <p className="text-xs text-[var(--color-text-muted)] mt-2">
-          Dispatch a task to this agent via the Orchestrator to see real-time streaming output.
-        </p>
+    <div className="space-y-4" data-testid="live-output-tab">
+      {/* Header bar */}
+      <div className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span
+            data-testid="live-output-status-dot"
+            className={`inline-block w-2 h-2 rounded-full ${statusDot[status]}`}
+          />
+          <span className="text-xs text-[var(--color-text-secondary)]" data-testid="live-output-status-label">
+            {statusLabel[status]}
+          </span>
+          {events.length > 0 && (
+            <span className="text-[10px] text-[var(--color-text-muted)] ml-1">
+              ({events.length} event{events.length !== 1 ? 's' : ''})
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {events.length > 0 && (
+            <button
+              onClick={() => setEvents([])}
+              data-testid="live-output-clear-btn"
+              className="text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+            >
+              Clear
+            </button>
+          )}
+          {status === 'connected' ? (
+            <button
+              onClick={() => { disconnect(); setStatus('closed'); }}
+              data-testid="live-output-disconnect-btn"
+              className="text-xs px-2.5 py-1 rounded-lg border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] transition-colors"
+            >
+              Disconnect
+            </button>
+          ) : (
+            <button
+              onClick={connect}
+              data-testid="live-output-connect-btn"
+              className="text-xs px-2.5 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-colors"
+            >
+              {status === 'connecting' ? 'Connecting…' : 'Connect'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Error display */}
+      {status === 'error' && errorMsg && (
+        <div
+          data-testid="live-output-error"
+          className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-xs text-red-400"
+        >
+          {errorMsg}
+        </div>
+      )}
+
+      {/* Event stream */}
+      <div
+        data-testid="live-output-events"
+        className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] font-mono-data text-xs overflow-y-auto"
+        style={{ minHeight: '12rem', maxHeight: '24rem' }}
+        role="log"
+        aria-label="Agent lifecycle event log"
+        aria-live="polite"
+      >
+        {events.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-[var(--color-text-muted)]">
+            {status === 'connected' ? (
+              <>
+                <p className="text-sm" data-testid="live-output-waiting">Waiting for events…</p>
+                <p className="text-[10px] mt-1">Lifecycle state changes will appear here in real time.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm" data-testid="live-output-empty">No events yet.</p>
+                <p className="text-[10px] mt-1">
+                  {status === 'error' ? 'Connect failed — check backend is running.' : 'Connect to start listening.'}
+                </p>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--color-border)]">
+            {events.map((ev) => (
+              <div
+                key={ev.id}
+                data-testid="live-output-event-row"
+                className="flex items-start gap-3 px-4 py-2.5 hover:bg-[var(--color-surface)] transition-colors"
+              >
+                <span className="text-[var(--color-text-muted)] flex-shrink-0 w-20 text-right">
+                  {ev.receivedAt.toLocaleTimeString()}
+                </span>
+                <span className={`flex-shrink-0 w-24 ${stateColors[ev.state ?? ''] ?? 'text-[var(--color-text-secondary)]'}`}>
+                  {ev.state ?? '—'}
+                </span>
+                <span className="text-[var(--color-text-dim)] truncate flex-1">
+                  {ev.raw}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div ref={bottomRef} />
       </div>
     </div>
   );

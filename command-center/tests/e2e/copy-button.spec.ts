@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { MANAGER } from './helpers';
 
 /**
  * Copy-to-clipboard — Iteration 30
@@ -28,7 +29,8 @@ test.describe('CopyButton — component presence', () => {
 
   test('copy button is present in containers panel kubex rows', async ({ page }) => {
     // Mock the Manager kubexes endpoint so rows render without a live backend
-    await page.route('http://localhost:8090/kubexes', (route) =>
+    // (non-standard: specific Manager URL with mock kubex data — keep inline)
+    await page.route(`${MANAGER}/kubexes`, (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',

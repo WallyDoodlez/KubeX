@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
+import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import type { Plugin } from 'unified';
+import type { Root, Text, Element, ElementContent } from 'hast';
+import { visit, SKIP } from 'unist-util-visit';
 import CopyButton from './CopyButton';
 import MermaidBlock from './MermaidBlock';
 import TaskTimeline from './TaskTimeline';
-import { dispatchTask, getTaskResult, getTaskAudit, getAgents, getTaskStreamUrl, provideInput } from '../api';
+import { dispatchTask, getTaskResult, getTaskAudit, getAgents, getTaskStreamUrl, provideInput, cancelTask } from '../api';
 import type { AuditEntry, ChatMessage, TrafficEntry, Agent, TaskPhaseEntry } from '../types';
 import { validateCapability, validateMessage } from '../utils/validation';
 import { useSSE } from '../hooks/useSSE';
@@ -15,7 +19,7 @@ import TerminalOutput from './TerminalOutput';
 import type { OutputLine } from './TerminalOutput';
 import HITLPrompt from './HITLPrompt';
 import ExportMenu from './ExportMenu';
-import { exportAsJSON } from '../utils/export';
+import { exportAsJSON, exportAsMarkdown } from '../utils/export';
 import RelativeTime from './RelativeTime';
 
 interface OrchestratorChatProps {
@@ -28,6 +32,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [capability, setCapability] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [capError, setCapError] = useState<string | null>(null);
   const [msgError, setMsgError] = useState<string | null>(null);
   const [knownCaps, setKnownCaps] = useState<string[]>([]);
@@ -83,6 +88,9 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [hitlRequest, setHitlRequest] = useState<{ taskId: string; prompt: string } | null>(null);
   const activeTaskIdRef = useRef<string | null>(null);
   const activeCapRef = useRef<string>('');
+
+  // Task recovery state — true while we are reconnecting to a persisted in-flight task
+  const [recovering, setRecovering] = useState(false);
 
   // Task progress timeline — tracks live phases while a task is running
   const PHASE_LABELS = ['Dispatched', 'Connecting', 'Streaming', 'Completed'] as const;
@@ -226,6 +234,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
     if (data.type === 'result' || data.type === 'completed') {
       const completedPhases = buildPhasesCompleted();
+      localStorage.removeItem('kubex-active-task');
       setSending(false);
       setStreamUrl(null);
       setHitlRequest(null);
@@ -261,6 +270,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
     if (data.type === 'failed' || data.type === 'cancelled') {
       const failedPhases = buildPhasesFailed();
+      localStorage.removeItem('kubex-active-task');
       setSending(false);
       setStreamUrl(null);
       setHitlRequest(null);
@@ -277,7 +287,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         content: `Task ${data.type}: ${reason}`,
         timestamp: new Date(),
         task_id: taskId ?? undefined,
-        retryCapability: cap !== 'orchestrate' ? cap : undefined,
+        retryCapability: cap !== 'task_orchestration' ? cap : undefined,
         phases: failedPhases,
       });
 
@@ -353,6 +363,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               task_id: taskId,
             });
 
+            localStorage.removeItem('kubex-active-task');
             resolved = true;
             break;
           }
@@ -360,6 +371,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
         if (!resolved) {
           // All retries exhausted — task still pending or unreachable
+          localStorage.removeItem('kubex-active-task');
           setLivePhases([]);
           setMessages((msgs) => [
             ...msgs,
@@ -369,7 +381,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               content: `Stream ended without result for task ${taskId}. The task may still be running — check Task History for its status.`,
               timestamp: new Date(),
               task_id: taskId,
-              retryCapability: cap !== 'orchestrate' ? cap : undefined,
+              retryCapability: cap !== 'task_orchestration' ? cap : undefined,
               phases: buildPhasesFailed(),
             } as ChatMessage,
           ]);
@@ -382,7 +394,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     });
   }, [onTrafficEntry, setMessages]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { status: sseStatus } = useSSE({
+  const { status: sseStatus, close: closeSSE } = useSSE({
     url: streamUrl,
     onMessage: handleSSEMessage,
     onComplete: handleSSEComplete,
@@ -394,6 +406,123 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       setLivePhases(buildPhases('Streaming'));
     }
   }, [sseStatus, sending]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On mount: detect and recover any in-flight task that was persisted before navigation
+  useEffect(() => {
+    const stored = localStorage.getItem('kubex-active-task');
+    if (!stored) return;
+
+    try {
+      const { taskId, capability: cap, startedAt } = JSON.parse(stored) as {
+        taskId: string;
+        capability: string;
+        message: string;
+        startedAt: string;
+      };
+
+      const age = Date.now() - new Date(startedAt).getTime();
+      const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+
+      activeTaskIdRef.current = taskId;
+      activeCapRef.current = cap;
+      setRecovering(true);
+
+      if (age < STALE_THRESHOLD) {
+        // Recent enough — try reconnecting the SSE stream
+        setSending(true);
+        setLivePhases(buildPhases('Connecting'));
+        setStreamUrl(getTaskStreamUrl(taskId));
+        setRecovering(false);
+      } else {
+        // Task is old — poll for a result rather than reconnecting SSE
+        setSending(true);
+        setLivePhases(buildPhases('Connecting'));
+        (async () => {
+          const rr = await getTaskResult(taskId);
+
+          if (!rr.ok) {
+            // Task ID not found or backend error (e.g. 404) — clear everything
+            localStorage.removeItem('kubex-active-task');
+            setSending(false);
+            setLivePhases([]);
+            setRecovering(false);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                role: 'error',
+                content: 'Could not reconnect to previous task. It may have completed or timed out.',
+                timestamp: new Date(),
+              } as ChatMessage,
+            ]);
+            return;
+          }
+
+          if (
+            rr.ok &&
+            rr.data &&
+            (rr.data.status === 'completed' || rr.data.status === 'failed' || rr.data.status === 'cancelled')
+          ) {
+            const resultText =
+              typeof rr.data.result === 'string'
+                ? rr.data.result
+                : rr.data.result !== undefined
+                ? JSON.stringify(rr.data.result, null, 2)
+                : JSON.stringify(rr.data, null, 2);
+
+            const isSuccess = rr.data.status === 'completed';
+            setLivePhases([]);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                role: isSuccess ? 'result' : 'error',
+                content: isSuccess ? resultText : `Task ${rr.data!.status}: ${resultText}`,
+                timestamp: new Date(),
+                task_id: taskId,
+                raw: rr.data,
+                phases: isSuccess ? buildPhasesCompleted() : buildPhasesFailed(),
+              } as ChatMessage,
+            ]);
+            localStorage.removeItem('kubex-active-task');
+            setSending(false);
+          } else {
+            // Still running — reconnect SSE and let it drive the result
+            setStreamUrl(getTaskStreamUrl(taskId));
+          }
+          setRecovering(false);
+        })();
+      }
+
+      // Recovery timeout: if sending is still true after 30s, force-clear everything
+      const recoveryTimeout = setTimeout(() => {
+        setSending((prev) => {
+          if (prev) {
+            localStorage.removeItem('kubex-active-task');
+            setStreamUrl(null);
+            setLivePhases([]);
+            setRecovering(false);
+            setTerminalLines([]);
+            setMessages((msgs) => [
+              ...msgs,
+              {
+                id: crypto.randomUUID(),
+                role: 'error',
+                content: 'Could not reconnect to previous task. It may have completed or timed out.',
+                timestamp: new Date(),
+              } as ChatMessage,
+            ]);
+          }
+          return false; // always clear sending
+        });
+      }, 30000);
+
+      return () => clearTimeout(recoveryTimeout);
+    } catch {
+      localStorage.removeItem('kubex-active-task');
+      setRecovering(false);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive spinner label from SSE status
   function sendingLabel(status: SSEStatus): string {
@@ -407,9 +536,9 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     const msg = message.trim();
     if (!msg || sending) return;
 
-    // Use explicitly chosen capability (from Advanced panel), or default to "orchestrate"
+    // Use explicitly chosen capability (from Advanced panel), or default to "task_orchestration"
     const capRaw = capability.trim();
-    const cap = capRaw || 'orchestrate';
+    const cap = capRaw || 'task_orchestration';
 
     // Validate capability only when one was explicitly provided
     if (capRaw) {
@@ -483,6 +612,12 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     activeTaskIdRef.current = taskId;
     activeCapRef.current = cap;
 
+    // Persist active task so we can recover after navigation
+    localStorage.setItem(
+      'kubex-active-task',
+      JSON.stringify({ taskId, capability: cap, message: msg, startedAt: new Date().toISOString() }),
+    );
+
     addMessage({
       role: 'system',
       content: `Task dispatched — ID: ${taskId}`,
@@ -512,6 +647,41 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       { text: `[You] ${input}`, stream: 'system', timestamp: new Date().toLocaleTimeString() },
     ]);
     await provideInput(taskId, input);
+  }
+
+  // Cancel the active in-flight task
+  async function handleCancel() {
+    const taskId = activeTaskIdRef.current;
+    if (!taskId || cancelling) return;
+    setCancelling(true);
+    // Null out activeTaskIdRef first so the SSE complete handler ignores any close event
+    activeTaskIdRef.current = null;
+    // Close the SSE stream immediately so the UI stops waiting for events
+    closeSSE();
+    // Eagerly clear sending state — do not wait for the network call
+    setStreamUrl(null);
+    setSending(false);
+    setLivePhases([]);
+    setTerminalLines([]);
+    setHitlRequest(null);
+    localStorage.removeItem('kubex-active-task');
+    const res = await cancelTask(taskId);
+    setCancelling(false);
+    if (res.ok) {
+      addMessage({
+        role: 'error',
+        content: `Task ${taskId} cancelled by user.`,
+        timestamp: new Date(),
+        task_id: taskId,
+      });
+    } else {
+      addMessage({
+        role: 'error',
+        content: `Cancel failed: ${res.error ?? `HTTP ${res.status}`}`,
+        timestamp: new Date(),
+        task_id: taskId,
+      });
+    }
   }
 
   // Retry a failed task: pre-fill the capability + message and re-dispatch
@@ -631,6 +801,79 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   }, [messages, chatSearch, chatRoleFilter, showSystemMessages]);
 
   const isStreaming = streamUrl !== null && (sseStatus === 'connecting' || sseStatus === 'open');
+
+  /**
+   * Group filteredMessages into conversation groups for visual dividers.
+   *
+   * Algorithm:
+   *  - A "conversation group" is anchored to a non-null task_id.
+   *  - When we encounter a message with a new task_id we open a new group and
+   *    look backwards to capture any immediately preceding user messages (which
+   *    don't carry a task_id yet) into the same group — this keeps the user
+   *    prompt visually paired with its response.
+   *  - Messages that have no task_id and do not sit immediately before a task
+   *    group (e.g. the welcome message) remain as singleton ungrouped entries.
+   *
+   * Each group entry:
+   *   { taskId: string | null, messages: ChatMessage[], isFirstTaskGroup: boolean }
+   *
+   * `isFirstTaskGroup` is true for the very first group that has a non-null
+   * taskId — used to suppress the top divider on that group.
+   */
+  const groupedMessages = useMemo(() => {
+    type Group = { taskId: string | null; messages: typeof filteredMessages };
+    const groups: Group[] = [];
+
+    // Build a mutable working copy so we can reassign user messages to task groups
+    const remaining = [...filteredMessages];
+
+    // First pass: collect which indices are "absorbed" into a task group
+    // by pairing them with the immediately following task-id messages.
+    // We process from back-to-front to identify user messages just before a task group.
+
+    // Simple forward pass: assign each message a "group key"
+    // The group key is the task_id of the nearest following grouped message, if the
+    // current message is a no-task_id user message immediately before that group.
+    const groupKeys: Array<string | null> = remaining.map((m) => m.task_id ?? null);
+
+    // Look-ahead: if a null-key message is immediately followed by a non-null key,
+    // and the null-key message has role === 'user', absorb it into the next task group.
+    for (let i = 0; i < groupKeys.length - 1; i++) {
+      if (groupKeys[i] === null && remaining[i].role === 'user' && groupKeys[i + 1] !== null) {
+        groupKeys[i] = groupKeys[i + 1];
+      }
+    }
+
+    // Second pass: collect into groups preserving order
+    for (let i = 0; i < remaining.length; i++) {
+      const key = groupKeys[i];
+      const msg = remaining[i];
+
+      if (key === null) {
+        // Ungrouped singleton
+        groups.push({ taskId: null, messages: [msg] });
+      } else {
+        // Append to last group if same key, else start new group
+        const last = groups[groups.length - 1];
+        if (last && last.taskId === key) {
+          last.messages.push(msg);
+        } else {
+          groups.push({ taskId: key, messages: [msg] });
+        }
+      }
+    }
+
+    return groups;
+  }, [filteredMessages]);
+
+  /**
+   * The index of the first task group (non-null taskId) in groupedMessages.
+   * Dividers are only shown on task groups that come AFTER this first one.
+   */
+  const firstTaskGroupIndex = useMemo(
+    () => groupedMessages.findIndex((g) => g.taskId !== null),
+    [groupedMessages],
+  );
 
   return (
     <div className="flex flex-col h-full animate-fade-in" style={{ maxHeight: 'calc(100vh - 48px)' }}>
@@ -813,9 +1056,41 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           onScroll={handleScrollContainer}
           className="h-full overflow-y-auto scrollbar-thin px-6 py-4 space-y-3"
         >
-        {filteredMessages.map((msg) => (
-          <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} />
-        ))}
+        {groupedMessages.map((group, groupIdx) =>
+          group.taskId === null ? (
+            // Ungrouped messages (e.g. welcome message) — no divider, no wrapper
+            group.messages.map((msg) => (
+              <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} searchQuery={chatSearch} />
+            ))
+          ) : (
+            // Task conversation group — wrapped with optional divider header
+            <div
+              key={group.taskId}
+              data-testid="task-group"
+              data-task-id={group.taskId}
+              className="space-y-3"
+            >
+              {/* Divider — only render between task groups (not before the first one) */}
+              {groupIdx > firstTaskGroupIndex && (
+                <div
+                  data-testid="task-group-divider"
+                  className="flex items-center gap-2 my-1"
+                  role="separator"
+                  aria-label={`Task group ${group.taskId}`}
+                >
+                  <div className="flex-1 h-px bg-[var(--color-border)]" />
+                  <span className="text-[10px] font-mono-data text-[var(--color-text-dim)] px-2 py-0.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] select-none whitespace-nowrap">
+                    {group.taskId}
+                  </span>
+                  <div className="flex-1 h-px bg-[var(--color-border)]" />
+                </div>
+              )}
+              {group.messages.map((msg) => (
+                <ChatBubble key={msg.id} message={msg} onRetry={handleRetry} disabled={sending} searchQuery={chatSearch} />
+              ))}
+            </div>
+          )
+        )}
 
         {/* Welcome empty state — shown when only the system welcome message exists and no filters are active */}
         {messages.length <= 1 && !isFiltering && (
@@ -876,6 +1151,17 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           </div>
         )}
 
+        {recovering && (
+          <div className="flex justify-start" data-testid="task-recovery-indicator">
+            <div className="rounded-2xl rounded-tl-sm bg-[var(--color-surface)] border border-amber-500/40 px-4 py-3">
+              <p className="text-[11px] text-amber-400 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                Reconnecting to task…
+              </p>
+            </div>
+          </div>
+        )}
+
         {sending && (
           <div className="flex justify-start" data-testid="typing-indicator">
             <div className="rounded-2xl rounded-tl-sm bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-3">
@@ -884,7 +1170,24 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
-              <p className="text-[10px] text-[var(--color-text-muted)] mt-1.5" data-testid="sending-label">{sendingLabel(sseStatus)}</p>
+              <div className="flex items-center justify-between mt-1.5">
+                <p className="text-[10px] text-[var(--color-text-muted)]" data-testid="sending-label">{sendingLabel(sseStatus)}</p>
+                <button
+                  data-testid="cancel-task-button"
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                  aria-label="Cancel active task"
+                  className="
+                    ml-3 px-2 py-0.5 rounded text-[10px] font-medium
+                    border border-red-500/50 text-red-400
+                    hover:bg-red-500/10 hover:border-red-400
+                    disabled:opacity-40 disabled:cursor-not-allowed
+                    transition-colors
+                  "
+                >
+                  {cancelling ? 'Cancelling…' : 'Cancel'}
+                </button>
+              </div>
               {livePhases.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-[var(--color-border)]">
                   <TaskTimeline
@@ -974,6 +1277,9 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               }));
               exportAsJSON(rows, `chat-history-${new Date().toISOString().slice(0, 10)}`);
             }}
+            onExportMarkdown={() => {
+              exportAsMarkdown(messages, `chat-history-${new Date().toISOString().slice(0, 10)}`);
+            }}
           />
         </div>
 
@@ -1024,7 +1330,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
                 }}
                 onKeyDown={handleKeyDown}
                 list="capabilities-list"
-                placeholder="e.g. orchestrate"
+                placeholder="e.g. task_orchestration"
                 disabled={sending}
                 className="
                   w-full px-3 py-2 rounded-lg text-sm font-mono-data
@@ -1481,6 +1787,98 @@ const MessageFeedback = memo(function MessageFeedback({ messageId }: { messageId
   );
 });
 
+// ── Search highlighting ────────────────────────────────────────────────
+
+/**
+ * Splits `text` into alternating plain and highlighted segments for a
+ * case-insensitive search query. Returns React nodes with `<mark>` wrapping
+ * each matched occurrence. Returns a plain string when query is empty.
+ */
+function highlightText(text: string, query: string): ReactNode {
+  if (!query.trim()) return text;
+
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+
+  if (parts.length === 1) return text;
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark
+            key={i}
+            data-testid="search-highlight"
+            style={{
+              background: 'rgba(251, 191, 36, 0.35)',
+              color: 'inherit',
+              borderRadius: '2px',
+              padding: '0 1px',
+            }}
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * A rehype plugin that walks text nodes in the HAST tree and wraps occurrences
+ * of `query` in `<mark>` elements. Used to highlight search matches inside
+ * ReactMarkdown-rendered result bubbles.
+ *
+ * Uses unist-util-visit (already a transitive dependency) to traverse the tree.
+ * Replaces matched text nodes with arrays of text + mark element nodes so the
+ * DOM receives real <mark> elements — no rehype-raw required.
+ */
+function createRehypeHighlightSearch(query: string): Plugin<[], Root> {
+  return () => (tree: Root) => {
+    if (!query.trim()) return;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+
+    visit(tree, 'text', (node: Text, index: number | undefined, parent) => {
+      // Skip code blocks — don't highlight inside syntax-highlighted code
+      if (
+        parent &&
+        'tagName' in parent &&
+        (parent as Element).tagName === 'code'
+      ) {
+        return;
+      }
+
+      const parts = node.value.split(regex);
+      if (parts.length === 1 || index === undefined || !parent || !('children' in parent)) return;
+
+      const newNodes: ElementContent[] = [];
+      for (const part of parts) {
+        regex.lastIndex = 0;
+        if (regex.test(part)) {
+          newNodes.push({
+            type: 'element',
+            tagName: 'mark',
+            properties: { 'data-testid': 'search-highlight' },
+            children: [{ type: 'text', value: part }],
+          } as Element);
+        } else if (part) {
+          newNodes.push({ type: 'text', value: part } as Text);
+        }
+      }
+
+      // Splice the replacement nodes into parent.children at index
+      (parent.children as ElementContent[]).splice(index, 1, ...newNodes);
+
+      // Skip the newly inserted nodes to avoid reprocessing
+      return [SKIP, index + newNodes.length];
+    });
+  };
+}
+
 // ── Chat bubble ───────────────────────────────────────────────────────
 
 /** Returns true if the text looks like raw JSON (starts with { or [) */
@@ -1502,10 +1900,12 @@ const ChatBubble = memo(function ChatBubble({
   message,
   onRetry,
   disabled,
+  searchQuery = '',
 }: {
   message: ChatMessage;
   onRetry?: (retryCapability: string | undefined, retryMessage: string | undefined) => void;
   disabled?: boolean;
+  searchQuery?: string;
 }) {
   const isUser = message.role === 'user';
   const isResult = message.role === 'result';
@@ -1520,7 +1920,7 @@ const ChatBubble = memo(function ChatBubble({
     return (
       <div className="flex justify-center" data-testid="system-message">
         <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-3 py-1">
-          {message.content}
+          {highlightText(message.content, searchQuery)}
         </span>
       </div>
     );
@@ -1535,7 +1935,7 @@ const ChatBubble = memo(function ChatBubble({
       <div className="flex justify-end">
         <div className="max-w-xl">
           <div className="rounded-2xl rounded-tr-sm bg-emerald-500/15 border border-emerald-500/25 px-4 py-2.5">
-            <p className="text-sm text-[var(--color-text)]">{message.content}</p>
+            <p className="text-sm text-[var(--color-text)]">{highlightText(message.content, searchQuery)}</p>
             {showBadge && (
               <span
                 data-testid="capability-badge"
@@ -1584,7 +1984,7 @@ const ChatBubble = memo(function ChatBubble({
                 </button>
               )}
             </div>
-            <p className="text-sm text-[var(--color-text)]">{message.content}</p>
+            <p className="text-sm text-[var(--color-text)]">{highlightText(message.content, searchQuery)}</p>
             {message.phases && message.phases.length > 0 && (
               <div className="mt-2 pt-2 border-t border-red-500/15">
                 <TaskTimeline phases={message.phases} data-testid="error-bubble-timeline" />
@@ -1658,7 +2058,7 @@ const ChatBubble = memo(function ChatBubble({
                 data-testid="json-content"
                 className="text-sm text-[var(--color-text)] whitespace-pre-wrap break-words font-mono-data"
               >
-                {message.content}
+                {highlightText(message.content, searchQuery)}
               </pre>
             ) : (
               <div
@@ -1672,7 +2072,7 @@ const ChatBubble = memo(function ChatBubble({
               >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeHighlight]}
+                  rehypePlugins={[rehypeHighlight, createRehypeHighlightSearch(searchQuery)]}
                   components={{
                     h1: ({ children }) => (
                       <h1 style={{ color: 'var(--color-text)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.5rem', marginTop: '0.75rem' }}>{children}</h1>

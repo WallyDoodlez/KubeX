@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-
-const REGISTRY = 'http://localhost:8070';
-const MANAGER = 'http://localhost:8090';
+import { mockBaseRoutes, MOCK_AGENTS, MOCK_KUBEXES } from './helpers';
 
 // ── Mock data ────────────────────────────────────────────────────────────────
+// Use a local extended set so these tests have the exact agents/kubexes they
+// rely on (specific IDs and statuses drive the selection-bar assertions).
 
 const mockAgents = [
   {
@@ -55,39 +55,11 @@ const mockKubexes = [
   },
 ];
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-async function mockAgentsRoute(
-  page: import('@playwright/test').Page,
-  data = mockAgents,
-) {
-  await page.route(`${REGISTRY}/agents`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(data),
-    }),
-  );
-}
-
-async function mockKubexesRoute(
-  page: import('@playwright/test').Page,
-  data = mockKubexes,
-) {
-  await page.route(`${MANAGER}/kubexes`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(data),
-    }),
-  );
-}
-
 // ── AgentsPanel: Selection tests ─────────────────────────────────────────────
 
 test.describe('Batch operations — Agents Panel', () => {
   test.beforeEach(async ({ page }) => {
-    await mockAgentsRoute(page);
+    await mockBaseRoutes(page, { agents: mockAgents, kubexes: mockKubexes });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
     // Wait for agent rows to load
@@ -189,7 +161,7 @@ test.describe('Batch operations — Agents Panel', () => {
 
 test.describe('Batch operations — Containers Panel', () => {
   test.beforeEach(async ({ page }) => {
-    await mockKubexesRoute(page);
+    await mockBaseRoutes(page, { agents: mockAgents, kubexes: mockKubexes });
     await page.goto('/containers');
     await expect(page.locator('header h1')).toHaveText('Containers');
     // Wait for kubex rows to load

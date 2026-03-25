@@ -3,7 +3,7 @@ import { usePolling } from '../hooks/usePolling';
 import { useTimeSeries } from '../hooks/useTimeSeries';
 import { useCollapsible } from '../hooks/useCollapsible';
 import { useFavorites } from '../hooks/useFavorites';
-import type { Agent, NavPage } from '../types';
+import type { Agent, Kubex, NavPage } from '../types';
 import { getAgents, getKubexes } from '../api';
 import { useAppContext } from '../context/AppContext';
 import ServiceCard from './ServiceCard';
@@ -14,6 +14,7 @@ import EmptyState from './EmptyState';
 import SystemStatusBanner from './SystemStatusBanner';
 import ActivityFeed from './ActivityFeed';
 import CollapsibleSection from './CollapsibleSection';
+import KubexStatusChart from './KubexStatusChart';
 
 const REFRESH_INTERVAL = 15_000; // Match global health check interval
 const AGENT_DISPLAY_LIMIT = 6;
@@ -26,6 +27,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   // Read service health and traffic log from context — health managed globally by useHealthCheck in Layout
   const { services, trafficLog } = useAppContext();
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [kubexes, setKubexes] = useState<Kubex[]>([]);
   const [kubexCount, setKubexCount] = useState<number | null>(null);
   const [loadingAgents, setLoadingAgents] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -52,6 +54,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const loadKubexes = useCallback(async () => {
     const res = await getKubexes();
     if (res.ok && Array.isArray(res.data)) {
+      setKubexes(res.data);
       setKubexCount(res.data.length);
       // kubexSeries.push is intentionally omitted from deps — same reason as agentSeries.push above.
       kubexSeries.push(res.data.length);
@@ -110,6 +113,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           sparklineValues={kubexSeries.values}
         />
       </div>
+
+      {/* Kubex status chart */}
+      <CollapsibleSection
+        sectionId="kubex-status"
+        title="Kubex Status"
+        subtitle={kubexCount === null ? 'Loading…' : `${kubexCount} kubexes total`}
+        action={{ label: 'View all →', onClick: () => onNavigate('containers') }}
+        collapsed={isCollapsed('kubex-status')}
+        onToggle={() => toggle('kubex-status')}
+      >
+        <KubexStatusChart kubexes={kubexes} />
+      </CollapsibleSection>
 
       {/* Service health grid */}
       <CollapsibleSection

@@ -210,9 +210,9 @@ test.describe('Settings Page', () => {
     await expect(about).toContainText('v1.1');
   });
 
-  test('About section shows Iteration 24 build info', async ({ page }) => {
+  test('About section shows Iteration 76 build info', async ({ page }) => {
     await page.goto('/settings');
-    await expect(page.getByTestId('settings-about')).toContainText('Iteration 24');
+    await expect(page.getByTestId('settings-about')).toContainText('Iteration 76');
   });
 
   // ── Reset section ─────────────────────────────────────────────────

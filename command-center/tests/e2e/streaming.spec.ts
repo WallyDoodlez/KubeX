@@ -95,7 +95,7 @@ test.describe('Streaming & Live Output', () => {
 
     await page.goto('/chat');
 
-    // Fill in message (capability defaults to "orchestrate")
+    // Fill in message (capability defaults to "task_orchestration")
     await page.locator('[data-testid="message-input"]').fill('hello world');
 
     // Dispatch the task — MSW will handle this

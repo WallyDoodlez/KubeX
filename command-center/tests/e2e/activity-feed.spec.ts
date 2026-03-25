@@ -185,3 +185,250 @@ test.describe('Dashboard activity feed', () => {
     ).toBeVisible();
   });
 });
+
+// ── Iteration 78: Activity Feed Improvements ─────────────────────────────────
+
+test.describe('Activity Feed — status filter tabs', () => {
+  const mixedEntries = [
+    { id: 'e1', timestamp: new Date().toISOString(), agent_id: 'agent-alpha', action: 'act1', status: 'allowed' },
+    { id: 'e2', timestamp: new Date().toISOString(), agent_id: 'agent-beta',  action: 'act2', status: 'denied'    },
+    { id: 'e3', timestamp: new Date().toISOString(), agent_id: 'agent-gamma', action: 'act3', status: 'escalated' },
+    { id: 'e4', timestamp: new Date().toISOString(), agent_id: 'agent-delta', action: 'act4', status: 'allowed'   },
+    { id: 'e5', timestamp: new Date().toISOString(), agent_id: 'agent-eps',   action: 'act5', status: 'pending'   },
+  ];
+
+  test.beforeEach(async ({ page }) => {
+    // Use addInitScript so localStorage is set before the page JS runs
+    await page.addInitScript((data) => {
+      localStorage.setItem('kubex-traffic-log', JSON.stringify(data));
+    }, mixedEntries);
+    await page.goto('/');
+    await expect(page.locator('header h1')).toHaveText('Dashboard');
+  });
+
+  test('filter tabs are rendered', async ({ page }) => {
+    await expect(page.getByTestId('activity-filter-tabs')).toBeVisible();
+    await expect(page.getByTestId('activity-filter-all')).toBeVisible();
+    await expect(page.getByTestId('activity-filter-allowed')).toBeVisible();
+    await expect(page.getByTestId('activity-filter-denied')).toBeVisible();
+    await expect(page.getByTestId('activity-filter-escalated')).toBeVisible();
+    await expect(page.getByTestId('activity-filter-pending')).toBeVisible();
+  });
+
+  test('"All" tab is active by default', async ({ page }) => {
+    const allTab = page.getByTestId('activity-filter-all');
+    await expect(allTab).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('all 5 rows show with "All" filter', async ({ page }) => {
+    const rows = page.locator('[data-testid="activity-feed-row"]');
+    await expect(rows).toHaveCount(5);
+  });
+
+  test('"Allowed" filter shows only allowed rows', async ({ page }) => {
+    await page.getByTestId('activity-filter-allowed').click();
+    const rows = page.locator('[data-testid="activity-feed-row"]');
+    await expect(rows).toHaveCount(2); // e1 and e4
+    for (let i = 0; i < 2; i++) {
+      await expect(rows.nth(i)).toContainText('allowed');
+    }
+  });
+
+  test('"Denied" filter shows only denied rows', async ({ page }) => {
+    await page.getByTestId('activity-filter-denied').click();
+    const rows = page.locator('[data-testid="activity-feed-row"]');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('agent-beta');
+  });
+
+  test('"Escalated" filter shows only escalated rows', async ({ page }) => {
+    await page.getByTestId('activity-filter-escalated').click();
+    const rows = page.locator('[data-testid="activity-feed-row"]');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('agent-gamma');
+  });
+
+  test('"Pending" filter shows only pending rows', async ({ page }) => {
+    await page.getByTestId('activity-filter-pending').click();
+    const rows = page.locator('[data-testid="activity-feed-row"]');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('agent-eps');
+  });
+
+  test('switching from filtered tab back to "All" restores all rows', async ({ page }) => {
+    await page.getByTestId('activity-filter-denied').click();
+    await expect(page.locator('[data-testid="activity-feed-row"]')).toHaveCount(1);
+
+    await page.getByTestId('activity-filter-all').click();
+    await expect(page.locator('[data-testid="activity-feed-row"]')).toHaveCount(5);
+  });
+
+  // Filtered empty state test lives as standalone below — see "filtered empty state shown
+  // when filter has no matching entries". Cannot be inside this describe because addInitScript
+  // from beforeEach would re-apply on reload, preventing an override seed.
+
+  test('active filter tab has aria-selected=true, others false', async ({ page }) => {
+    await page.getByTestId('activity-filter-denied').click();
+    await expect(page.getByTestId('activity-filter-denied')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('activity-filter-allowed')).toHaveAttribute('aria-selected', 'false');
+    await expect(page.getByTestId('activity-filter-all')).toHaveAttribute('aria-selected', 'false');
+  });
+});
+
+// Standalone: empty state on filtered view (no beforeEach initScript interference)
+test('filtered empty state shown when filter has no matching entries', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('kubex-traffic-log', JSON.stringify([
+      { id: 'x1', timestamp: new Date().toISOString(), agent_id: 'agent-x', action: 'act_x', status: 'allowed' },
+    ]));
+  });
+  await page.goto('/');
+  await expect(page.locator('header h1')).toHaveText('Dashboard');
+  await page.getByTestId('activity-filter-denied').click();
+  await expect(page.getByTestId('activity-feed-empty')).toBeVisible();
+  await expect(page.getByTestId('activity-feed-empty')).toContainText('denied');
+});
+
+test.describe('Activity Feed — show more / show less', () => {
+  test.beforeEach(async ({ page }) => {
+    // Seed 15 entries (more than default limit of 10)
+    const entries = Array.from({ length: 15 }, (_, i) => ({
+      id: `e${i}`,
+      timestamp: new Date(Date.now() - i * 1000).toISOString(),
+      agent_id: `agent-${i}`,
+      action: `action_${i}`,
+      status: 'allowed',
+    }));
+    await page.addInitScript((data) => {
+      localStorage.setItem('kubex-traffic-log', JSON.stringify(data));
+    }, entries);
+    await page.goto('/');
+    await expect(page.locator('header h1')).toHaveText('Dashboard');
+  });
+
+  test('"show more" button appears when entries exceed default limit', async ({ page }) => {
+    await expect(page.getByTestId('activity-feed-show-more')).toBeVisible();
+  });
+
+  test('clicking "show more" expands to show all entries', async ({ page }) => {
+    await expect(page.locator('[data-testid="activity-feed-row"]')).toHaveCount(10);
+    await page.getByTestId('activity-feed-show-more').click();
+    await expect(page.locator('[data-testid="activity-feed-row"]')).toHaveCount(15);
+  });
+
+  test('"show less" button appears after expanding', async ({ page }) => {
+    await page.getByTestId('activity-feed-show-more').click();
+    await expect(page.getByTestId('activity-feed-show-less')).toBeVisible();
+  });
+
+  test('clicking "show less" collapses back to default limit', async ({ page }) => {
+    await page.getByTestId('activity-feed-show-more').click();
+    await expect(page.locator('[data-testid="activity-feed-row"]')).toHaveCount(15);
+    await page.getByTestId('activity-feed-show-less').click();
+    await expect(page.locator('[data-testid="activity-feed-row"]')).toHaveCount(10);
+  });
+
+  test('"show more" does not appear when entries are within default limit', async ({ page }) => {
+    // Override localStorage on the already-loaded page and reload so the app reads fewer entries
+    await page.evaluate(() => {
+      const data = Array.from({ length: 5 }, (_, i) => ({
+        id: `sm${i}`,
+        timestamp: new Date().toISOString(),
+        agent_id: `agent-${i}`,
+        action: `action_${i}`,
+        status: 'allowed',
+      }));
+      localStorage.setItem('kubex-traffic-log', JSON.stringify(data));
+    });
+    await page.reload();
+    await expect(page.locator('header h1')).toHaveText('Dashboard');
+    await expect(page.getByTestId('activity-feed-show-more')).not.toBeVisible();
+  });
+
+  test('switching filter tab resets expanded state', async ({ page }) => {
+    await page.getByTestId('activity-feed-show-more').click();
+    await expect(page.locator('[data-testid="activity-feed-row"]')).toHaveCount(15);
+
+    // Switch to denied filter (no denied entries), then back to all
+    await page.getByTestId('activity-filter-allowed').click();
+    // All 15 are allowed, but now expanded is reset — should show 10 again
+    await expect(page.locator('[data-testid="activity-feed-row"]')).toHaveCount(10);
+  });
+});
+
+test.describe('Activity Feed — agent click-through', () => {
+  test.beforeEach(async ({ page }) => {
+    const entries = [
+      {
+        id: 'nav1',
+        timestamp: new Date().toISOString(),
+        agent_id: 'agent-nav-test',
+        action: 'test_action',
+        status: 'allowed',
+      },
+    ];
+    await page.addInitScript((data) => {
+      localStorage.setItem('kubex-traffic-log', JSON.stringify(data));
+    }, entries);
+    await page.goto('/');
+    await expect(page.locator('header h1')).toHaveText('Dashboard');
+  });
+
+  test('agent_id in row is rendered as a button', async ({ page }) => {
+    await expect(page.getByTestId('activity-row-agent-link').first()).toBeVisible();
+  });
+
+  test('agent_id button has aria-label describing navigation', async ({ page }) => {
+    const agentLink = page.getByTestId('activity-row-agent-link').first();
+    const label = await agentLink.getAttribute('aria-label');
+    expect(label).toContain('agent-nav-test');
+  });
+
+  test('clicking agent_id navigates to agent detail page', async ({ page }) => {
+    await page.getByTestId('activity-row-agent-link').first().click();
+    // Should navigate to /agents/agent-nav-test
+    await expect(page).toHaveURL(/\/agents\/agent-nav-test/);
+  });
+});
+
+test.describe('Activity Feed — task ID display', () => {
+  test('task_id is shown in row when present', async ({ page }) => {
+    const entries = [
+      {
+        id: 'tid1',
+        timestamp: new Date().toISOString(),
+        agent_id: 'agent-alpha-001',
+        action: 'some_action',
+        status: 'allowed',
+        task_id: 'task-abc-123',
+      },
+    ];
+    await page.addInitScript((data) => {
+      localStorage.setItem('kubex-traffic-log', JSON.stringify(data));
+    }, entries);
+    await page.goto('/');
+    await expect(page.locator('header h1')).toHaveText('Dashboard');
+
+    const taskIdEl = page.getByTestId('activity-row-task-id').first();
+    await expect(taskIdEl).toBeVisible();
+    await expect(taskIdEl).toContainText('task-abc-123');
+  });
+
+  test('task_id element is absent when task_id is not present', async ({ page }) => {
+    const entries = [
+      {
+        id: 'notid1',
+        timestamp: new Date().toISOString(),
+        agent_id: 'agent-alpha-001',
+        action: 'some_action',
+        status: 'allowed',
+      },
+    ];
+    await page.addInitScript((data) => {
+      localStorage.setItem('kubex-traffic-log', JSON.stringify(data));
+    }, entries);
+    await page.goto('/');
+    await expect(page.locator('header h1')).toHaveText('Dashboard');
+    await expect(page.getByTestId('activity-row-task-id')).not.toBeVisible();
+  });
+});

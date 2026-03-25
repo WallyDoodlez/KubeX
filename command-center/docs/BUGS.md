@@ -16,14 +16,62 @@
 - **P2** — feature partially broken, workaround exists
 - **P3** — cosmetic, minor UX annoyance
 
+## Open Bugs
+
+### BUG-006: Tasks dispatch but never complete — Redis disconnected
+- **Severity:** P0 — entire task pipeline is broken, no tasks can be processed
+- **Status:** OPEN (BLOCKED — backend/infrastructure issue, FE cannot fix)
+- **Found:** 2026-03-25
+- **Component:** Backend — Gateway / Broker / Redis
+- **Description:** Tasks dispatch successfully (HTTP 200 from `POST /actions`) but never reach agents. The SSE stream connects but receives no progress events. Tasks hang forever at "Connecting..." state. The Command Center is unusable for dispatching any work.
+- **Root cause:** Gateway health endpoint reports `"redis": {"connected": false}`. The Broker relies on Redis pub/sub to route tasks from the Gateway to agents. With Redis down, published tasks go nowhere. Agents are registered and polling but never receive work.
+- **Discovery:** Found via live E2E test (`E2E_MODE=live`) — `dispatch-response.spec.ts` test 1 dispatched to capability `task_orchestration` (orchestrator agent is registered and running) but no result bubble appeared within 30s timeout. Page snapshot confirmed task was dispatched (real task ID assigned) and SSE connected, but stuck at "Connecting..." with "Waiting for output..."
+- **Evidence:**
+  ```
+  GET http://localhost:8080/health
+  → {"service":"gateway","version":"0.1.0","status":"healthy","uptime_seconds":85743.9,"redis":{"connected":false}}
+
+  GET http://localhost:8070/agents
+  → orchestrator: ['task_orchestration', 'task_management'] (running)  ← agent is registered and healthy
+  ```
+- **Fix needed:** Restore Redis connectivity. Check if the Redis container is running (`docker ps | grep redis`). If down, restart it. If running, check network/auth configuration between Gateway and Redis.
+- **Workaround:** None — all task dispatch is broken until Redis is restored.
+- **Impact:** All users of the Command Center. No tasks can be dispatched, cancelled, or streamed.
+
 ---
 
-## Open Bugs
+## Fixed Bugs
+
+### BUG-005: Task recovery can permanently lock chat input
+- **Severity:** P1
+- **Status:** FIXED
+- **Found:** 2026-03-24
+- **Fixed:** 2026-03-24
+- **Component:** `src/components/OrchestratorChat.tsx`
+- **Description:** The BUG-004 fix persists `kubex-active-task` to localStorage on dispatch. On remount, the recovery logic sets `sending=true` and attempts to reconnect SSE or poll for the result. If the backend is unreachable, the SSE stream fails, or the task result is in a non-terminal state, `sending` stays `true` forever — the textarea is disabled and the user cannot type.
+- **Root cause:** No timeout on the recovery path. If SSE reconnection fails silently (e.g., backend down, CORS error, task ID no longer valid), `handleSSEComplete` fallback may not fire or may also fail, leaving `sending=true` permanently.
+- **Fix:**
+  1. **Recovery timeout (30s):** The recovery `useEffect` now sets a `setTimeout` of 30 seconds. If `sending` is still `true` after the timeout (no result arrived), the timeout forcibly clears `kubex-active-task`, `streamUrl`, `livePhases`, `terminalLines`, sets `sending=false`, and surfaces an error bubble: "Could not reconnect to previous task."
+  2. **Invalid/expired task ID (404):** In the stale-task poll path, if `getTaskResult` returns `!rr.ok` (e.g., 404 Task Not Found), everything is cleared immediately (no attempt to reconnect SSE) and an error bubble is shown.
+  3. **SSE exhaustion:** `handleSSEComplete` already clears `kubex-active-task` when retries exhaust (unchanged from BUG-004).
+- **Fixed in:** 38dc2ba
+
+### BUG-004: Pending task state lost on navigation
+- **Severity:** P2
+- **Status:** FIXED
+- **Found:** 2026-03-24
+- **Fixed:** 2026-03-24
+- **Component:** `src/components/OrchestratorChat.tsx`
+- **Description:** When a task is in-flight (streaming/pending), navigating away from the chat page and coming back loses all pending state — the typing indicator, SSE connection, and task tracking disappear.
+- **Root cause:** `sending`, `streamUrl`, `activeTaskIdRef`, `terminalLines`, and the SSE connection are all ephemeral React state/refs. Component unmount kills the SSE EventSource and clears all state. On remount there is no record of the in-flight task.
+- **Fix:** Persist active task context (`taskId`, `capability`, `message`, `startedAt`) to `kubex-active-task` in localStorage on dispatch. On component mount, check for a stored task. If younger than 5 minutes, reconnect the SSE stream; if older, poll `getTaskResult` for a completed result and fall back to SSE if still running. Clear `kubex-active-task` on every terminal event (result/completed/failed/cancelled) in `handleSSEMessage` and `handleSSEComplete`. Added `[data-testid="task-recovery-indicator"]` element shown while reconnecting.
+- **Fixed in:** b7d4560
 
 ### BUG-003: OrchestratorChat dispatches to wrong capability name
 - **Severity:** P1
-- **Status:** OPEN
+- **Status:** FIXED
 - **Found:** 2026-03-24
+- **Fixed:** 2026-03-24
 - **Component:** `src/components/OrchestratorChat.tsx`
 - **Description:** Messages sent from the orchestrator chat dispatch to capability `orchestrate`, but the orchestrator agent listens on `task_orchestration`. Tasks are published to the Broker under the wrong stream key and never consumed. The chat shows "Streaming..." indefinitely.
 - **Root cause:** `OrchestratorChat.tsx` uses `orchestrate` as the default/fallback capability (see `retryCapability` logic), but the orchestrator agent registers with capabilities `['task_orchestration', 'task_management']`. The Broker publishes to a stream keyed by the capability name, so the message lands in `orchestrate` (which nobody reads) instead of `task_orchestration`.
@@ -33,12 +81,7 @@
   3. Observe: "Streaming..." forever
   4. Check Broker logs: `capability: "orchestrate"` published
   5. Check orchestrator logs: polling `task_orchestration` — never picks up the task
-- **Fix needed:** Change the default capability in `OrchestratorChat.tsx` from `orchestrate` to `task_orchestration`
-- **Workaround:** Manually type `task_orchestration` in the capability field before sending
-
----
-
-## Fixed Bugs
+- **Fix:** Changed default capability in `OrchestratorChat.tsx` from `"orchestrate"` to `"task_orchestration"` in `handleSend`, `retryCapability` guards (×2), and the Advanced panel placeholder. Updated corresponding E2E test helpers and comments across 7 test files.
 
 ### BUG-001: OrchestratorChat shows no response after task dispatch
 - **Severity:** P1

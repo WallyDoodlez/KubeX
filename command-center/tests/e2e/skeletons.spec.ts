@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, isLiveMode, REGISTRY, MANAGER } from './helpers';
 
 /**
  * Skeleton + EmptyState Integration Tests
@@ -8,9 +9,6 @@ import { test, expect } from '@playwright/test';
  * 2. Skeletons disappear and real content renders after responses arrive
  * 3. Shared EmptyState renders correctly when APIs return empty arrays
  */
-
-const REGISTRY = 'http://localhost:8070';
-const MANAGER = 'http://localhost:8090';
 
 // Helper: delay a route response by `ms` milliseconds
 async function delayRoute(
@@ -33,7 +31,10 @@ async function delayRoute(
 
 test.describe('AgentsPanel — skeleton + empty state', () => {
   test('shows SkeletonTable (aria-busy) while agents load', async ({ page }) => {
-    // Delay the agents response so we can observe the skeleton
+    test.skip(isLiveMode, 'Skeleton visibility requires controlled loading delay via mock');
+    // Delay the agents response so we can observe the skeleton.
+    // Kubexes still need to be mocked so the page renders without errors.
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await delayRoute(page, `${REGISTRY}/agents`, [], 500);
 
     await page.goto('/agents');
@@ -44,6 +45,7 @@ test.describe('AgentsPanel — skeleton + empty state', () => {
   });
 
   test('skeleton disappears after agents response arrives', async ({ page }) => {
+    test.skip(isLiveMode, 'Skeleton visibility requires controlled loading delay via mock');
     const mockAgents = [
       {
         agent_id: 'agent-skel-001',
@@ -55,6 +57,7 @@ test.describe('AgentsPanel — skeleton + empty state', () => {
       },
     ];
 
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await page.route(`${REGISTRY}/agents`, async (route) => {
       await new Promise((r) => setTimeout(r, 300));
       await route.fulfill({
@@ -75,9 +78,7 @@ test.describe('AgentsPanel — skeleton + empty state', () => {
   });
 
   test('shows EmptyState when agents array is empty', async ({ page }) => {
-    await page.route(`${REGISTRY}/agents`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-    );
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
     await page.goto('/agents');
 
@@ -90,6 +91,8 @@ test.describe('AgentsPanel — skeleton + empty state', () => {
 
 test.describe('ContainersPanel — skeleton + empty state', () => {
   test('shows SkeletonTable (aria-busy) while kubexes load', async ({ page }) => {
+    test.skip(isLiveMode, 'Skeleton visibility requires controlled loading delay via mock');
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await delayRoute(page, `${MANAGER}/kubexes`, [], 500);
 
     await page.goto('/containers');
@@ -99,6 +102,7 @@ test.describe('ContainersPanel — skeleton + empty state', () => {
   });
 
   test('skeleton disappears after kubexes response arrives', async ({ page }) => {
+    test.skip(isLiveMode, 'Skeleton visibility requires controlled loading delay via mock');
     const mockKubexes = [
       {
         kubex_id: 'kubex-skel-test',
@@ -112,6 +116,7 @@ test.describe('ContainersPanel — skeleton + empty state', () => {
       },
     ];
 
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await page.route(`${MANAGER}/kubexes`, async (route) => {
       await new Promise((r) => setTimeout(r, 300));
       await route.fulfill({
@@ -128,9 +133,7 @@ test.describe('ContainersPanel — skeleton + empty state', () => {
   });
 
   test('shows EmptyState when kubexes array is empty', async ({ page }) => {
-    await page.route(`${MANAGER}/kubexes`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-    );
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
     await page.goto('/containers');
 
@@ -143,6 +146,8 @@ test.describe('ContainersPanel — skeleton + empty state', () => {
 
 test.describe('AgentDetailPage — skeleton + empty state', () => {
   test('shows SkeletonCard + SkeletonText (aria-busy) while agent loads', async ({ page }) => {
+    test.skip(isLiveMode, 'Skeleton visibility requires controlled loading delay via mock');
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await delayRoute(page, `${REGISTRY}/agents`, [], 500);
 
     await page.goto('/agents/test-agent-loading');
@@ -153,9 +158,7 @@ test.describe('AgentDetailPage — skeleton + empty state', () => {
   });
 
   test('shows EmptyState with back action when agent not found', async ({ page }) => {
-    await page.route(`${REGISTRY}/agents`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-    );
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
     await page.goto('/agents/nonexistent-agent');
 
@@ -165,9 +168,7 @@ test.describe('AgentDetailPage — skeleton + empty state', () => {
   });
 
   test('EmptyState back button navigates to /agents', async ({ page }) => {
-    await page.route(`${REGISTRY}/agents`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-    );
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
     await page.goto('/agents/nonexistent-agent');
 
@@ -180,6 +181,7 @@ test.describe('AgentDetailPage — skeleton + empty state', () => {
 
 test.describe('ApprovalQueue — skeleton + empty state', () => {
   test('shows EmptyState when no approvals exist', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/approvals');
 
     // After loading resolves, empty state should appear
@@ -190,6 +192,7 @@ test.describe('ApprovalQueue — skeleton + empty state', () => {
   });
 
   test('approval queue page renders without error', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/approvals');
     await expect(page.getByRole('heading', { name: 'Approval Queue' })).toBeVisible();
     await expect(page.locator('main')).toBeVisible();
@@ -200,6 +203,8 @@ test.describe('ApprovalQueue — skeleton + empty state', () => {
 
 test.describe('Dashboard — skeleton + empty state', () => {
   test('shows SkeletonCard grid (aria-busy) while agents load', async ({ page }) => {
+    test.skip(isLiveMode, 'Skeleton visibility requires controlled loading delay via mock');
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await delayRoute(page, `${REGISTRY}/agents`, [], 600);
 
     await page.goto('/');
@@ -210,9 +215,7 @@ test.describe('Dashboard — skeleton + empty state', () => {
   });
 
   test('shows EmptyState when agents array is empty', async ({ page }) => {
-    await page.route(`${REGISTRY}/agents`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-    );
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
     await page.goto('/');
 
@@ -220,6 +223,7 @@ test.describe('Dashboard — skeleton + empty state', () => {
   });
 
   test('skeleton cards disappear once agents load', async ({ page }) => {
+    test.skip(isLiveMode, 'Skeleton visibility requires controlled loading delay via mock');
     const mockAgents = [
       {
         agent_id: 'dash-agent-001',
@@ -231,6 +235,7 @@ test.describe('Dashboard — skeleton + empty state', () => {
       },
     ];
 
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await page.route(`${REGISTRY}/agents`, async (route) => {
       await new Promise((r) => setTimeout(r, 300));
       await route.fulfill({

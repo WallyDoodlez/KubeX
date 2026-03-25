@@ -22,32 +22,13 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, GATEWAY, isLiveMode } from './helpers';
 
-const GATEWAY = 'http://localhost:8080';
 const CHAT_MESSAGES_KEY = 'kubex-chat-messages';
-
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
 
 /** Navigate to /chat with a fresh empty chat (only the welcome system message). */
 async function goToFreshChat(page: import('@playwright/test').Page) {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   // Remove any stored chat messages so the app starts with only the welcome message
   await page.addInitScript((key: string) => {
     localStorage.removeItem(key);
@@ -115,7 +96,7 @@ test('clicking "Deploy a service" fills the message textarea', async ({ page }) 
 });
 
 test('welcome disappears after messages are added', async ({ page }) => {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   // Pre-seed localStorage with a user message so messages.length > 1
   const welcomeMsg = {
     id: 'welcome',
@@ -173,7 +154,8 @@ test('typing indicator is absent (not in DOM) when not sending', async ({ page }
 });
 
 test('typing indicator has three dot spans when sending', async ({ page }) => {
-  await setupRoutes(page);
+  test.skip(isLiveMode, 'Requires slow-dispatch mock to observe transient typing indicator state');
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   // Mock a slow dispatch that keeps sending=true long enough to check the indicator
   await page.route(`${GATEWAY}/actions`, async (route) => {
     // Delay response briefly so we can catch the indicator
@@ -212,7 +194,8 @@ test('typing indicator has three dot spans when sending', async ({ page }) => {
 });
 
 test('sending label is present inside typing indicator when sending', async ({ page }) => {
-  await setupRoutes(page);
+  test.skip(isLiveMode, 'Requires slow-dispatch mock to observe transient typing indicator state');
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.route(`${GATEWAY}/actions`, async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     route.fulfill({

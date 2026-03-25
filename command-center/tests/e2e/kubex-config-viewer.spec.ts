@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const MANAGER = 'http://localhost:8090';
+import { mockBaseRoutes, isLiveMode, MANAGER } from './helpers';
 
 // ── Test fixtures ────────────────────────────────────────────────────
 
@@ -43,13 +42,7 @@ const configResponseNoAgent = {
 
 /** Mock the kubex list endpoint. */
 async function mockKubexList(page: import('@playwright/test').Page, data = [kubex]) {
-  await page.route(`${MANAGER}/kubexes`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(data),
-    }),
-  );
+  await mockBaseRoutes(page, { kubexes: data });
 }
 
 /** Mock the config endpoint for a specific kubex. */
@@ -212,6 +205,7 @@ test.describe('Kubex Config Viewer', () => {
   });
 
   test('config panel shows error when manager returns 404', async ({ page }) => {
+    test.skip(isLiveMode, 'Error-simulation test only runs in mock mode');
     await mockKubexList(page);
     await mockKubexConfig(page, kubex.kubex_id, { error: 'KubexNotFound', message: 'Kubex not found' }, 404);
     await page.goto('/containers');

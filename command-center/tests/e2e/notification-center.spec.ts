@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, isLiveMode } from './helpers';
 
 /**
  * Iteration 23: Notification Center
@@ -9,10 +10,8 @@ import { test, expect } from '@playwright/test';
 
 /** Helper: intercept the kill-all API call to return success, open the dialog, and confirm. */
 async function fireKillAllToast(page: import('@playwright/test').Page) {
-  // Intercept relevant Manager API calls so the toast always fires as 'success'
-  await page.route('**/kubexes', (route) => {
-    route.fulfill({ status: 200, body: JSON.stringify([]) });
-  });
+  // Intercept relevant Manager API calls so the toast always fires as 'success'.
+  // kubexes GET is already handled by mockBaseRoutes; we only need the kill-all POST.
   await page.route('**/kubexes/kill-all', async (route) => {
     await route.fulfill({ status: 200, body: JSON.stringify({ status: 'ok', message: 'All kubexes killed' }) });
   });
@@ -27,6 +26,7 @@ async function fireKillAllToast(page: import('@playwright/test').Page) {
 test.describe('Notification Center', () => {
 
   test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
   });
 
@@ -108,6 +108,7 @@ test.describe('Notification Center', () => {
   // ── Toast mirroring ───────────────────────────────────────────────────
 
   test('firing a toast adds an entry to notification history', async ({ page }) => {
+    test.skip(isLiveMode, 'Requires mock kill-all endpoint to guarantee toast firing');
     await fireKillAllToast(page);
     // Now open notification center
     await page.getByTestId('notification-bell').click();
@@ -116,6 +117,7 @@ test.describe('Notification Center', () => {
   });
 
   test('notification item shows the same message as the toast', async ({ page }) => {
+    test.skip(isLiveMode, 'Requires mock kill-all endpoint to guarantee toast firing');
     await fireKillAllToast(page);
     await page.getByTestId('notification-bell').click();
     const item = page.getByTestId('notification-item').first();
@@ -123,12 +125,14 @@ test.describe('Notification Center', () => {
   });
 
   test('unread badge appears after a toast fires', async ({ page }) => {
+    test.skip(isLiveMode, 'Requires mock kill-all endpoint to guarantee toast firing');
     await fireKillAllToast(page);
     // Badge should now be visible (we haven't opened the dropdown yet)
     await expect(page.getByTestId('notification-badge')).toBeVisible();
   });
 
   test('bell aria-label updates to include unread count after a notification', async ({ page }) => {
+    test.skip(isLiveMode, 'Requires mock kill-all endpoint to guarantee toast firing');
     await fireKillAllToast(page);
     const bell = page.getByTestId('notification-bell');
     await expect(bell).toHaveAttribute('aria-label', 'Notifications — 1 unread');
@@ -137,6 +141,7 @@ test.describe('Notification Center', () => {
   // ── Unread → read flow ────────────────────────────────────────────────
 
   test('mark all read button removes the unread badge', async ({ page }) => {
+    test.skip(isLiveMode, 'Requires mock kill-all endpoint to guarantee toast firing');
     await fireKillAllToast(page);
     // Open dropdown — auto-markAllRead fires after 300ms
     await page.getByTestId('notification-bell').click();
@@ -146,6 +151,7 @@ test.describe('Notification Center', () => {
   });
 
   test('notification item is marked as read after mark-all-read', async ({ page }) => {
+    test.skip(isLiveMode, 'Requires mock kill-all endpoint to guarantee toast firing');
     await fireKillAllToast(page);
     await page.getByTestId('notification-bell').click();
     await page.getByTestId('notification-mark-all-read').click();
@@ -156,6 +162,7 @@ test.describe('Notification Center', () => {
   // ── Clear all ─────────────────────────────────────────────────────────
 
   test('clear all removes all notifications from the list', async ({ page }) => {
+    test.skip(isLiveMode, 'Requires mock kill-all endpoint to guarantee toast firing');
     await fireKillAllToast(page);
     await page.getByTestId('notification-bell').click();
     await expect(page.getByTestId('notification-item')).toHaveCount(1);
@@ -165,6 +172,7 @@ test.describe('Notification Center', () => {
   });
 
   test('clear all also clears the unread badge', async ({ page }) => {
+    test.skip(isLiveMode, 'Requires mock kill-all endpoint to guarantee toast firing');
     await fireKillAllToast(page);
     await page.getByTestId('notification-bell').click();
     await page.getByTestId('notification-clear-all').click();

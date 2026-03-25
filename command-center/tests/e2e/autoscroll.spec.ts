@@ -21,31 +21,13 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes } from './helpers';
 
 const CHAT_MESSAGES_KEY = 'kubex-chat-messages';
 
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
-
 /** Navigate to /chat with a fresh empty chat. */
 async function goToFreshChat(page: import('@playwright/test').Page) {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.addInitScript((key: string) => {
     localStorage.removeItem(key);
   }, CHAT_MESSAGES_KEY);
@@ -55,7 +37,7 @@ async function goToFreshChat(page: import('@playwright/test').Page) {
 
 /** Inject multiple chat messages into localStorage so the chat container can overflow. */
 async function goToChatWithManyMessages(page: import('@playwright/test').Page) {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.addInitScript((key: string) => {
     const messages = [];
     for (let i = 0; i < 30; i++) {

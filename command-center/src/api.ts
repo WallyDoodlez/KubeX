@@ -1,13 +1,18 @@
 import type {
   Agent,
+  AgentRegistrationBody,
   AuditResponse,
   CreateKubexBody,
   CreateKubexResponse,
   HealthResponse,
+  InjectCredentialBody,
+  InjectCredentialResponse,
   InstallDepBody,
   InstallDepResponse,
   Kubex,
   KubexConfigResponse,
+  SkillCheckRequest,
+  SkillCheckResponse,
   TaskRequest,
   TaskResponse,
   TaskResult,
@@ -149,8 +154,19 @@ export async function getAgentsByCapability(cap: string): Promise<FetchResult<Ag
   return apiFetch<Agent[]>('GET', `${REGISTRY}/capabilities/${encodeURIComponent(cap)}`);
 }
 
+export async function registerAgent(body: AgentRegistrationBody): Promise<FetchResult<Agent>> {
+  return apiFetch<Agent>('POST', `${REGISTRY}/agents`, body);
+}
+
 export async function deregisterAgent(agentId: string): Promise<FetchResult<unknown>> {
   return apiFetch<unknown>('DELETE', `${REGISTRY}/agents/${encodeURIComponent(agentId)}`);
+}
+
+export async function updateAgentStatus(
+  agentId: string,
+  status: 'running' | 'stopped' | 'busy' | 'unknown',
+): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>('PATCH', `${REGISTRY}/agents/${encodeURIComponent(agentId)}/status`, { status });
 }
 
 // ── Kubexes (Manager) ────────────────────────────────────────────────
@@ -251,6 +267,27 @@ export async function installKubexDep(
   );
 }
 
+export async function deleteKubex(kubexId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>(
+    'DELETE',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}`,
+    undefined,
+    managerHeaders(),
+  );
+}
+
+export async function injectKubexCredentials(
+  kubexId: string,
+  body: InjectCredentialBody,
+): Promise<FetchResult<InjectCredentialResponse>> {
+  return apiFetch<InjectCredentialResponse>(
+    'POST',
+    `${MANAGER}/kubexes/${encodeURIComponent(kubexId)}/credentials`,
+    body,
+    managerHeaders(),
+  );
+}
+
 // ── Tasks (Gateway) ──────────────────────────────────────────────────
 
 export async function dispatchTask(
@@ -295,6 +332,15 @@ export function getTaskStreamUrl(taskId: string): string {
   return `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/stream`;
 }
 
+export function getAgentLifecycleStreamUrl(agentId: string): string {
+  return `${GATEWAY}/agents/${encodeURIComponent(agentId)}/lifecycle`;
+}
+
+export function getAgentLifecycleAuthHeader(): string {
+  const token = getAccessToken() || MANAGER_TOKEN;
+  return token ? `Bearer ${token}` : '';
+}
+
 // ── HITL (Human-in-the-loop) ────────────────────────────────────────
 
 export async function provideInput(
@@ -302,6 +348,10 @@ export async function provideInput(
   input: string,
 ): Promise<FetchResult<unknown>> {
   return apiFetch<unknown>('POST', `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/input`, { input });
+}
+
+export async function cancelTask(taskId: string): Promise<FetchResult<unknown>> {
+  return apiFetch<unknown>('POST', `${GATEWAY}/tasks/${encodeURIComponent(taskId)}/cancel`);
 }
 
 // ── Escalations / Approvals ─────────────────────────────────────────
@@ -319,4 +369,12 @@ export async function resolveEscalation(
     decision,
     reason,
   });
+}
+
+// ── Policy ────────────────────────────────────────────────────────────
+
+export async function checkSkillPolicy(
+  body: SkillCheckRequest,
+): Promise<FetchResult<SkillCheckResponse>> {
+  return apiFetch<SkillCheckResponse>('POST', `${GATEWAY}/policy/skill-check`, body);
 }

@@ -16,55 +16,10 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { isLiveMode, GATEWAY, mockBaseRoutes, mockTaskAudit } from './helpers';
 
 const CHAT_MESSAGES_KEY = 'kubex-chat-messages';
-const GATEWAY = 'http://localhost:8080';
 const TASK_ID = 'audit-task-52';
-
-async function setupBaseRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
-
-/** Seed audit endpoint with sample entries */
-async function setupAuditSuccess(
-  page: import('@playwright/test').Page,
-  taskId: string,
-  entries: unknown[] = [],
-) {
-  await page.route(`${GATEWAY}/tasks/${taskId}/audit`, (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ task_id: taskId, entries }),
-    });
-  });
-}
-
-/** Seed audit endpoint to return a 503 error */
-async function setupAuditFailure(page: import('@playwright/test').Page, taskId: string) {
-  await page.route(`${GATEWAY}/tasks/${taskId}/audit`, (route) => {
-    route.fulfill({
-      status: 503,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'Redis unavailable' }),
-    });
-  });
-}
 
 async function goToChatWithMessages(
   page: import('@playwright/test').Page,
@@ -123,8 +78,8 @@ const SAMPLE_ENTRIES = [
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 test('1. audit trail toggle is visible on result bubble with task_id', async ({ page }) => {
-  await setupBaseRoutes(page);
-  await setupAuditSuccess(page, TASK_ID, SAMPLE_ENTRIES);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
+  await mockTaskAudit(page, TASK_ID, SAMPLE_ENTRIES);
   await goToChatWithMessages(page, [
     makeResultMessage('r1', 'Task result content', TASK_ID),
   ]);
@@ -132,7 +87,7 @@ test('1. audit trail toggle is visible on result bubble with task_id', async ({ 
 });
 
 test('2. audit trail toggle is NOT visible on result bubble without task_id', async ({ page }) => {
-  await setupBaseRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await goToChatWithMessages(page, [
     makeResultMessage('r1', 'Task result content'),
   ]);
@@ -140,8 +95,8 @@ test('2. audit trail toggle is NOT visible on result bubble without task_id', as
 });
 
 test('3. audit trail toggle is visible on error bubble with task_id', async ({ page }) => {
-  await setupBaseRoutes(page);
-  await setupAuditSuccess(page, TASK_ID, SAMPLE_ENTRIES);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
+  await mockTaskAudit(page, TASK_ID, SAMPLE_ENTRIES);
   await goToChatWithMessages(page, [
     makeErrorMessage('e1', 'Task failed: some error', TASK_ID),
   ]);
@@ -149,8 +104,8 @@ test('3. audit trail toggle is visible on error bubble with task_id', async ({ p
 });
 
 test('4. clicking toggle expands audit-trail-entries panel', async ({ page }) => {
-  await setupBaseRoutes(page);
-  await setupAuditSuccess(page, TASK_ID, SAMPLE_ENTRIES);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
+  await mockTaskAudit(page, TASK_ID, SAMPLE_ENTRIES);
   await goToChatWithMessages(page, [
     makeResultMessage('r1', 'Task result content', TASK_ID),
   ]);
@@ -166,8 +121,8 @@ test('4. clicking toggle expands audit-trail-entries panel', async ({ page }) =>
 });
 
 test('5. audit entries render with event_type and timestamp', async ({ page }) => {
-  await setupBaseRoutes(page);
-  await setupAuditSuccess(page, TASK_ID, SAMPLE_ENTRIES);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
+  await mockTaskAudit(page, TASK_ID, SAMPLE_ENTRIES);
   await goToChatWithMessages(page, [
     makeResultMessage('r1', 'Task result content', TASK_ID),
   ]);
@@ -191,8 +146,19 @@ test('5. audit entries render with event_type and timestamp', async ({ page }) =
 });
 
 test('6. API failure shows audit-trail-error state', async ({ page }) => {
-  await setupBaseRoutes(page);
-  await setupAuditFailure(page, TASK_ID);
+  test.skip(isLiveMode, '503 error simulation only works in mock mode');
+
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
+
+  // Custom inline route — 503 can't be generalized via mockTaskAudit
+  await page.route(`${GATEWAY}/tasks/${TASK_ID}/audit`, (route) => {
+    route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Redis unavailable' }),
+    });
+  });
+
   await goToChatWithMessages(page, [
     makeResultMessage('r1', 'Task result content', TASK_ID),
   ]);
@@ -205,8 +171,8 @@ test('6. API failure shows audit-trail-error state', async ({ page }) => {
 });
 
 test('7. empty audit response shows audit-trail-empty state', async ({ page }) => {
-  await setupBaseRoutes(page);
-  await setupAuditSuccess(page, TASK_ID, []); // empty entries
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
+  await mockTaskAudit(page, TASK_ID, []); // empty entries
   await goToChatWithMessages(page, [
     makeResultMessage('r1', 'Task result content', TASK_ID),
   ]);
@@ -219,8 +185,8 @@ test('7. empty audit response shows audit-trail-empty state', async ({ page }) =
 });
 
 test('8. audit trail entries panel is not visible by default (collapsed)', async ({ page }) => {
-  await setupBaseRoutes(page);
-  await setupAuditSuccess(page, TASK_ID, SAMPLE_ENTRIES);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
+  await mockTaskAudit(page, TASK_ID, SAMPLE_ENTRIES);
   await goToChatWithMessages(page, [
     makeResultMessage('r1', 'Task result content', TASK_ID),
   ]);
@@ -230,8 +196,8 @@ test('8. audit trail entries panel is not visible by default (collapsed)', async
 });
 
 test('9. audit trail toggle has aria-expanded="false" when collapsed', async ({ page }) => {
-  await setupBaseRoutes(page);
-  await setupAuditSuccess(page, TASK_ID, SAMPLE_ENTRIES);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
+  await mockTaskAudit(page, TASK_ID, SAMPLE_ENTRIES);
   await goToChatWithMessages(page, [
     makeResultMessage('r1', 'Task result content', TASK_ID),
   ]);
@@ -241,8 +207,8 @@ test('9. audit trail toggle has aria-expanded="false" when collapsed', async ({ 
 });
 
 test('10. audit trail toggle has aria-expanded="true" when expanded', async ({ page }) => {
-  await setupBaseRoutes(page);
-  await setupAuditSuccess(page, TASK_ID, SAMPLE_ENTRIES);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
+  await mockTaskAudit(page, TASK_ID, SAMPLE_ENTRIES);
   await goToChatWithMessages(page, [
     makeResultMessage('r1', 'Task result content', TASK_ID),
   ]);

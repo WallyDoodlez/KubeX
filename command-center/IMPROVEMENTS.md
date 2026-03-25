@@ -4,6 +4,167 @@
 
 ---
 
+- [x] **Iteration 82: Live-mode E2E test hardening — dual-mode assertions**
+  - [x] Create `tests/e2e/helpers/live-assertions.ts` — dual-mode helper functions: `expectAnyResultBubble`, `expectAnyErrorBubble`, `expectResultText`, `expectErrorText`, `expectTaskDispatched`, `expectSendingComplete`, `expectResultTaskId`, `expectResultBubbleTimeline`, `expectTimelinePhase`, `expectResultLabel`
+  - [x] Export all live-assertion helpers from `tests/e2e/helpers/index.ts` barrel
+  - [x] Refactor `dispatch-response.spec.ts` — `sendChatMessage` helper is dual-mode (mock: waits for task ID system bubble; live: waits for typing indicator); Test 1 uses `expectResultText` / `expectResultLabel`; Tests 4, 6 skip in live mode (`test.skip(isLiveMode, ...)`); Test 3 guards SSE route interception with `isMockMode`
+  - [x] Refactor `task-cancel.spec.ts` — `dispatchAndWaitForTyping` uses mode-aware timeout; cancel click assertion guards `text=cancelled by user` with `isMockMode`; typing-indicator gone and button label timeouts generous in live mode
+  - [x] Refactor `task-progress-timeline.spec.ts` — Tests 04/05/06/10/11/12 use 30s timeouts for live mode; Tests 07/08 skip in live mode (SSE failed simulation); Tests 05/06/11 guard exact phase counts/statuses with `isMockMode`
+  - [x] Refactor `markdown-rendering.spec.ts` — skip entire describe block in live mode (content assertions require controlled SSE)
+  - [x] Refactor `mermaid-rendering.spec.ts` — skip entire describe block in live mode
+  - [x] Refactor `mermaid-theme.spec.ts` — skip entire describe block in live mode
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1209/1209 passed (23 skipped — OAuth)
+
+- [x] **Iteration 78: Dashboard activity feed improvements — status filters, show more, agent click-through, task ID display**
+  - [x] Add status filter tabs (All / Allowed / Denied / Escalated / Pending) with entry counts to `ActivityFeed.tsx`; `role="tablist"` with `aria-selected` state; resets expanded state on filter change; `data-testid="activity-filter-{status}"` on each tab
+  - [x] Add show more / show less toggle — default 10 rows, expands to 50; `data-testid="activity-feed-show-more"` and `"activity-feed-show-less"`; show-more appears only when filtered count exceeds default limit
+  - [x] Make agent_id in each row a clickable button that navigates to `/agents/:agentId`; `data-testid="activity-row-agent-link"` with `aria-label="Navigate to agent {id}"`; styled as emerald link with hover underline and focus ring
+  - [x] Display `task_id` below action when present; `data-testid="activity-row-task-id"` with `font-mono-data` styling
+  - [x] Add `useNavigate` hook to `ActivityFeed` (no longer a pure memo — requires router context)
+  - [x] Update `tests/e2e/activity-feed.spec.ts` — add 21 new tests across 4 describe groups: status filter tabs (10 tests), show more/less (6 tests), agent click-through (3 tests), task ID display (2 tests); use `addInitScript` for pre-load localStorage seeding
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1198/1198 passed (23 skipped)
+
+- [x] **Iteration 77: Task history enrichment — capability + time-window filters**
+  - [x] Add `TimeWindow` type (`'all' | '1h' | '24h' | '7d'`) and `windowStart()` helper to `src/components/TaskHistoryPage.tsx`
+  - [x] Add `capability` and `window` URL param defaults to `PARAM_DEFAULTS`
+  - [x] Derive `allCapabilities` (distinct, sorted) via `useMemo` from task entries for capability dropdown
+  - [x] Add `capabilityFiltered` and `timeFiltered` memo layers in the filter pipeline (status → capability → time → search)
+  - [x] Add `handleCapabilityChange`, `handleTimeWindowChange`, and `handleClearFilters` handler functions
+  - [x] Extend `hasFilter` to include capability and time-window checks
+  - [x] Add **Capability filter** `<select>` dropdown with `data-testid="capability-filter"` — only rendered when tasks have capabilities; persists to URL via `capability=` param
+  - [x] Add **Time-window filter** button group (`data-testid="time-window-filter"`) with `All time / Last 1h / Last 24h / Last 7d` options; each button has `data-testid="time-filter-{w}"`; persists to URL via `window=` param
+  - [x] Add **"Clear filters ×"** button (`data-testid="clear-filters-btn"`) — visible only when any filter is active; resets status, capability, window, and search to defaults
+  - [x] Add `data-testid="status-filter-{s}"` to existing status filter buttons (needed for clear-filters tests)
+  - [x] Reorganise filter row into two sub-rows: (1) status + time-window + clear; (2) capability + search
+  - [x] Create `tests/e2e/task-history-enrichment.spec.ts` (20 tests) — capability dropdown presence/values/filtering, time-window rendering/defaults/filtering (1h/24h), clear-filters show/hide/reset, URL persistence for both new params, URL restoration on direct navigation, combined filter stacking, header count display
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1177/1177 passed (23 skipped)
+
+- [x] **Iteration 75: Enhanced global error boundary**
+  - [x] Extract `ErrorFallback` as a named export from `src/components/ErrorBoundary.tsx` — accepts `error`, `onRetry`, and `inline` props; uses CSS custom properties throughout (no hardcoded hex) so it adapts to the light/dark theme toggle
+  - [x] Add `data-testid` attributes on all key error UI elements: `error-boundary-card`, `error-boundary-heading`, `error-boundary-message`, `error-boundary-retry`, `error-boundary-reload`, `error-boundary-inline`, `error-boundary-fullscreen`
+  - [x] Add `inline?: boolean` prop to `ErrorBoundary` — when true renders a compact content-area card rather than a full-screen takeover, preserving the sidebar and header
+  - [x] Update `src/App.tsx` — wrap `<Routes>` in a second `<ErrorBoundary inline>` nested inside the existing outer boundary; inner catches route-level crashes and contains them to the content area; outer is a last-resort safety net
+  - [x] Create `tests/e2e/error-boundary.spec.ts` (15 tests) — no boundary visible on normal operation, testid absence under normal conditions, app shell intact across all 9 routes, per-route boundary absence checks
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1142/1142 passed (23 skipped)
+
+- [x] **Iteration 74: Dark/light Mermaid theme**
+  - [x] Add `getAppTheme()` helper to `src/components/MermaidBlock.tsx` — reads `data-theme` attribute from `document.documentElement`; returns `'light'` or `'dark'`
+  - [x] Add `getMermaidConfig(appTheme)` — returns `mermaid.initialize()` options; dark uses `'dark'` theme with emerald accent variables; light uses `'default'` theme with light-mode palette
+  - [x] Add `appTheme` state to `MermaidBlock` — initialised via `useState(getAppTheme)` so it reflects the theme at mount time
+  - [x] Add `MutationObserver` useEffect in `MermaidBlock` — observes `attributeFilter: ['data-theme']` on `document.documentElement`; calls `setAppTheme(getAppTheme())` on change
+  - [x] Add `appTheme` to the `[code, appTheme]` dependency array of the render `useEffect` — triggers a re-render with the correct Mermaid theme whenever the toggle fires
+  - [x] Add `data-mermaid-theme={appTheme}` attribute to the diagram container div — used by E2E tests to verify theme
+  - [x] Create `tests/e2e/mermaid-theme.spec.ts` (8 tests) — dark by default, SVG in dark, toggle to light re-renders with light theme, SVG still present after light switch, round-trip dark→light→dark, attribute on container, light before dispatch, toggle button visible
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1127/1127 passed (23 skipped)
+
+- [x] **Iteration 73: Agent registration form**
+  - [x] Add `AgentRegistrationBody` type to `src/types.ts` — fields: `agent_id`, `capabilities`, `status?`, `boundary?`, `metadata?`
+  - [x] Add `registerAgent(body)` to `src/api.ts` — `POST ${REGISTRY}/agents`; imported `AgentRegistrationBody`
+  - [x] Create `src/components/AgentRegisterModal.tsx` — modal with form fields: Agent ID (required, validated), Capabilities (required, comma-separated, each validated), Boundary (default: "default"), Initial Status (select: unknown/running/busy/stopped), Metadata (optional JSON object); client-side validation on submit; success banner + Done button on success; error banner on API failure with retry; focus trap; Escape closes; backdrop click closes; form resets on reopen
+  - [x] Wire `AgentRegisterModal` into `AgentsPanel.tsx` — "+ Register Agent" button in header; modal `onRegistered` refreshes agent list without closing modal; `onClose` closes modal
+  - [x] Create `tests/e2e/agent-register.spec.ts` (26 tests) — button visible, modal opens, all fields present, boundary/status defaults, status options, close/cancel/Escape dismiss, validation errors (empty ID, empty caps, invalid cap chars, invalid JSON meta), metadata optional, success banner, Done button replaces Submit/Cancel, Done closes modal, valid ID chars, backdrop closes, form resets, API 409 shows error banner, retry possible after error
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1119/1119 passed (23 skipped)
+
+- [x] **Iteration 72: Search result highlighting**
+  - [x] Add `highlightText(text, query)` utility inside `OrchestratorChat.tsx` — splits text on case-insensitive regex matches, returns React nodes with `<mark data-testid="search-highlight">` wrapping each occurrence; regex special characters are escaped; empty query returns the plain string unchanged
+  - [x] Add `createRehypeHighlightSearch(query)` rehype plugin — uses `unist-util-visit` (already a transitive dep) to walk text nodes in the HAST tree and splice in `<mark>` element nodes for each match; skips text inside `<code>` blocks to avoid corrupting syntax highlighting; returns early when query is blank
+  - [x] Add `searchQuery?: string` prop to `ChatBubble` (memo-wrapped) — passed down from the parent map over `filteredMessages`/`groupedMessages` as `chatSearch`
+  - [x] Apply `highlightText()` in: user bubble `<p>`, error bubble `<p>`, system bubble `<span>`, result bubble JSON `<pre>`
+  - [x] Apply `createRehypeHighlightSearch()` as a second rehype plugin in the `ReactMarkdown` call for markdown result bubbles
+  - [x] Add `mark[data-testid="search-highlight"]` CSS rule to `src/index.css` with amber highlight style
+  - [x] Import `type { ReactNode }` from `react`, `type { Plugin }` from `unified`, `type { Root, Text, Element, ElementContent }` from `hast`, `{ visit, SKIP }` from `unist-util-visit`
+  - [x] Create `tests/e2e/search-highlight.spec.ts` (15 tests) — no marks without search, user bubble highlighting, case-insensitive, multiple occurrences, partial word, JSON result bubble, data-testid attribute, clearing search removes marks, role filter hides marked bubbles, error bubble highlighting, non-matching text not wrapped, toolbar clear removes marks, mark is a `<mark>` tag, regex special chars don't crash, count badge visible with highlights
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1093/1093 passed (23 skipped)
+
+- [x] **Iteration 70: Task Cancel UI**
+  - [x] Add `cancelTask(taskId)` to `src/api.ts` — `POST ${GATEWAY}/tasks/:id/cancel`
+  - [x] Add `cancelling` state and `handleCancel()` to `OrchestratorChat.tsx` — eagerly closes the SSE stream and clears sending/phase state, then calls `cancelTask`; surfaces "cancelled by user" error bubble on success
+  - [x] Expose `close` from `useSSE` hook (already existed); destructure as `closeSSE` in `OrchestratorChat`
+  - [x] Add Cancel button (`data-testid="cancel-task-button"`) inside the typing indicator block — visible only while `sending` is true; red-bordered, `aria-label="Cancel active task"`, disabled while cancellation is in flight
+  - [x] Add `POST /tasks/:taskId/cancel` mock handler in `tests/e2e/mocks/handlers.ts`
+  - [x] Create `tests/e2e/task-cancel.spec.ts` (7 tests) — cancel not visible at rest, appears during active task, label reads "Cancel", posts to cancel endpoint + surfaces message, has aria-label, typing indicator gone after cancel, disabled during in-flight cancel
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1065/1065 passed (23 skipped)
+
+- [x] **Iteration 69: Policy Check UI**
+  - [x] Add `PolicyDecision`, `SkillCheckRequest`, `SkillCheckResponse` types to `src/types.ts`
+  - [x] Add `checkSkillPolicy(body)` to `src/api.ts` — `POST ${GATEWAY}/policy/skill-check`
+  - [x] Create `src/pages/PolicyCheckPage.tsx` — form with agent ID (datalist suggestions from traffic log) + skills (comma/newline separated); posts to Gateway; renders result history newest-first; each result shows decision badge (ALLOW/ESCALATE/DENY), skill tags, reason, and rule_matched; clear button; empty state; full a11y (form aria-label, role=alert on errors, accessible labels, role=list results)
+  - [x] Add lazy route `/policy-check` → `LazyPolicyCheckPage` in `src/App.tsx`
+  - [x] Add "Policy Check" nav item (`⛨` icon) to `Layout.tsx` NAV_ITEMS; add `G + l` keyboard shortcut
+  - [x] Add `POST /policy/skill-check` mock handler in `tests/e2e/mocks/handlers.ts` — simulates allowlist logic for three known mock agents; returns ESCALATE for unknown agents or disallowed skills, ALLOW otherwise
+  - [x] Create `tests/e2e/policy-check.spec.ts` (25 tests) — navigation (2), page structure (3), validation (3), ALLOW result (2), ESCALATE result (2), skills parsing (2), history accumulation (2), clear (1), network error (1), accessibility (4)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1058/1058 passed (23 skipped)
+
+- [x] **Iteration 68: Agent status update**
+  - [x] Add `updateAgentStatus(agentId, status)` to `src/api.ts` — PATCH `${REGISTRY}/agents/{id}/status`
+  - [x] Add `AgentStatusControls` component in `AgentDetailPage.tsx` — four status buttons (running/busy/stopped/unknown); active status is highlighted and disabled; clicking calls PATCH; success/error inline feedback; 4s auto-clear; only visible on Overview tab
+  - [x] Fix `loadAgent` to accept `silent` flag — silent refresh after status update avoids unmounting tab content (preserves success message)
+  - [x] Add PATCH mock handler to `tests/e2e/mocks/handlers.ts`
+  - [x] Create `tests/e2e/agent-status-update.spec.ts` (12 tests) — panel visible, all buttons rendered, aria-pressed on active, disabled active, enabled inactive, success feedback, success auto-clear, error path, tab visibility isolation, nav back restores controls, aria-labels
+  - [x] Test: npx playwright test — 1037/1037 passed (23 skipped)
+
+- [x] **Iteration 67: Dashboard kubex status chart**
+  - [x] Create `src/components/KubexStatusChart.tsx` — pure SVG/CSS donut chart; no external chart library; segments for each status (running/created/stopped/error/unknown); color-coded arcs using strokeDasharray trick; center label with total count; responsive legend table with count + percentage per status; `role="img"` with `aria-label` on SVG; `aria-label` on legend table; `data-testid` on container, SVG, arcs, legend, and legend rows; renders a "No kubexes running." fallback when list is empty
+  - [x] Update `src/components/Dashboard.tsx` — add `Kubex[]` state (`kubexes`); extend `loadKubexes` to call `setKubexes(res.data)`; add `KubexStatusChart` import; add "Kubex Status" `CollapsibleSection` between stat cards and Service Health, with "View all →" action navigating to containers; subtitle shows "N kubexes total" or "Loading…"
+  - [x] Update `tests/e2e/mocks/handlers.ts` — add third mock kubex with `stopped` status so mock data covers three distinct statuses for richer chart rendering
+  - [x] Create `tests/e2e/kubex-status-chart.spec.ts` (12 tests) — section present, collapsible section element, chart container visible, "View all →" navigation, toggle collapse/expand (aria-expanded), subtitle content, chart renders SVG or fallback, conditional SVG aria-label, conditional legend aria-label, conditional legend rows with counts/percentages, heading text; data-specific tests skip gracefully when backend has no kubexes
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1025/1025 passed (23 skipped)
+
+- [x] **Iteration 65: Kubex credential management**
+  - [x] Add `KubexRuntime`, `InjectCredentialBody`, `InjectCredentialResponse` types to `src/types.ts`
+  - [x] Add `injectKubexCredentials(kubexId, body)` to `src/api.ts` — authenticated `POST /kubexes/{id}/credentials` to Manager
+  - [x] Add `http.post` handler for `${MANAGER}/kubexes/:kubexId/credentials` in `tests/e2e/mocks/handlers.ts`
+  - [x] Create `src/components/KubexCredentialPanel.tsx` — inline collapsible panel with runtime selector, JSON textarea with client-side validation, injection history, full a11y
+  - [x] Update `ContainersPanel.tsx`:
+    - Import `KubexCredentialPanel`
+    - Add `credOpen` state to `KubexRow`
+    - Add "Creds" button (cyan, only when running, toggles panel)
+    - Render `<KubexCredentialPanel>` when `credOpen && isRunning`
+  - [x] Create `tests/e2e/kubex-credentials.spec.ts` (22 tests: button visibility, toggle, aria-expanded, form elements, runtime options, disabled states, JSON validation errors, success/failure injection, textarea clear, a11y attributes)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1006 passed, 20 skipped, 0 failed; all 22 new credential E2E tests pass
+  - [x] Update `docs/CHANGELOG.md`
+
+- [x] **Iteration 64: Kubex delete confirmation**
+  - [x] Add `deleteKubex(kubexId)` to `src/api.ts` — authenticated `DELETE /kubexes/{id}` to Manager
+  - [x] Add `http.delete` handler for `${MANAGER}/kubexes/:kubexId` in `tests/e2e/mocks/handlers.ts` (204 response)
+  - [x] Update `ContainersPanel.tsx`:
+    - Extend `confirmTarget` action union to include `'delete'`
+    - Add `requestDelete(kubexId)` function
+    - Handle `delete` action in `handleConfirmedAction` (calls `deleteKubex`)
+    - Add `onDelete` prop to `KubexRowProps` and `KubexRow`
+    - Add "Delete" button (`data-testid="kubex-delete-{id}"`) in Actions column — visible for all kubexes
+    - Extend `ConfirmDialog` title/message/label/variant for `delete` action (danger variant; message warns "kill it first if still running")
+  - [x] Create `tests/e2e/kubex-delete.spec.ts` (12 tests covering: button visibility for running/stopped, dialog open, kubex ID in message, Delete confirm button, Cancel dismisses, confirm calls DELETE + refreshes, dialog shows for running kubex, running kubex dialog warns, correct test IDs, focusable via keyboard, only targeted kubex affected)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 983/984 passed (1 pre-existing flaky in command-palette, 20 skipped); 12 new kubex-delete tests all pass
+  - [x] Update `docs/CHANGELOG.md`
+
+- [x] **Iteration 63: Agent Detail — Live Output Tab with real lifecycle SSE**
+  - [x] Add `getAgentLifecycleStreamUrl(agentId)` and `getAgentLifecycleAuthHeader()` helpers to `src/api.ts`
+  - [x] Replace `LiveOutputTab` placeholder in `src/components/AgentDetailPage.tsx` with a fetch-based SSE reader:
+    - `AbortController`-based connect/disconnect with `ReadableStream` SSE parsing
+    - Status dot + label (Not connected / Connecting… / Live / Disconnected / Error)
+    - Connect / Disconnect button pair
+    - Scrollable event log (`role="log"`, `aria-live="polite"`) capped at 200 events
+    - Per-event rows: time, state (color-coded by lifecycle state), raw payload
+    - Clear button removes all events
+    - Auto-connects on tab mount; disconnects on unmount (no stream leaks on navigation)
+  - [x] Create `tests/e2e/agent-live-output.spec.ts` (17 tests using `page.route()` mocks for registry + SSE endpoint)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 972/972 passed (20 skipped), 17 new live-output tests all pass
+  - [x] Update `docs/CHANGELOG.md`
+
 - [x] **Iteration 62: Kubex dependency installer UI**
   - [x] Add `InstallDepBody` and `InstallDepResponse` types to `src/types.ts`
   - [x] Add `installKubexDep(kubexId, body)` API function to `src/api.ts` — calls `POST /kubexes/{id}/install-dep` on Manager
@@ -714,3 +875,52 @@
   - [x] Create tests/e2e/performance.spec.ts — 12 tests: pagination limits DOM (far fewer than 200 rows), localStorage cap at 500, rapid navigation doesn't crash, no ResizeObserver errors, page load times under 3s, memo components render correctly, Clear chat button present
   - [x] Verify: npm run build clean + npx playwright test passes (154/154)
   - [x] Commit
+
+- [x] **Iteration 80: Dual-mode E2E test infrastructure (mock/live)**
+  - [x] Create `tests/e2e/helpers/config.ts` — `E2E_MODE` env var (`mock` default / `live`), service URL constants (`GATEWAY`, `REGISTRY`, `MANAGER`) configurable via env vars
+  - [x] Create `tests/e2e/helpers/test-data.ts` — centralized mock data (`MOCK_AGENTS`, `MOCK_KUBEXES`, `MOCK_TASK_ID`, `MOCK_SSE_RESULT`, `MOCK_SSE_PROGRESS`)
+  - [x] Create `tests/e2e/helpers/mock-routes.ts` — shared mock functions (`mockBaseRoutes`, `mockDispatch`, `mockSSEStream`, `mockTaskResult`, `mockTaskResult404`, `mockTaskCancel`, `mockTaskAudit`, `mockChatFlow`, `mockKubexLifecycle`, `mockKubexCredentials`, `mockAgentRegister`, `mockAgentStatusUpdate`, `mockAgentDetail`, `mockPolicyCheck`, `mockSpawnKubex`, `mockHealthRoutes`) — all no-ops in live mode
+  - [x] Create `tests/e2e/helpers/index.ts` — barrel re-export
+  - [x] Create `playwright.live.config.ts` — separate config for live E2E (60s timeout, 15s expect, 2 workers, 1 retry, JSON+HTML reporters)
+  - [x] Refactor 42 test files to use shared helpers instead of inline `page.route()` calls
+  - [x] Add `test.skip(isLiveMode, ...)` on error-simulation tests (404/500/503 responses)
+  - [x] Fix wildcard route conflict — `**/agents` intercepted SPA navigation to `/agents`; replaced with specific service URLs
+  - [x] Fix audit trail response shape — `mockTaskAudit` now wraps entries in `{ task_id, entries }` matching original API shape
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1207 passed, 23 skipped
+  - [x] Usage: `npx playwright test` (mocked, default) / `E2E_MODE=live npx playwright test --config playwright.live.config.ts` (live)
+
+- [x] **Iteration 81: Chat conversation export (Markdown + JSON)**
+  - [x] Add "Export" dropdown button to OrchestratorChat header (next to existing controls) with two options: "Export as Markdown" and "Export as JSON"
+  - [x] Markdown export: convert chat messages to a formatted `.md` file — user messages as `> ` blockquotes, results as code blocks with task ID headers, errors as `⚠️` blocks, system messages as italics, timestamps included
+  - [x] JSON export: download raw `kubex-chat-messages` localStorage array as `.json` file (useful for debugging/sharing)
+  - [x] Use existing `triggerDownload()` helper from `src/utils/export.ts` (extended with `exportAsMarkdown` + `convertToMarkdown`)
+  - [x] Export button disabled when chat is empty (no messages)
+  - [x] E2E tests: export button renders, dropdown opens, both options present, export disabled when empty, markdown export triggers download, JSON export triggers download (31 tests in export.spec.ts)
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1208/1232 pass (23 skipped OAuth, 1 pre-existing parallel flake in command-palette)
+
+- [x] **Iteration 82: Live-mode E2E test hardening**
+  - [x] Audit all test files that dispatch tasks (POST /actions) or check specific mock result text — make assertions dual-mode compatible
+  - [x] Add `tests/e2e/helpers/live-assertions.ts` — 10 helper functions: `expectAnyResultBubble`, `expectAnyErrorBubble`, `expectResultText`, `expectErrorText`, `expectTaskDispatched`, `expectSendingComplete`, `expectResultTaskId`, `expectResultBubbleTimeline`, `expectTimelinePhase`, `expectResultLabel`
+  - [x] Refactor `dispatch-response.spec.ts` — `sendChatMessage` dual-mode (typing indicator vs task ID bubble); live mode uses `task_orchestration` capability; result assertions use `expectResultText`/`expectResultLabel`
+  - [x] Refactor `task-cancel.spec.ts` — mode-aware timeouts, cancel confirmation guarded with `isMockMode`
+  - [x] Refactor `task-progress-timeline.spec.ts` — result-bubble waits use 30s timeout; SSE simulation tests skip in live mode
+  - [x] Refactor `retry-failed-tasks.spec.ts` — error-simulation tests skipped in live mode
+  - [x] Refactor `markdown-rendering.spec.ts`, `mermaid-rendering.spec.ts`, `mermaid-theme.spec.ts` — entire describe blocks skip in live mode (require controlled SSE content)
+  - [x] Refactor `typing-indicator.spec.ts` — dispatch tests guarded for live mode
+  - [x] Refactor `task-audit-trail.spec.ts` — localStorage-seeded, works in both modes
+  - [x] Run `npx playwright test` (mock mode) — 1209 passed, 23 skipped, 0 failures
+  - [x] Live mode discovered BUG-006: Redis disconnected — tasks dispatch but never complete
+  - [x] Build: npm run build — clean
+  - [x] Committed and pushed (612040e, b06298d)
+
+- [ ] **Iteration 83: Traffic Log responsive layout + mobile card view**
+  - [ ] Refactor `TrafficLog.tsx` grid layout — on mobile (`<768px`): switch from 6-column grid to stacked card layout; on tablet (`768px-1024px`): 2-3 column grid; on desktop (`1024px+`): keep existing 6-column grid
+  - [ ] Create `TrafficCard` sub-component for mobile view — shows task ID, capability, status badge, timestamp, agent ID in a compact vertical card
+  - [ ] Use Tailwind responsive breakpoints (`md:`, `lg:`) matching existing Dashboard/AgentsPanel patterns
+  - [ ] Ensure filter bar (`TrafficFilterBar.tsx`) remains accessible on all screen sizes
+  - [ ] Add responsive column toggle — header row hides non-essential columns on tablet (show: task ID, capability, status; hide: agent, duration, timestamp)
+  - [ ] E2E tests: responsive layout renders at mobile viewport (375px), card layout visible on narrow screens, filter bar accessible on mobile, grid layout at desktop viewport (1280px)
+  - [ ] Build: npm run build — clean
+  - [ ] Test: npx playwright test — all pass

@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const MANAGER = 'http://localhost:8090';
+import { mockBaseRoutes, isLiveMode, MANAGER } from './helpers';
 
 const runningKubex = {
   kubex_id: 'kubex-running-001',
@@ -31,9 +30,7 @@ const createdKubex = {
 
 /** Mock the kubexes list with specified data. */
 async function mockKubexList(page: import('@playwright/test').Page, data = [runningKubex, stoppedKubex]) {
-  await page.route(`${MANAGER}/kubexes`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) }),
-  );
+  await mockBaseRoutes(page, { kubexes: data });
 }
 
 /** Mock a lifecycle action endpoint. */
@@ -103,7 +100,6 @@ test.describe('Kubex lifecycle controls', () => {
   });
 
   test('Stop button calls stop endpoint and refreshes', async ({ page }) => {
-    await mockKubexList(page, [runningKubex]);
     await mockLifecycleAction(page, runningKubex.kubex_id, 'stop');
     // After stop, list refreshes — return the same kubex as stopped
     let requestCount = 0;
@@ -220,6 +216,7 @@ test.describe('Kubex lifecycle controls', () => {
   });
 
   test('action buttons are disabled during in-flight action', async ({ page }) => {
+    test.skip(isLiveMode, 'Timing-dependent test only works reliably in mock mode');
     // Slow down stop response so we can catch the disabled state
     await mockKubexList(page, [runningKubex]);
     await page.route(`${MANAGER}/kubexes/${runningKubex.kubex_id}/stop`, async (route) => {

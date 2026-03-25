@@ -5,7 +5,9 @@ import {
   POLLING_INTERVAL_OPTIONS,
   PAGE_SIZE_OPTIONS,
   DEFAULT_SETTINGS,
+  DEFAULT_NOTIFICATION_PREFS,
 } from '../hooks/useSettings';
+import type { NotificationPrefs } from '../hooks/useSettings';
 import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
 import { GATEWAY, REGISTRY, MANAGER } from '../api';
@@ -124,11 +126,13 @@ function Toggle({
   id,
   checked,
   onChange,
+  disabled = false,
   'data-testid': testId,
 }: {
   id?: string;
   checked: boolean;
   onChange: (val: boolean) => void;
+  disabled?: boolean;
   'data-testid'?: string;
 }) {
   return (
@@ -136,12 +140,14 @@ function Toggle({
       id={id}
       role="switch"
       aria-checked={checked}
-      onClick={() => onChange(!checked)}
+      onClick={() => { if (!disabled) onChange(!checked); }}
+      disabled={disabled}
       data-testid={testId}
       className={[
         'relative inline-flex w-10 h-5 rounded-full transition-colors duration-200',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500',
         'focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface)]',
+        disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
         checked ? 'bg-emerald-500' : 'bg-[var(--color-border)]',
       ].join(' ')}
     >
@@ -260,6 +266,18 @@ export default function SettingsPage() {
       setResetConfirm(true);
     }
   }
+
+  /** Merge a partial notification prefs update into settings. */
+  function updateNotifPrefs(patch: Partial<NotificationPrefs>) {
+    updateSettings({
+      notificationPrefs: {
+        ...(settings.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS),
+        ...patch,
+      },
+    });
+  }
+
+  const notifPrefs = settings.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS;
 
   return (
     <div
@@ -480,12 +498,95 @@ export default function SettingsPage() {
           </div>
         </Section>
 
+        {/* ── Notifications ────────────────────────────────────────── */}
+        <Section
+          title="Notifications"
+          description="Control which toast notifications are shown. Suppressed types are still recorded in the notification history."
+        >
+          {/* Master enable/disable */}
+          <Row
+            label="Enable Toasts"
+            description="Show pop-up toast notifications in the top-right corner."
+            htmlFor="settings-toasts-enabled"
+          >
+            <Toggle
+              id="settings-toasts-enabled"
+              data-testid="settings-toasts-enabled"
+              checked={notifPrefs.toastsEnabled}
+              onChange={(val) => updateNotifPrefs({ toastsEnabled: val })}
+            />
+          </Row>
+
+          {/* Per-type toggles */}
+          <div className="pt-2 border-t border-[var(--color-border)] space-y-3">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)]">
+              Toast Types
+            </p>
+
+            <Row
+              label="Success"
+              description="Confirmations of successful actions."
+              htmlFor="settings-toast-success"
+            >
+              <Toggle
+                id="settings-toast-success"
+                data-testid="settings-toast-success"
+                checked={notifPrefs.showSuccess}
+                onChange={(val) => updateNotifPrefs({ showSuccess: val })}
+                disabled={!notifPrefs.toastsEnabled}
+              />
+            </Row>
+
+            <Row
+              label="Error"
+              description="Failures and error messages."
+              htmlFor="settings-toast-error"
+            >
+              <Toggle
+                id="settings-toast-error"
+                data-testid="settings-toast-error"
+                checked={notifPrefs.showError}
+                onChange={(val) => updateNotifPrefs({ showError: val })}
+                disabled={!notifPrefs.toastsEnabled}
+              />
+            </Row>
+
+            <Row
+              label="Warning"
+              description="Non-critical alerts and cautions."
+              htmlFor="settings-toast-warning"
+            >
+              <Toggle
+                id="settings-toast-warning"
+                data-testid="settings-toast-warning"
+                checked={notifPrefs.showWarning}
+                onChange={(val) => updateNotifPrefs({ showWarning: val })}
+                disabled={!notifPrefs.toastsEnabled}
+              />
+            </Row>
+
+            <Row
+              label="Info"
+              description="Informational messages and status updates."
+              htmlFor="settings-toast-info"
+            >
+              <Toggle
+                id="settings-toast-info"
+                data-testid="settings-toast-info"
+                checked={notifPrefs.showInfo}
+                onChange={(val) => updateNotifPrefs({ showInfo: val })}
+                disabled={!notifPrefs.toastsEnabled}
+              />
+            </Row>
+          </div>
+        </Section>
+
         {/* ── About ────────────────────────────────────────────────── */}
         <Section title="About" description="Version and build information.">
           <div className="space-y-2" data-testid="settings-about">
             <InfoRow label="Application" value="KubexClaw Command Center" />
             <InfoRow label="Version" value="v1.1" />
-            <InfoRow label="Build" value="Iteration 24" />
+            <InfoRow label="Build" value="Iteration 76" />
             <InfoRow label="Framework" value="React 18 + Vite" />
             <InfoRow label="Theme" value={theme === 'dark' ? 'Dark (default)' : 'Light'} />
             <InfoRow label="Polling" value={`${settings.pollingInterval / 1000}s interval`} />

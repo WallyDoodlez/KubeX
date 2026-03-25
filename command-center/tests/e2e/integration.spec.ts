@@ -44,7 +44,7 @@ test.describe('Integration — full user flow', () => {
     await expect(taskInput).toBeVisible();
     await expect(sendBtn).toBeDisabled();
 
-    // Fill message — send button should become enabled (capability defaults to "orchestrate")
+    // Fill message — send button should become enabled (capability defaults to "task_orchestration")
     await taskInput.fill('Summarise the latest logs and return a brief report.');
     await expect(sendBtn).toBeEnabled();
 
@@ -90,7 +90,7 @@ test.describe('Integration — dispatch and stream', () => {
     // Neither field filled
     await expect(sendBtn).toBeDisabled();
 
-    // Message filled — send button should be enabled (capability defaults to "orchestrate")
+    // Message filled — send button should be enabled (capability defaults to "task_orchestration")
     await taskInput.fill('Classify this document.');
     await expect(sendBtn).toBeEnabled();
   });

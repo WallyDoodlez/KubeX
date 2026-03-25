@@ -17,28 +17,17 @@
  */
 
 import { test, expect } from '@playwright/test';
+import {
+  isLiveMode,
+  GATEWAY,
+  mockBaseRoutes,
+  mockDispatch,
+  mockSSEStream,
+  mockTaskResult,
+  MOCK_SSE_RESULT,
+} from './helpers';
 
-const GATEWAY = 'http://localhost:8080';
 const TASK_ID = 'retry-task-50';
-
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
 
 /** Route that makes dispatch fail with a 500 error */
 async function setupDispatchFailure(page: import('@playwright/test').Page) {
@@ -57,32 +46,17 @@ async function setupDispatchFailure(page: import('@playwright/test').Page) {
 
 /** Route that makes dispatch succeed */
 async function setupDispatchSuccess(page: import('@playwright/test').Page, taskId = TASK_ID) {
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: taskId, status: 'dispatched' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route(`${GATEWAY}/tasks/${taskId}/stream`, (route) => {
-    const body = `data: ${JSON.stringify({ type: 'result', result: 'Hello from the agent!' })}\n\n`;
-    route.fulfill({ status: 200, contentType: 'text/event-stream', body });
-  });
-  await page.route(`${GATEWAY}/tasks/${taskId}/result`, (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ task_id: taskId, status: 'completed', result: 'Hello from the agent!' }),
-    });
+  await mockDispatch(page, taskId);
+  await mockSSEStream(page, taskId, MOCK_SSE_RESULT(taskId, 'Hello from the agent!'));
+  await mockTaskResult(page, taskId, {
+    task_id: taskId,
+    status: 'completed',
+    result: 'Hello from the agent!',
   });
 }
 
 async function goToChat(page: import('@playwright/test').Page) {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.goto('/chat');
   await page.waitForSelector('[data-testid="message-input"]');
 }
@@ -120,6 +94,8 @@ test('1. retry button does not appear on a successful result bubble', async ({ p
 // ── 2. Retry button DOES appear on error bubble after dispatch failure ─────────
 
 test('2. retry button appears on error bubble when dispatch fails', async ({ page }) => {
+  test.skip(isLiveMode, 'Dispatch failure (500) simulation only works in mock mode');
+
   const errorBubble = await triggerDispatchError(page);
   await expect(errorBubble.locator('[data-testid="retry-button"]')).toBeVisible();
 });
@@ -127,6 +103,8 @@ test('2. retry button appears on error bubble when dispatch fails', async ({ pag
 // ── 3. Clicking Retry pre-fills the message input ─────────────────────────────
 
 test('3. clicking retry pre-fills the message input with the original message', async ({ page }) => {
+  test.skip(isLiveMode, 'Dispatch failure (500) simulation only works in mock mode');
+
   const originalMessage = 'Run full diagnostics now';
   const errorBubble = await triggerDispatchError(page, originalMessage);
 
@@ -140,6 +118,8 @@ test('3. clicking retry pre-fills the message input with the original message', 
 // ── 4. Retry with capability pre-fills capability and opens Advanced panel ─────
 
 test('4. clicking retry with an explicit capability opens the Advanced panel and pre-fills capability', async ({ page }) => {
+  test.skip(isLiveMode, 'Dispatch failure (500) simulation only works in mock mode');
+
   await goToChat(page);
   await setupDispatchFailure(page);
 
@@ -169,8 +149,10 @@ test('4. clicking retry with an explicit capability opens the Advanced panel and
 // ── 5. Retry with no explicit capability does NOT open Advanced panel ──────────
 
 test('5. retry with no explicit capability does not open the Advanced panel', async ({ page }) => {
+  test.skip(isLiveMode, 'Dispatch failure (500) simulation only works in mock mode');
+
   // Close Advanced panel if open (it starts closed by default)
-  const errorBubble = await triggerDispatchError(page, 'Default orchestrate task');
+  const errorBubble = await triggerDispatchError(page, 'Default task_orchestration task');
 
   // Ensure Advanced panel is closed before retry
   const advancedPanel = page.locator('[data-testid="advanced-panel"]');
@@ -189,6 +171,8 @@ test('5. retry with no explicit capability does not open the Advanced panel', as
 // ── 6. Retry button disabled while task is in progress ────────────────────────
 
 test('6. retry button is disabled while another task is in progress', async ({ page }) => {
+  test.skip(isLiveMode, 'Dispatch failure (500) simulation only works in mock mode');
+
   // First: trigger a dispatch error to get an error bubble with retry button
   await goToChat(page);
 
@@ -214,16 +198,8 @@ test('6. retry button is disabled while another task is in progress', async ({ p
     }
   });
   // Stream that never terminates
-  await page.route(`${GATEWAY}/tasks/slow-task-99/stream`, (route) => {
-    route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' });
-  });
-  await page.route(`${GATEWAY}/tasks/slow-task-99/result`, (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ status: 'pending' }),
-    });
-  });
+  await mockSSEStream(page, 'slow-task-99', '');
+  await mockTaskResult(page, 'slow-task-99', { status: 'pending' });
 
   // Click retry (which re-fills the input) then manually send
   await page.locator('[data-testid="retry-button"]').click();
@@ -239,6 +215,8 @@ test('6. retry button is disabled while another task is in progress', async ({ p
 // ── 7. Error bubble has data-testid="error-bubble" ────────────────────────────
 
 test('7. error bubble has data-testid="error-bubble"', async ({ page }) => {
+  test.skip(isLiveMode, 'Dispatch failure (500) simulation only works in mock mode');
+
   await triggerDispatchError(page);
   await expect(page.locator('[data-testid="error-bubble"]')).toBeVisible();
 });
@@ -246,6 +224,8 @@ test('7. error bubble has data-testid="error-bubble"', async ({ page }) => {
 // ── 8. Retry button has correct aria-label ────────────────────────────────────
 
 test('8. retry button has aria-label="Retry this task"', async ({ page }) => {
+  test.skip(isLiveMode, 'Dispatch failure (500) simulation only works in mock mode');
+
   const errorBubble = await triggerDispatchError(page);
   const retryBtn = errorBubble.locator('[data-testid="retry-button"]');
   await expect(retryBtn).toHaveAttribute('aria-label', 'Retry this task');
@@ -254,6 +234,8 @@ test('8. retry button has aria-label="Retry this task"', async ({ page }) => {
 // ── 9. After retrying, input contains original message text ───────────────────
 
 test('9. after clicking retry, the input field is populated with the original message', async ({ page }) => {
+  test.skip(isLiveMode, 'Dispatch failure (500) simulation only works in mock mode');
+
   const msg = 'Analyze cluster performance';
   const errorBubble = await triggerDispatchError(page, msg);
 
@@ -266,6 +248,8 @@ test('9. after clicking retry, the input field is populated with the original me
 // ── 10. Error bubble without retryMessage has no Retry button ─────────────────
 
 test('10. error bubble that has no retryMessage does not show a retry button', async ({ page }) => {
+  test.skip(isLiveMode, 'Dispatch failure (500) simulation only works in mock mode');
+
   // Inject a message directly into localStorage so we can simulate an error
   // without retryMessage. We do this by navigating to chat, injecting state via
   // page.evaluate, then checking the UI.

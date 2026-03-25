@@ -4,6 +4,108 @@
 
 ---
 
+## Iteration 73: Agent Registration Form
+
+**Files modified:** `src/api.ts`, `src/types.ts`, `src/components/AgentsPanel.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `src/components/AgentRegisterModal.tsx`, `tests/e2e/agent-register.spec.ts`
+
+**Changes:**
+- Added `AgentRegistrationBody` interface to `src/types.ts` — fields: `agent_id` (required), `capabilities` (required array), `status?`, `boundary?`, `metadata?`. Matches the `AgentRegistration` Pydantic model in the Registry service.
+- Added `registerAgent(body: AgentRegistrationBody)` to `src/api.ts` — issues `POST ${REGISTRY}/agents`, wiring the previously unwired Registry endpoint for the first time from the frontend.
+- Created `src/components/AgentRegisterModal.tsx`:
+  - Full-screen overlay modal (fixed, z-50, backdrop blur) with focus trap and Escape-to-close.
+  - Form fields: Agent ID (required; validates `^[a-zA-Z0-9_.\-]+$`, max 100 chars), Capabilities (required; comma-separated list, each validated), Boundary (text, defaults to "default"), Initial Status (select: unknown/running/busy/stopped, defaults to unknown), Metadata (optional textarea; must be a valid JSON object if provided).
+  - Client-side validation on submit — inline error messages per field.
+  - On success: shows green success banner with agent ID; Submit/Cancel replaced by a single "Done" button; parent's `onRegistered` callback triggered to refresh the agent list.
+  - On API failure: shows red error banner; form stays open for retry.
+  - Form state resets to empty on every open.
+  - Backdrop click and Escape close the modal (unless submitting).
+- Updated `AgentsPanel.tsx`:
+  - Added `registerModalOpen` state.
+  - Added "+ Register Agent" emerald-styled button to the header toolbar (between Export and Refresh).
+  - Rendered `<AgentRegisterModal>` with `onRegistered` → `void load()` (refresh list, keep modal open to show success state), `onClose` → `setRegisterModalOpen(false)`.
+- Created `tests/e2e/agent-register.spec.ts` — 26 E2E tests:
+  - Button visible and labeled "+ Register Agent".
+  - Modal opens on click; has all 5 form fields.
+  - Boundary defaults to "default"; status defaults to "unknown"; all 4 status options present.
+  - Close button, Cancel button, Escape key, backdrop click all dismiss the modal.
+  - Validation errors for empty agent ID, empty capabilities, invalid cap chars (`inv@lid!`), invalid JSON metadata.
+  - Metadata optional — no error when blank.
+  - Successful registration: success banner visible, Done button replaces Submit/Cancel, Done closes modal.
+  - Valid agent ID chars (hyphens + underscores) accepted without error.
+  - Form resets between open/close cycles.
+  - Valid JSON metadata accepted without error.
+  - API 409 error: error banner visible, modal stays open, Submit button still available for retry.
+- **Build:** clean (tsc + vite, 10.5s). **Tests:** 1119 passed, 23 skipped, 0 failed; all 26 new agent-register E2E tests pass.
+
+---
+
+## Iteration 65: Kubex Credential Management
+
+**Files modified:** `src/api.ts`, `src/types.ts`, `src/components/ContainersPanel.tsx`, `tests/e2e/mocks/handlers.ts`, `docs/CHANGELOG.md`
+**Files created:** `src/components/KubexCredentialPanel.tsx`, `tests/e2e/kubex-credentials.spec.ts`
+
+**Changes:**
+- Added `KubexRuntime`, `InjectCredentialBody`, and `InjectCredentialResponse` types to `src/types.ts`.
+- Added `injectKubexCredentials(kubexId, body)` to `src/api.ts` — issues an authenticated `POST` to `${MANAGER}/kubexes/{id}/credentials`, wiring the existing backend endpoint for the first time from the frontend.
+- Added `http.post` mock handler for `${MANAGER}/kubexes/:kubexId/credentials` to `tests/e2e/mocks/handlers.ts`.
+- Created `src/components/KubexCredentialPanel.tsx`:
+  - Inline collapsible panel (same pattern as `KubexInstallDepPanel`).
+  - Runtime selector with three options: `claude-code`, `codex-cli`, `gemini-cli`.
+  - JSON textarea for pasting credential blobs (e.g. `.credentials.json` contents).
+  - Client-side JSON validation: errors shown inline with `role="alert"`, inject button disabled until valid JSON object is present.
+  - Injection history list (newest first) with success (cyan) and error (red) rows.
+  - Textarea cleared after successful injection.
+  - Full accessibility: `role="region"`, `aria-label`, `aria-expanded`, `aria-label` on all controls.
+- Updated `ContainersPanel.tsx`:
+  - Added `import KubexCredentialPanel`.
+  - Added `credOpen` state to `KubexRow`.
+  - Added "Creds" button in the Actions cell — only visible when kubex is running, toggles the panel, styled cyan to distinguish from pkg installer (emerald) and destructive actions.
+  - Renders `<KubexCredentialPanel>` below the install-dep panel when `credOpen && isRunning`.
+- Created `tests/e2e/kubex-credentials.spec.ts` — 22 E2E tests covering: button visibility (running vs stopped), panel open/close toggle, aria-expanded state, form element presence, runtime selector defaults and options, inject button disabled when empty or invalid JSON, JSON error message and role=alert, inject button enabled on valid JSON, successful injection (claude-code and gemini-cli), textarea cleared after success, failed injection error history, accessibility attributes.
+- **Build:** clean (tsc + vite). **Tests:** 1006 passed, 20 skipped, 0 failed; all 22 new credential E2E tests pass.
+
+---
+
+## Iteration 64: Kubex Delete Confirmation
+
+**Files modified:** `src/api.ts`, `src/components/ContainersPanel.tsx`, `tests/e2e/mocks/handlers.ts`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/kubex-delete.spec.ts`
+
+**Changes:**
+- Added `deleteKubex(kubexId)` to `src/api.ts` — issues an authenticated `DELETE` to `${MANAGER}/kubexes/{id}`, wiring the existing backend `DELETE /kubexes/{kubex_id}` endpoint for the first time from the frontend.
+- Added `http.delete` mock handler for `${MANAGER}/kubexes/:kubexId` (204) to `tests/e2e/mocks/handlers.ts`.
+- Updated `ContainersPanel.tsx`:
+  - Extended `confirmTarget` union type to include `'delete'`.
+  - Added `requestDelete(kubexId)` helper and `onDelete` call in `handleConfirmedAction`.
+  - Added `onDelete` prop through `KubexRowProps` and `KubexRow`.
+  - Added a "Delete" button (`data-testid="kubex-delete-{id}"`) in the Actions cell — visible for all kubexes regardless of status, styled in a muted-red to distinguish it as a permanent/destructive record operation.
+  - Extended the single `ConfirmDialog` block to handle `delete`: title "Delete Kubex", danger variant, message that includes the kubex ID and warns to kill the container first if still running, confirm label "Delete".
+- Created `tests/e2e/kubex-delete.spec.ts` — 12 E2E tests covering: button visibility (running and stopped), dialog open, kubex ID in message text, Delete confirm button present, Cancel dismisses without deleting, confirm triggers DELETE call and list refresh, dialog shown for running kubex, warning text for running containers, correct per-kubex test IDs, keyboard focusability, and per-target isolation when multiple kubexes are listed.
+- **Build:** clean (tsc + vite). **Tests:** 983/984 passed (1 pre-existing flaky in command-palette passes in isolation — timing issue in parallel run; 20 skipped); 12 new kubex-delete E2E tests all pass.
+
+---
+
+## Iteration 63: Agent Detail — Live Output Tab
+
+**Files modified:** `src/api.ts`, `src/components/AgentDetailPage.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`
+**Files created:** `tests/e2e/agent-live-output.spec.ts`
+
+**Changes:**
+- Added `getAgentLifecycleStreamUrl(agentId)` and `getAgentLifecycleAuthHeader()` to `src/api.ts` — exposes the existing `GET /agents/{agent_id}/lifecycle` SSE endpoint URL and auth header builder for use by the component.
+- Replaced the `LiveOutputTab` placeholder in `AgentDetailPage.tsx` with a fully functional SSE-connected component:
+  - Uses `fetch()` + `ReadableStream` to consume the SSE stream with a `Bearer` auth header (standard `EventSource` does not support custom headers).
+  - `AbortController`-based connect/disconnect lifecycle — auto-connects on mount, aborts on unmount and on Disconnect button click. No stream leaks on navigation.
+  - Status indicator: colour-coded dot (pulse-animated when connecting or live) + text label (`Not connected` / `Connecting…` / `Live` / `Disconnected` / `Error`).
+  - Connect button when disconnected/errored; Disconnect button when live.
+  - Scrollable event log (`role="log"`, `aria-live="polite"`, `aria-label`): capped at 200 events; each row shows time, state (colour-coded by lifecycle state: running=green, busy=blue, idle=muted, booting=yellow, etc.), and raw JSON payload. Auto-scrolls to latest event.
+  - Clear button clears the event list.
+  - Graceful "Waiting for events…" empty state when connected but no events yet; "No events yet" when disconnected.
+  - Error message shown in a red banner when HTTP or network error occurs.
+- **Build:** clean (tsc + vite). **Tests:** 972/972 passed (20 skipped); 17 new live-output E2E tests cover: tab presence, container render, status dot/label, connect/disconnect buttons, event log role/aria, aria-live polite, empty/waiting states, tab switching, status label values, connect button focusability, clear button, clear removes events, no-crash on invalid agent, navigation cleanup.
+
+---
+
 ## Iteration 62: Kubex Dependency Installer UI
 
 **Files modified:** `src/api.ts`, `src/types.ts`, `src/components/ContainersPanel.tsx`, `IMPROVEMENTS.md`, `docs/CHANGELOG.md`

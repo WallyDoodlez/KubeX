@@ -5,6 +5,8 @@ interface ExportMenuProps {
   onExportJSON: () => void;
   /** Called when the user chooses CSV export — omit to hide the CSV option */
   onExportCSV?: () => void;
+  /** Called when the user chooses Markdown export — omit to hide the Markdown option */
+  onExportMarkdown?: () => void;
   /** Label shown on the trigger button. Defaults to "Export" */
   label?: string;
   /** data-testid for the trigger button */
@@ -20,6 +22,7 @@ interface ExportMenuProps {
 export default function ExportMenu({
   onExportJSON,
   onExportCSV,
+  onExportMarkdown,
   label = 'Export',
   testId = 'export-menu',
   disabled = false,
@@ -59,6 +62,11 @@ export default function ExportMenu({
   function handleCSV() {
     close();
     onExportCSV?.();
+  }
+
+  function handleMarkdown() {
+    close();
+    onExportMarkdown?.();
   }
 
   return (
@@ -122,6 +130,22 @@ export default function ExportMenu({
             <span className="font-mono-data text-emerald-400 text-[10px]">{ }</span>
             Export as JSON
           </button>
+
+          {onExportMarkdown && (
+            <button
+              role="menuitem"
+              data-testid={`${testId}-md`}
+              onClick={handleMarkdown}
+              className="
+                w-full text-left px-4 py-2
+                hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]
+                transition-colors flex items-center gap-2
+              "
+            >
+              <span className="font-mono-data text-purple-400 text-[10px]">MD</span>
+              Export as Markdown
+            </button>
+          )}
 
           {onExportCSV && (
             <button

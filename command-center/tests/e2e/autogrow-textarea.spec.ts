@@ -18,30 +18,12 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, isLiveMode } from './helpers';
 
 const CHAT_MESSAGES_KEY = 'kubex-chat-messages';
 
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
-
 async function goToFreshChat(page: import('@playwright/test').Page) {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.addInitScript((key: string) => {
     localStorage.removeItem(key);
   }, CHAT_MESSAGES_KEY);
@@ -126,7 +108,10 @@ test('6. pressing Escape resets height to minimum', async ({ page }) => {
 });
 
 test('7. height resets after sending a message', async ({ page }) => {
-  await setupRoutes(page);
+  // This test uses a custom route pattern (**/tasks) that is non-standard — keep inline
+  test.skip(isLiveMode, 'Requires mock route for /tasks endpoint');
+
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.addInitScript((key: string) => {
     localStorage.removeItem(key);
   }, CHAT_MESSAGES_KEY);
@@ -179,7 +164,10 @@ test('8. placeholder text is visible on initial load', async ({ page }) => {
 });
 
 test('9. textarea is disabled while sending', async ({ page }) => {
-  await setupRoutes(page);
+  // This test uses a custom route pattern (**/tasks) that is non-standard — keep inline
+  test.skip(isLiveMode, 'Requires mock route for /tasks endpoint');
+
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.addInitScript((key: string) => {
     localStorage.removeItem(key);
   }, CHAT_MESSAGES_KEY);
@@ -213,7 +201,10 @@ test('9. textarea is disabled while sending', async ({ page }) => {
 });
 
 test('10. Ctrl+Enter submits even in multi-line state', async ({ page }) => {
-  await setupRoutes(page);
+  // This test uses a custom route pattern (**/tasks) that is non-standard — keep inline
+  test.skip(isLiveMode, 'Requires mock route for /tasks endpoint');
+
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.addInitScript((key: string) => {
     localStorage.removeItem(key);
   }, CHAT_MESSAGES_KEY);

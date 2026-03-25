@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, memo } from 'react';
 import type { Kubex } from '../types';
-import { getKubexes, killKubex, startKubex, stopKubex, restartKubex, respawnKubex } from '../api';
+import { getKubexes, killKubex, startKubex, stopKubex, restartKubex, respawnKubex, deleteKubex } from '../api';
 import StatusBadge from './StatusBadge';
 import { usePolling } from '../hooks/usePolling';
 import { useSearch } from '../hooks/useSearch';
@@ -20,6 +20,8 @@ import { exportAsJSON } from '../utils/export';
 import CopyButton from './CopyButton';
 import KubexConfigPanel from './KubexConfigPanel';
 import KubexInstallDepPanel from './KubexInstallDepPanel';
+import KubexCredentialPanel from './KubexCredentialPanel';
+import { useToast } from '../context/ToastContext';
 
 // Status filter options
 type StatusFilter = 'all' | 'running' | 'created' | 'stopped' | 'error';
@@ -49,11 +51,12 @@ export default function ContainersPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionIn, setActionIn] = useState<string | null>(null);
-  const [confirmTarget, setConfirmTarget] = useState<{ kubexId: string; action: 'kill' | 'restart' | 'respawn' } | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{ kubexId: string; action: 'kill' | 'restart' | 'respawn' | 'delete' } | null>(null);
   // Bulk selection
   const [bulkKillConfirmOpen, setBulkKillConfirmOpen] = useState(false);
   const [bulkActionInProgress, setBulkActionInProgress] = useState(false);
   const { selectedIds, selectedCount, toggleOne, toggleAll, clearSelection, isSelected } = useSelection();
+  const { addToast } = useToast();
 
   // URL query params — search, status filter, sort key/direction, page
   const [qp, setQp] = useQueryParams(CONTAINERS_PARAM_DEFAULTS);
@@ -173,29 +176,51 @@ export default function ContainersPanel() {
     setConfirmTarget({ kubexId, action: 'respawn' });
   }
 
+  function requestDelete(kubexId: string) {
+    setConfirmTarget({ kubexId, action: 'delete' });
+  }
+
   async function handleConfirmedAction() {
     if (!confirmTarget) return;
     const { kubexId, action } = confirmTarget;
     setConfirmTarget(null);
     setActionIn(kubexId);
-    if (action === 'kill') await killKubex(kubexId);
-    else if (action === 'restart') await restartKubex(kubexId);
-    else if (action === 'respawn') await respawnKubex(kubexId);
+    let res;
+    if (action === 'kill') res = await killKubex(kubexId);
+    else if (action === 'restart') res = await restartKubex(kubexId);
+    else if (action === 'respawn') res = await respawnKubex(kubexId);
+    else res = await deleteKubex(kubexId);
     setActionIn(null);
+    if (res.ok) {
+      const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+      addToast(`${actionLabel} ${kubexId} — success`, 'success');
+    } else {
+      addToast(`Failed to ${action} ${kubexId}: ${res.error ?? `HTTP ${res.status}`}`, 'error');
+    }
     await load();
   }
 
   async function handleStart(kubexId: string) {
     setActionIn(kubexId);
-    await startKubex(kubexId);
+    const res = await startKubex(kubexId);
     setActionIn(null);
+    if (res.ok) {
+      addToast(`Started ${kubexId}`, 'success');
+    } else {
+      addToast(`Failed to start ${kubexId}: ${res.error ?? `HTTP ${res.status}`}`, 'error');
+    }
     await load();
   }
 
   async function handleStop(kubexId: string) {
     setActionIn(kubexId);
-    await stopKubex(kubexId);
+    const res = await stopKubex(kubexId);
     setActionIn(null);
+    if (res.ok) {
+      addToast(`Stopped ${kubexId}`, 'success');
+    } else {
+      addToast(`Failed to stop ${kubexId}: ${res.error ?? `HTTP ${res.status}`}`, 'error');
+    }
     await load();
   }
 
@@ -203,7 +228,15 @@ export default function ContainersPanel() {
     setBulkKillConfirmOpen(false);
     setBulkActionInProgress(true);
     const ids = Array.from(selectedIds);
-    await Promise.allSettled(ids.map((id) => killKubex(id)));
+    const results = await Promise.allSettled(ids.map((id) => killKubex(id)));
+    const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').length;
+    const succeededCount = ids.length - failed;
+    if (succeededCount > 0) {
+      addToast(`Killed ${succeededCount} kubex${succeededCount !== 1 ? 'es' : ''}`, 'success');
+    }
+    if (failed > 0) {
+      addToast(`${failed} kubex${failed !== 1 ? 'es' : ''} failed to kill`, 'error');
+    }
     clearSelection();
     setBulkActionInProgress(false);
     await load();
@@ -212,7 +245,15 @@ export default function ContainersPanel() {
   async function handleBulkStart() {
     setBulkActionInProgress(true);
     const ids = Array.from(selectedIds);
-    await Promise.allSettled(ids.map((id) => startKubex(id)));
+    const results = await Promise.allSettled(ids.map((id) => startKubex(id)));
+    const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').length;
+    const succeededCount = ids.length - failed;
+    if (succeededCount > 0) {
+      addToast(`Started ${succeededCount} kubex${succeededCount !== 1 ? 'es' : ''}`, 'success');
+    }
+    if (failed > 0) {
+      addToast(`${failed} kubex${failed !== 1 ? 'es' : ''} failed to start`, 'error');
+    }
     clearSelection();
     setBulkActionInProgress(false);
     await load();
@@ -379,6 +420,7 @@ export default function ContainersPanel() {
                       onStop={() => handleStop(kubex.kubex_id)}
                       onRestart={() => requestRestart(kubex.kubex_id)}
                       onRespawn={() => requestRespawn(kubex.kubex_id)}
+                      onDelete={() => requestDelete(kubex.kubex_id)}
                     />
                   ))}
                 </div>
@@ -441,6 +483,8 @@ export default function ContainersPanel() {
             ? 'Kill Kubex'
             : confirmTarget?.action === 'restart'
             ? 'Restart Kubex'
+            : confirmTarget?.action === 'delete'
+            ? 'Delete Kubex'
             : 'Respawn Kubex'
         }
         message={
@@ -448,13 +492,17 @@ export default function ContainersPanel() {
             ? `Are you sure you want to kill kubex "${confirmTarget?.kubexId}"?`
             : confirmTarget?.action === 'restart'
             ? `Restart kubex "${confirmTarget?.kubexId}"? The container will be stopped and restarted.`
+            : confirmTarget?.action === 'delete'
+            ? `Permanently delete kubex "${confirmTarget?.kubexId}"? This removes the record from Manager. The container is not stopped — kill it first if still running.`
             : `Respawn kubex "${confirmTarget?.kubexId}"? The container will be killed and a new one created from the persisted config.`
         }
         confirmLabel={
           confirmTarget?.action === 'kill' ? 'Kill' :
-          confirmTarget?.action === 'restart' ? 'Restart' : 'Respawn'
+          confirmTarget?.action === 'restart' ? 'Restart' :
+          confirmTarget?.action === 'delete' ? 'Delete' :
+          'Respawn'
         }
-        variant={confirmTarget?.action === 'kill' ? 'danger' : 'warning'}
+        variant={confirmTarget?.action === 'kill' || confirmTarget?.action === 'delete' ? 'danger' : 'warning'}
         onConfirm={handleConfirmedAction}
         onCancel={() => setConfirmTarget(null)}
       />
@@ -512,16 +560,18 @@ interface KubexRowProps {
   onStop: () => void;
   onRestart: () => void;
   onRespawn: () => void;
+  onDelete: () => void;
 }
 
 // Wrapped in React.memo — ContainersPanel re-renders on every 10s poll tick.
 // KubexRow skips re-render when its own props haven't changed.
-const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, focused, rowProps, onSelect, onKill, onStart, onStop, onRestart, onRespawn }: KubexRowProps) {
+const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, focused, rowProps, onSelect, onKill, onStart, onStop, onRestart, onRespawn, onDelete }: KubexRowProps) {
   const isRunning = kubex.status === 'running';
   const isStopped = kubex.status === 'stopped' || kubex.status === 'error';
   const isCreated = kubex.status === 'created';
   const [configOpen, setConfigOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
+  const [credOpen, setCredOpen] = useState(false);
 
   return (
     <div
@@ -674,6 +724,34 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
               + Pkg
             </button>
           )}
+
+          {/* Credentials — shown only when running */}
+          {isRunning && (
+            <button
+              onClick={() => setCredOpen((v) => !v)}
+              data-testid={`kubex-credentials-btn-${kubex.kubex_id}`}
+              title={credOpen ? 'Close credential injector' : 'Inject OAuth credentials into this container'}
+              aria-expanded={credOpen}
+              className={`px-2 py-1 text-[10px] rounded border transition-colors ${
+                credOpen
+                  ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300'
+                  : 'border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10'
+              }`}
+            >
+              Creds
+            </button>
+          )}
+
+          {/* Delete — shown for all kubexes; removes the Manager record */}
+          <button
+            onClick={onDelete}
+            disabled={actionIn}
+            data-testid={`kubex-delete-${kubex.kubex_id}`}
+            title="Delete kubex record from Manager"
+            className="px-2 py-1 text-[10px] rounded border border-red-500/20 text-red-500/70 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/5 transition-colors disabled:opacity-50"
+          >
+            {actionIn ? '…' : 'Delete'}
+          </button>
         </div>
       </div>
 
@@ -685,6 +763,11 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
       {/* Expandable install-dep panel — only when running */}
       {installOpen && isRunning && (
         <KubexInstallDepPanel kubexId={kubex.kubex_id} />
+      )}
+
+      {/* Expandable credential panel — only when running */}
+      {credOpen && isRunning && (
+        <KubexCredentialPanel kubexId={kubex.kubex_id} />
       )}
     </div>
   );

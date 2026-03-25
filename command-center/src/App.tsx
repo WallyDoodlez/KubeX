@@ -20,8 +20,9 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import type { ToastType } from './context/ToastContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
-import { SettingsProvider } from './hooks/useSettings';
+import { SettingsProvider, useSettings } from './hooks/useSettings';
 import type { NavPage } from './types';
 
 const LazyDashboard = lazy(() => import('./components/Dashboard'));
@@ -37,6 +38,7 @@ const LazyAuthCallbackPage = lazy(() => import('./components/AuthCallbackPage'))
 const LazyLoginPage = lazy(() => import('./components/LoginPage'));
 const LazyTaskHistoryPage = lazy(() => import('./components/TaskHistoryPage'));
 const LazySpawnWizard = lazy(() => import('./pages/SpawnWizard'));
+const LazyPolicyCheckPage = lazy(() => import('./pages/PolicyCheckPage'));
 
 const PAGE_TO_PATH: Record<NavPage, string> = {
   dashboard: '/',
@@ -81,13 +83,27 @@ const LoadingFallback = (
 );
 
 /**
- * ToastBridge — sits inside NotificationProvider so it can access
- * useNotifications() and pass addNotification to ToastProvider.
+ * ToastBridge — sits inside NotificationProvider and SettingsProvider so it
+ * can access both useNotifications() and useSettings(), wiring:
+ *   - addNotification as the side-effect for the notification history
+ *   - a filter derived from notificationPrefs to suppress unwanted toast types
  */
 function ToastBridge({ children }: { children: React.ReactNode }) {
   const { addNotification } = useNotifications();
+  const { settings } = useSettings();
+  const { notificationPrefs } = settings;
+
+  const toastFilter = (type: ToastType): boolean => {
+    if (!notificationPrefs.toastsEnabled) return false;
+    if (type === 'success') return notificationPrefs.showSuccess;
+    if (type === 'error') return notificationPrefs.showError;
+    if (type === 'warning') return notificationPrefs.showWarning;
+    if (type === 'info') return notificationPrefs.showInfo;
+    return true;
+  };
+
   return (
-    <ToastProvider onToastAdded={addNotification}>
+    <ToastProvider onToastAdded={addNotification} toastFilter={toastFilter}>
       {children}
     </ToastProvider>
   );
@@ -133,22 +149,28 @@ export default function App() {
       <ToastBridge>
         <OAuthGate>
           <Layout>
+            {/* Outer boundary: catches crashes that escape the per-route boundary (rare). */}
             <ErrorBoundary>
               <Suspense fallback={LoadingFallback}>
-                <Routes>
-                  <Route path="/" element={<DashboardPage />} />
-                  <Route path="/agents" element={<LazyAgentsPanel />} />
-                  <Route path="/agents/:agentId" element={<LazyAgentDetailPage />} />
-                  <Route path="/traffic" element={<TrafficPage />} />
-                  <Route path="/chat" element={<ChatPage />} />
-                  <Route path="/containers" element={<LazyContainersPanel />} />
-                  <Route path="/approvals" element={<LazyApprovalQueue />} />
-                  <Route path="/tasks" element={<TasksPage />} />
-                  <Route path="/spawn" element={<LazySpawnWizard />} />
-                  <Route path="/settings" element={<LazySettingsPage />} />
-                  <Route path="/auth/callback" element={<LazyAuthCallbackPage />} />
-                  <Route path="*" element={<LazyNotFoundPage />} />
-                </Routes>
+                {/* Inner per-route boundary: errors stay within the content area,
+                    keeping the sidebar and header intact. */}
+                <ErrorBoundary inline>
+                  <Routes>
+                    <Route path="/" element={<DashboardPage />} />
+                    <Route path="/agents" element={<LazyAgentsPanel />} />
+                    <Route path="/agents/:agentId" element={<LazyAgentDetailPage />} />
+                    <Route path="/traffic" element={<TrafficPage />} />
+                    <Route path="/chat" element={<ChatPage />} />
+                    <Route path="/containers" element={<LazyContainersPanel />} />
+                    <Route path="/approvals" element={<LazyApprovalQueue />} />
+                    <Route path="/tasks" element={<TasksPage />} />
+                    <Route path="/spawn" element={<LazySpawnWizard />} />
+                    <Route path="/policy-check" element={<LazyPolicyCheckPage />} />
+                    <Route path="/settings" element={<LazySettingsPage />} />
+                    <Route path="/auth/callback" element={<LazyAuthCallbackPage />} />
+                    <Route path="*" element={<LazyNotFoundPage />} />
+                  </Routes>
+                </ErrorBoundary>
               </Suspense>
             </ErrorBoundary>
           </Layout>

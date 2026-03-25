@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, MANAGER } from './helpers';
 
 /**
  * URL Query Params for shareable filters — Iteration 31
@@ -11,6 +12,10 @@ import { test, expect } from '@playwright/test';
 // ── AgentsPanel ──────────────────────────────────────────────────────────────
 
 test.describe('AgentsPanel — URL query params', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
+  });
+
   test('search query appears in URL when typing in search box', async ({ page }) => {
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
@@ -122,8 +127,6 @@ test.describe('AgentsPanel — URL query params', () => {
 
 // ── ContainersPanel ──────────────────────────────────────────────────────────
 
-const CONTAINERS_MANAGER = 'http://localhost:8090';
-
 const containersMockKubexes = [
   {
     kubex_id: 'kubex-550e8400-e29b-41d4',
@@ -145,9 +148,7 @@ const containersMockKubexes = [
 
 test.describe('ContainersPanel — URL query params', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route(`${CONTAINERS_MANAGER}/kubexes`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(containersMockKubexes) }),
-    );
+    await mockBaseRoutes(page, { kubexes: containersMockKubexes });
   });
 
   test('status filter appears in URL when changed', async ({ page }) => {
@@ -223,6 +224,10 @@ test.describe('ContainersPanel — URL query params', () => {
 // ── TrafficLog ───────────────────────────────────────────────────────────────
 
 test.describe('TrafficLog — URL query params', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
+  });
+
   test('traffic status filter appears in URL when changed', async ({ page }) => {
     await page.goto('/traffic');
     await expect(page.locator('h2', { hasText: 'Traffic / Actions Log' })).toBeVisible();
@@ -288,6 +293,10 @@ test.describe('TrafficLog — URL query params', () => {
 // ── Cross-panel ──────────────────────────────────────────────────────────────
 
 test.describe('URL query params — cross-panel behaviour', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
+  });
+
   test('agents URL params do not leak to containers page', async ({ page }) => {
     await page.goto('/agents?search=alpha&sort=status&dir=asc');
     await expect(page.locator('header h1')).toHaveText('Agents');

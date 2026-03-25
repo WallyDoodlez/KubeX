@@ -26,7 +26,7 @@ const INITIAL: OnboardingState = {
   active: false,
 };
 
-export const TOUR_STEP_COUNT = 5;
+export const TOUR_STEP_COUNT = 8;
 
 export function useOnboarding() {
   const [state, setState] = useLocalStorage<OnboardingState>(STORAGE_KEY, INITIAL);

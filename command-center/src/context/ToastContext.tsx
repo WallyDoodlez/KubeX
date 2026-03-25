@@ -22,18 +22,30 @@ const DEFAULT_DURATION = 4000;
 /** Optional side-effect called for every toast added — used to mirror toasts into NotificationCenter. */
 export type ToastSideEffect = (message: string, type: ToastType) => void;
 
+/**
+ * Optional filter predicate.  When provided, a toast is suppressed (not
+ * rendered) if the function returns `false` for that toast type.  The
+ * side-effect (`onToastAdded`) is still called so the notification history
+ * continues to capture all events regardless of suppression.
+ */
+export type ToastFilter = (type: ToastType) => boolean;
+
 export function ToastProvider({
   children,
   onToastAdded,
+  toastFilter,
 }: {
   children: React.ReactNode;
   onToastAdded?: ToastSideEffect;
+  toastFilter?: ToastFilter;
 }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  // Keep a stable ref to the side-effect so addToast doesn't need it in its dep array
+  // Keep stable refs so addToast closure doesn't capture stale values
   const onToastAddedRef = useRef<ToastSideEffect | undefined>(onToastAdded);
   onToastAddedRef.current = onToastAdded;
+  const toastFilterRef = useRef<ToastFilter | undefined>(toastFilter);
+  toastFilterRef.current = toastFilter;
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -46,13 +58,19 @@ export function ToastProvider({
 
   const addToast = useCallback(
     (message: string, type: ToastType = 'info', duration: number = DEFAULT_DURATION) => {
+      // Mirror into notification history regardless of filter
+      onToastAddedRef.current?.(message, type);
+
+      // Check filter — if it returns false, skip rendering the toast UI
+      if (toastFilterRef.current && !toastFilterRef.current(type)) {
+        return;
+      }
+
       const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const toast: ToastMessage = { id, message, type, duration };
       setToasts((prev) => [...prev, toast]);
       const timer = setTimeout(() => removeToast(id), duration);
       timersRef.current.set(id, timer);
-      // Mirror into notification history (if provider is wired up)
-      onToastAddedRef.current?.(message, type);
     },
     [removeToast],
   );

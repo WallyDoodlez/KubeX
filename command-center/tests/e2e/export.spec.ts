@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes } from './helpers';
 
 // ── Shared mock data ─────────────────────────────────────────────────
-const REGISTRY = 'http://localhost:8070';
-const MANAGER = 'http://localhost:8090';
+// Local overrides with export-specific agent/kubex IDs so assertions
+// match the exact text rendered in each test.
 
 const mockAgents = [
   {
@@ -45,6 +46,7 @@ async function injectTrafficEntry(page: import('@playwright/test').Page) {
 
 test.describe('Export — Traffic Log', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/traffic');
     await expect(page.locator('header h1')).toHaveText('Traffic');
   });
@@ -158,10 +160,7 @@ test.describe('Export — Traffic Log', () => {
 
 test.describe('Export — Agents Panel', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock the registry agents endpoint so agents load without a live backend
-    await page.route(`${REGISTRY}/agents`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockAgents) }),
-    );
+    await mockBaseRoutes(page, { agents: mockAgents, kubexes: mockKubexes });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
   });
@@ -218,9 +217,7 @@ test.describe('Export — Agents Panel', () => {
 
 test.describe('Export — Containers Panel', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route(`${MANAGER}/kubexes`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockKubexes) }),
-    );
+    await mockBaseRoutes(page, { agents: mockAgents, kubexes: mockKubexes });
     await page.goto('/containers');
     await expect(page.locator('header h1')).toHaveText('Containers');
   });
@@ -272,6 +269,7 @@ test.describe('Export — Containers Panel', () => {
 
 test.describe('Export — Orchestrator Chat', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/chat');
     await expect(page.locator('header h1')).toHaveText('Orchestrator');
   });
@@ -295,9 +293,10 @@ test.describe('Export — Orchestrator Chat', () => {
     await expect(page.getByTestId('chat-export-menu')).toHaveAttribute('aria-expanded', 'true');
   });
 
-  test('chat export has JSON option only (no CSV)', async ({ page }) => {
+  test('chat export has JSON and Markdown options (no CSV)', async ({ page }) => {
     await page.getByTestId('chat-export-menu').click();
     await expect(page.getByTestId('chat-export-menu-json')).toBeVisible();
+    await expect(page.getByTestId('chat-export-menu-md')).toBeVisible();
     await expect(page.getByTestId('chat-export-menu-csv')).not.toBeVisible();
   });
 
@@ -308,6 +307,15 @@ test.describe('Export — Orchestrator Chat', () => {
 
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/^chat-history-.*\.json$/);
+  });
+
+  test('chat Markdown export triggers a download with .md extension', async ({ page }) => {
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByTestId('chat-export-menu').click();
+    await page.getByTestId('chat-export-menu-md').click();
+
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^chat-history-.*\.md$/);
   });
 
   test('chat export dropdown closes on Escape', async ({ page }) => {

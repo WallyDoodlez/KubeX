@@ -199,6 +199,24 @@ export interface AuditResponse {
   entries: AuditEntry[];
 }
 
+// ── Policy check ─────────────────────────────────────────────────────
+
+export type PolicyDecision = 'ALLOW' | 'ESCALATE' | 'DENY';
+
+/** Request body for POST /policy/skill-check */
+export interface SkillCheckRequest {
+  agent_id: string;
+  skills: string[];
+}
+
+/** Response from POST /policy/skill-check */
+export interface SkillCheckResponse {
+  decision: PolicyDecision;
+  reason: string;
+  rule_matched: string;
+  agent_id: string;
+}
+
 // ── Navigation ───────────────────────────────────────────────────────
 
 export type NavPage = 'dashboard' | 'agents' | 'traffic' | 'chat' | 'containers';
@@ -252,4 +270,34 @@ export interface InstallDepResponse {
   type: string;
   status: string;
   runtime_deps: string[];
+}
+
+// ── Agent Registration ────────────────────────────────────────────────
+
+/** Request body for POST /agents (Registry) */
+export interface AgentRegistrationBody {
+  agent_id: string;
+  capabilities: string[];
+  status?: 'running' | 'stopped' | 'busy' | 'unknown';
+  boundary?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// ── Kubex Credential Injection ────────────────────────────────────────
+
+/** Supported CLI runtimes for credential injection */
+export type KubexRuntime = 'claude-code' | 'codex-cli' | 'gemini-cli';
+
+/** Request body for POST /kubexes/{id}/credentials */
+export interface InjectCredentialBody {
+  runtime: KubexRuntime;
+  credential_data: Record<string, unknown>;
+}
+
+/** Response from POST /kubexes/{id}/credentials */
+export interface InjectCredentialResponse {
+  status: string;
+  kubex_id: string;
+  runtime: string;
+  path: string;
 }

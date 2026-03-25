@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const MANAGER = 'http://localhost:8090';
+import { mockBaseRoutes, isLiveMode, MANAGER } from './helpers';
 
 // ── Fixtures ─────────────────────────────────────────────────────────
 
@@ -33,13 +32,7 @@ const installErrorResponse = {
 
 /** Mock kubex list. */
 async function mockKubexList(page: import('@playwright/test').Page, data = [runningKubex]) {
-  await page.route(`${MANAGER}/kubexes`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(data),
-    }),
-  );
+  await mockBaseRoutes(page, { kubexes: data });
 }
 
 /** Mock the install-dep endpoint. */
@@ -233,6 +226,8 @@ test.describe('Kubex Install Dep — successful install', () => {
 });
 
 test.describe('Kubex Install Dep — failed install', () => {
+  test.skip(isLiveMode, 'Error-simulation tests only run in mock mode');
+
   test('failed install shows error entry in history', async ({ page }) => {
     await mockKubexList(page);
     await mockInstallDep(page, runningKubex.kubex_id, installErrorResponse, 422);

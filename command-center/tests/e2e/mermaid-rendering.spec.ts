@@ -12,28 +12,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-
-const GATEWAY = 'http://localhost:8080';
-
-/** Stub common background routes to avoid noise */
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
+import { isLiveMode, mockBaseRoutes, mockDispatch, GATEWAY } from './helpers';
 
 /**
  * Dispatch a task via SSE and wait until the result bubble is visible.
@@ -43,17 +22,7 @@ async function dispatchAndGetResult(
   taskId: string,
   resultText: string,
 ) {
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: taskId, status: 'dispatched' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
+  await mockDispatch(page, taskId);
 
   await page.route(`${GATEWAY}/tasks/${taskId}/stream`, (route) => {
     const sseBody = `data: ${JSON.stringify({ type: 'result', result: resultText })}\n\n`;
@@ -78,7 +47,8 @@ async function dispatchAndGetResult(
 
 test.describe('OrchestratorChat — Mermaid diagram rendering in result bubbles (Iteration 45)', () => {
   test.beforeEach(async ({ page }) => {
-    await setupRoutes(page);
+    test.skip(isLiveMode, 'Mermaid content assertions require mock SSE — live mode returns real agent responses');
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await page.goto('/chat');
   });
 
