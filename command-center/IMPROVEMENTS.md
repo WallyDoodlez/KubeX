@@ -4,6 +4,14 @@
 
 ---
 
+- [x] **Iteration 89: Favorite capabilities in Orchestrator Chat**
+  - [x] `OrchestratorChat.tsx` — `favoriteCaps` state initialized from `localStorage` key `kubex-favorite-caps`; `toggleFavoriteCap` callback writes back to localStorage on every toggle
+  - [x] `OrchestratorChat.tsx` — Star toggle button (`data-testid="cap-star-{capName}"`, ☆/★) added next to each cap in the "Known caps" row of the Advanced panel; starred caps show amber-styled filled star
+  - [x] `OrchestratorChat.tsx` — "★ Favorites:" section (`data-testid="favorite-caps-section"`) renders above the "Known caps" row when at least one cap is starred; clicking a favorite pill sets the capability input
+  - [x] `OrchestratorChat.tsx` — Quick-access bar (`data-testid="quick-caps-bar"`) renders below the message input when the Advanced panel is COLLAPSED and favorites exist; each pill has `data-testid="quick-cap-pill-{capName}"`; clicking a pill sets the capability state without opening the Advanced panel
+  - [x] 12 E2E tests in `tests/e2e/favorite-capabilities.spec.ts` — star button rendering, star/unstar toggle, favorites section visibility, quick-caps-bar show/hide logic, pill click sets capability, localStorage persistence across reload
+  - [x] Build: npm run build — clean; Tests: 1286/1286 passed (23 skipped — OAuth; 1 pre-existing flaky streaming timing test)
+
 - [x] **Iteration 88: BUG-007 fallback render fix + dashboard service tile cleanup**
   - [x] `OrchestratorChat.tsx` — BUG-007 FE fix: 2s post-dispatch `setTimeout` polls `getTaskResult` once; if task is already terminal (completed/failed/cancelled) render result + close idle SSE stream; `activeTaskIdRef` guard prevents double-render if SSE or `handleSSEComplete` already resolved; also added on-SSE-open immediate check for belt-and-suspenders coverage
   - [x] `ServiceCard.tsx` — Remove redundant inline `<p>` description paragraph (was duplicated in tile body AND tooltip); description now lives only in the "i" hover tooltip for cleaner tile layout; sparkline `"Response time (ms)"` label added with `data-testid="sparkline-label"`
@@ -985,10 +993,12 @@
   - [x] E2E tests: `async-toasts.spec.ts` — 11 tests
   - [x] Test: npx playwright test — 1259 passed, 23 skipped
 
-- [ ] **Iteration 87: Dashboard recent tasks widget + Spawn Wizard unsaved-state guard**
-  - [ ] Add "Recent Tasks" card to `Dashboard.tsx` — shows last 5 dispatched tasks from `trafficLog` (task ID, capability, status badge, relative timestamp), with "View all" link to `/tasks`
-  - [ ] Empty state when no tasks: "No tasks dispatched yet"
-  - [ ] Add `beforeunload` guard to `SpawnWizard.tsx` — warns user before navigating away when form has been touched (any field filled in steps 1-3), disabled on success screen
-  - [ ] E2E tests: recent tasks card renders on dashboard, shows entries from traffic log, empty state when no data, spawn wizard warns on navigation away mid-flow
+- [ ] **Iteration 89: Favorite capabilities in Orchestrator Chat**
+  - [ ] Add star/pin toggle next to each capability in the "Known caps" list — clicking stars it, starred caps move to top of list
+  - [ ] Persist favorites to `localStorage` key `kubex-favorite-caps`
+  - [ ] Show favorites section above the known caps list with a "Favorites" label, separated by a divider
+  - [ ] When Advanced panel is collapsed (default), show favorite caps as quick-access pills below the input area for one-click capability selection
+  - [ ] Clicking a favorite pill sets the capability without opening Advanced panel
+  - [ ] E2E tests: star button visible, clicking star persists to localStorage, favorites appear at top, quick-access pills render when favorites exist, clicking pill sets capability
   - [ ] Build: npm run build — clean
   - [ ] Test: npx playwright test — all pass

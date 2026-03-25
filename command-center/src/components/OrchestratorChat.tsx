@@ -39,6 +39,28 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [msgError, setMsgError] = useState<string | null>(null);
   const [knownCaps, setKnownCaps] = useState<string[]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  // Favorite capabilities — persisted to localStorage
+  const [favoriteCaps, setFavoriteCaps] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('kubex-favorite-caps');
+      return stored ? (JSON.parse(stored) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleFavoriteCap = useCallback((cap: string) => {
+    setFavoriteCaps((prev) => {
+      const next = prev.includes(cap) ? prev.filter((c) => c !== cap) : [...prev, cap];
+      try {
+        localStorage.setItem('kubex-favorite-caps', JSON.stringify(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  }, []);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -1431,6 +1453,32 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           </div>
         </div>
 
+        {/* Quick-access favorite capability pills — shown when Advanced panel is collapsed and favorites exist */}
+        {!advancedOpen && favoriteCaps.length > 0 && (
+          <div
+            data-testid="quick-caps-bar"
+            className="mt-2 flex flex-wrap gap-1.5 items-center"
+          >
+            <span className="text-[9px] text-[var(--color-text-muted)] self-center">Quick:</span>
+            {favoriteCaps.map((cap) => (
+              <button
+                key={cap}
+                data-testid={`quick-cap-pill-${cap}`}
+                onClick={() => setCapability(cap)}
+                disabled={sending}
+                className="
+                  text-xs font-mono-data px-3 py-1 rounded-full
+                  bg-gray-700 hover:bg-gray-600 text-gray-200
+                  disabled:opacity-40 disabled:cursor-not-allowed
+                  transition-colors border border-gray-600
+                "
+              >
+                {cap}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Advanced panel — capability selector + known caps chips */}
         {advancedOpen && (
           <div
@@ -1472,17 +1520,49 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
             {capError && <p className="text-[10px] text-red-400 mt-0.5">{capError}</p>}
 
             {knownCaps.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                <span className="text-[10px] text-[var(--color-text-muted)] self-center">Known caps:</span>
-                {knownCaps.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCapability(c)}
-                    className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-border-strong)] transition-colors border border-[var(--color-border-strong)]"
-                  >
-                    {c}
-                  </button>
-                ))}
+              <div className="mt-2 space-y-2">
+                {/* Favorites section — only shown when at least one cap is starred */}
+                {favoriteCaps.length > 0 && (
+                  <div data-testid="favorite-caps-section" className="flex flex-wrap gap-1 items-center">
+                    <span className="text-[10px] text-amber-400/80 self-center">★ Favorites:</span>
+                    {favoriteCaps.filter((c) => knownCaps.includes(c)).map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setCapability(c)}
+                        className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 hover:text-amber-200 hover:bg-amber-500/20 transition-colors border border-amber-500/30"
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* All known caps with star toggles */}
+                <div className="flex flex-wrap gap-1 items-center">
+                  <span className="text-[10px] text-[var(--color-text-muted)] self-center">Known caps:</span>
+                  {knownCaps.map((c) => (
+                    <div key={c} className="flex items-center gap-0">
+                      <button
+                        onClick={() => setCapability(c)}
+                        className="text-[10px] font-mono-data px-1.5 py-0.5 rounded-l bg-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-border-strong)] transition-colors border border-[var(--color-border-strong)]"
+                      >
+                        {c}
+                      </button>
+                      <button
+                        data-testid={`cap-star-${c}`}
+                        onClick={() => toggleFavoriteCap(c)}
+                        aria-label={favoriteCaps.includes(c) ? `Unstar ${c}` : `Star ${c}`}
+                        className={`text-[10px] px-1 py-0.5 rounded-r transition-colors border border-l-0 border-[var(--color-border-strong)] ${
+                          favoriteCaps.includes(c)
+                            ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25'
+                            : 'bg-[var(--color-border)] text-[var(--color-text-muted)] hover:text-amber-400 hover:bg-[var(--color-border-strong)]'
+                        }`}
+                      >
+                        {favoriteCaps.includes(c) ? '★' : '☆'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
