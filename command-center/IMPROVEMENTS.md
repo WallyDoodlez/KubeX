@@ -4,6 +4,16 @@
 
 ---
 
+- [x] **Iteration 84: Agent task metrics tab on Agent Detail page**
+  - [x] Create `src/components/AgentTaskMetrics.tsx` — filters `trafficLog` by `agent_id`, computes total/allowed/denied/escalated/pending/successPct, `React.memo`
+  - [x] Hero stat card: "N total · X allowed (Y%) · Z denied · W escalated" with coloured badges
+  - [x] Capability breakdown: horizontal bars for top-8 capabilities (derived from `capability ?? action`)
+  - [x] Recent failures: last 5 denied/escalated entries with status badge, policy rule, and timestamp
+  - [x] Empty state: "No task history recorded for this agent." when no traffic for this agent
+  - [x] Add "Task Metrics" tab to `AgentDetailPage.tsx` (between Actions and Live Output)
+  - [x] 14 E2E tests in `tests/e2e/agent-task-metrics.spec.ts` — all pass
+  - [x] Build: npm run build — clean; Tests: 1239/1239 passed (23 skipped — OAuth)
+
 - [x] **Iteration 82: Live-mode E2E test hardening — dual-mode assertions**
   - [x] Create `tests/e2e/helpers/live-assertions.ts` — dual-mode helper functions: `expectAnyResultBubble`, `expectAnyErrorBubble`, `expectResultText`, `expectErrorText`, `expectTaskDispatched`, `expectSendingComplete`, `expectResultTaskId`, `expectResultBubbleTimeline`, `expectTimelinePhase`, `expectResultLabel`
   - [x] Export all live-assertion helpers from `tests/e2e/helpers/index.ts` barrel
