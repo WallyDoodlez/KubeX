@@ -69,7 +69,9 @@ test.describe('Spawn Wizard — unsaved-state guard', () => {
     // Verify the page renders the identity step without any dirty state
     await expect(page.getByTestId('agent-id-input')).toHaveValue('');
 
-    // Check no guard fires by navigating and confirming we land on a new page
+    // Check no guard fires by navigating and confirming we land on a new page.
+    // Clear last-page so the restore redirect does not interfere.
+    await page.evaluate(() => localStorage.removeItem('kubex-last-page'));
     await page.goto('/');
     await expect(page.locator('header h1')).toHaveText('Dashboard');
   });

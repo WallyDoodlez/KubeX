@@ -151,6 +151,8 @@ test.describe('Capability Matrix', () => {
 
   test('matrix is visible after navigating away and back', async ({ page }) => {
     // Navigate to Dashboard using direct URL (avoids button vs <a> selector issues)
+    // Clear last-page so the restore redirect does not interfere.
+    await page.evaluate(() => localStorage.removeItem('kubex-last-page'));
     await page.goto('/');
     await expect(page.locator('header h1')).toHaveText('Dashboard');
     // Navigate back to Agents

@@ -32,6 +32,28 @@ interface NavItem {
   path: string;
 }
 
+const LAST_PAGE_KEY = 'kubex-last-page';
+
+/** Paths that are valid restore targets. Dynamic segments use prefix matching. */
+const VALID_RESTORE_PREFIXES = [
+  '/',
+  '/agents',
+  '/chat',
+  '/containers',
+  '/traffic',
+  '/tasks',
+  '/approvals',
+  '/spawn',
+  '/policy-check',
+  '/settings',
+];
+
+function isValidRestorePath(path: string): boolean {
+  return VALID_RESTORE_PREFIXES.some((prefix) =>
+    prefix === '/' ? path === '/' : path === prefix || path.startsWith(prefix + '/'),
+  );
+}
+
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard',    icon: '◈', description: 'System overview',   path: '/'          },
   { label: 'Agents',       icon: '◎', description: 'Registered agents', path: '/agents'    },
@@ -119,6 +141,28 @@ export default function Layout({ children }: LayoutProps) {
 
   // ── Theme (persists to localStorage, applies data-theme to <html>) ──
   useTheme();
+
+  // ── Persist last visited page ─────────────────────────────────────
+  // Save current path whenever location changes.
+  // Root `/` is not saved — it is the universal fallback, not a "saved page".
+  // This also ensures we don't accidentally overwrite a valid saved path on
+  // the initial render (before the restore effect has navigated away from `/`).
+  useEffect(() => {
+    if (location.pathname !== '/') {
+      localStorage.setItem(LAST_PAGE_KEY, location.pathname);
+    }
+  }, [location.pathname]);
+
+  // On mount only: if we're at root `/`, restore the last saved page.
+  useEffect(() => {
+    if (location.pathname === '/') {
+      const saved = localStorage.getItem(LAST_PAGE_KEY);
+      if (saved && saved !== '/' && isValidRestorePath(saved)) {
+        navigate(saved, { replace: true });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — run once on mount only
 
   // "G then X" two-key navigation — store first key with a timeout
   const gKeyPending = useRef(false);

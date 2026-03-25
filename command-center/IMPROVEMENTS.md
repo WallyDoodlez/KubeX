@@ -4,6 +4,14 @@
 
 ---
 
+- [x] **Iteration 93: Persist last visited page across refresh**
+  - [x] `src/components/Layout.tsx` — added `LAST_PAGE_KEY`, `VALID_RESTORE_PREFIXES`, and `isValidRestorePath()` helper above `NAV_ITEMS`; added two `useEffect` hooks: (1) save non-root path to `localStorage` on every location change, (2) on mount-only, if at `/` read the saved path and redirect via `navigate(saved, { replace: true })`; root `/` is intentionally never saved to avoid overwriting a valid path before the restore effect reads it
+  - [x] `tests/e2e/page-persistence.spec.ts` — 7 E2E tests: saves path on navigation, redirects from `/` to saved page on refresh, direct URLs bypass restore, no redirect when saved is `/`, no redirect when saved is invalid, saves nested `/agents/:id` paths, restores nested paths
+  - [x] `tests/e2e/capability-matrix.spec.ts` — added `localStorage.removeItem('kubex-last-page')` before `page.goto('/')` in one test that explicitly expects Dashboard after navigating away from `/agents`
+  - [x] `tests/e2e/favorites.spec.ts` — same fix for the dashboard-pinned-star test that was broken by the redirect
+  - [x] `tests/e2e/spawn-wizard-guard.spec.ts` — same fix for the clean-form guard test that navigates from `/spawn` back to `/`
+  - [x] Build: npm run build — clean; Tests: 1338 passed, 22 skipped (OAuth), 0 failures
+
 - [x] **Iteration 92: Global loading progress bar**
   - [x] `src/context/LoadingContext.tsx` — module-level singleton counter with `useSyncExternalStore`; exports `startLoading()`, `stopLoading()`, `resetLoading()`, `useLoadingCount()`, `useLoading()` hook; zero React context overhead, no provider needed
   - [x] `src/components/GlobalProgressBar.tsx` — `position: fixed`, `top: 0`, `z-index: 9999`, 2px height; emerald-to-cyan gradient (`#10b981 → #06b6d4`) with glow shadow; animated state machine: `hidden → loading → completing → fading`; incremental tick animation up to 85% during load, then snaps to 100% and fades; `data-testid="global-progress-bar"`
@@ -1032,13 +1040,18 @@
   - [x] E2E tests: `task-detail-panel.spec.ts` — 17 tests
   - [x] Test: npx playwright test — 1325 passed, 23 skipped
 
-- [ ] **Iteration 92: Global loading progress bar (NProgress-style)**
-  - [ ] Create `src/components/GlobalProgressBar.tsx` — thin animated bar at the very top of the viewport (fixed, z-50) that shows during any active API fetch
-  - [ ] Create `src/hooks/useLoadingBar.ts` — hook that tracks active fetch count; bar visible when count > 0, animates to 90% during load, completes to 100% on finish
-  - [ ] Integrate into `Layout.tsx` — render `<GlobalProgressBar />` above the header
-  - [ ] Wire into AppContext polling (agents, kubexes, health) — increment/decrement on fetch start/end
-  - [ ] Wire into manual actions (dispatch, cancel, spawn, register) — show bar during these operations
-  - [ ] Bar color: emerald gradient matching theme; height: 2-3px; animation: slide-in from left
-  - [ ] E2E tests: bar appears during data load, bar disappears after load completes, bar visible during dispatch
+- [x] **Iteration 92: Global loading progress bar (NProgress-style)**
+  - [x] Created `GlobalProgressBar.tsx` — 2px emerald-to-cyan gradient, fixed top, z-9999
+  - [x] Created `LoadingContext.tsx` — module-level singleton with `useSyncExternalStore`
+  - [x] Integrated into `Layout.tsx` + wired into `useHealthCheck.ts`
+  - [x] E2E tests: `global-progress-bar.spec.ts` — 5 tests
+  - [x] Fix: 58 test regressions (missing mockBaseRoutes in 9 test files)
+  - [x] Test: npx playwright test — 1331 passed, 22 skipped
+
+- [ ] **Iteration 93: Persist last visited page across refresh**
+  - [ ] In `Layout.tsx`, save current route to `localStorage` key `kubex-last-page` on every navigation
+  - [ ] On app mount, read `kubex-last-page` and navigate to it if it differs from current path
+  - [ ] Skip redirect if URL has explicit path (direct link/bookmark should take priority)
+  - [ ] E2E tests: navigating to /agents then refreshing returns to /agents, direct URL /containers overrides saved page
   - [ ] Build: npm run build — clean
   - [ ] Test: npx playwright test — all pass

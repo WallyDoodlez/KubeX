@@ -232,6 +232,8 @@ test.describe('Pinned/Favorite Agents', () => {
     // First, favorite an agent via the agents panel
     await page.evaluate(() => {
       localStorage.setItem('kubex-favorite-agents', JSON.stringify(['agent-alpha-001']));
+      // Clear last-page so the restore redirect does not interfere.
+      localStorage.removeItem('kubex-last-page');
     });
 
     await page.goto('/');
