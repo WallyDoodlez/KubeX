@@ -993,12 +993,20 @@
   - [x] E2E tests: `async-toasts.spec.ts` — 11 tests
   - [x] Test: npx playwright test — 1259 passed, 23 skipped
 
-- [ ] **Iteration 89: Favorite capabilities in Orchestrator Chat**
-  - [ ] Add star/pin toggle next to each capability in the "Known caps" list — clicking stars it, starred caps move to top of list
-  - [ ] Persist favorites to `localStorage` key `kubex-favorite-caps`
-  - [ ] Show favorites section above the known caps list with a "Favorites" label, separated by a divider
-  - [ ] When Advanced panel is collapsed (default), show favorite caps as quick-access pills below the input area for one-click capability selection
-  - [ ] Clicking a favorite pill sets the capability without opening Advanced panel
-  - [ ] E2E tests: star button visible, clicking star persists to localStorage, favorites appear at top, quick-access pills render when favorites exist, clicking pill sets capability
-  - [ ] Build: npm run build — clean
-  - [ ] Test: npx playwright test — all pass
+- [x] **Iteration 89: Favorite capabilities in Orchestrator Chat**
+  - [x] Star toggle (☆/★) on each capability, starred caps move to top with "Favorites" label
+  - [x] Persist to `localStorage` key `kubex-favorite-caps`
+  - [x] Quick-access pills below input when Advanced panel collapsed
+  - [x] E2E tests: `favorite-capabilities.spec.ts` — 12 tests
+  - [x] Test: npx playwright test — 1286 passed, 23 skipped
+
+- [x] **Iteration 90: Approval queue search, filter, and sort**
+  - [x] Search input filters by agent_id, action, capability, policy_rule (case-insensitive)
+  - [x] Status filter tabs: All / Pending / Approved / Denied
+  - [x] Sort dropdown: Newest first (default) / Oldest first / By agent
+  - [x] Result count: "N escalations" or "N of M shown" when filtered
+  - [x] Empty filtered state: "No matching escalations"
+  - [x] Wire ApprovalQueue to getEscalations() API instead of hard-coded empty array
+  - [x] E2E tests: `approval-filters.spec.ts` — 21 tests
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1308 passed, 23 skipped
