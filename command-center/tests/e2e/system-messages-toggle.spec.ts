@@ -21,33 +21,15 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes } from './helpers';
 
 const CHAT_MESSAGES_KEY = 'kubex-chat-messages';
-
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
 
 async function goToChatWithMessages(
   page: import('@playwright/test').Page,
   messages: Array<{ id: string; role: string; content: string; timestamp: string; task_id?: string }>,
 ) {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.addInitScript(
     ({ key, msgs }: { key: string; msgs: unknown[] }) => {
       localStorage.setItem(key, JSON.stringify(msgs));

@@ -1,4 +1,11 @@
 import { test, expect } from '@playwright/test';
+import {
+  mockBaseRoutes,
+  mockAgentRegister,
+  isLiveMode,
+  REGISTRY,
+  MOCK_AGENTS,
+} from './helpers';
 
 /**
  * Iteration 73 — Agent Registration Form
@@ -24,21 +31,6 @@ import { test, expect } from '@playwright/test';
  * - Metadata field is optional — no error when left blank
  */
 
-const REGISTRY = 'http://localhost:8070';
-const MANAGER = 'http://localhost:8090';
-const GATEWAY = 'http://localhost:8080';
-
-const MOCK_AGENTS = [
-  {
-    agent_id: 'agent-alpha-001',
-    capabilities: ['summarise', 'classify'],
-    status: 'running',
-    boundary: 'internal',
-    registered_at: '2026-03-22T08:00:00Z',
-    metadata: {},
-  },
-];
-
 const REGISTERED_AGENT = {
   agent_id: 'new-test-agent',
   capabilities: ['translate'],
@@ -54,16 +46,12 @@ async function mockApis(
 ) {
   const { registerStatus = 200, registerBody = REGISTERED_AGENT } = opts;
 
-  // Registry GET /agents — return mock agent list
+  // Registry GET/POST /agents — base routes handle GET; override POST for registration
+  await mockBaseRoutes(page, { agents: MOCK_AGENTS, kubexes: [] });
+
+  // Override the agents route to also handle POST (registration)
   await page.route(`${REGISTRY}/agents`, async (route) => {
-    if (route.request().method() === 'GET') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_AGENTS),
-      });
-    } else if (route.request().method() === 'POST') {
-      // Registry POST /agents — register a new agent
+    if (route.request().method() === 'POST') {
       await route.fulfill({
         status: registerStatus,
         contentType: 'application/json',
@@ -73,37 +61,6 @@ async function mockApis(
       await route.continue();
     }
   });
-
-  // Health endpoints
-  await page.route(`${REGISTRY}/health`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route(`${MANAGER}/health`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route(`${GATEWAY}/health`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-
-  // Manager kubexes
-  await page.route(`${MANAGER}/kubexes`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-
-  // Gateway escalations
-  await page.route(`${GATEWAY}/escalations`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-
-  // Gateway actions
-  await page.route(`${GATEWAY}/actions`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ task_id: 'mock-t' }) }),
-  );
-
-  // Gateway agents proxy
-  await page.route(`${GATEWAY}/agents`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_AGENTS) }),
-  );
 }
 
 test.describe('Agent Registration Form', () => {
@@ -294,6 +251,8 @@ test.describe('Agent Registration Form', () => {
 });
 
 test.describe('Agent Registration — API failure', () => {
+  test.skip(isLiveMode, 'Error-simulation tests only run in mock mode');
+
   test.beforeEach(async ({ page }) => {
     await mockApis(page, { registerStatus: 409, registerBody: { detail: 'Agent ID already exists' } });
     await page.goto('/agents');

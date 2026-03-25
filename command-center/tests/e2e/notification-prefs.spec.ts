@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, isLiveMode } from './helpers';
 
 /**
  * Iteration 76: System-wide notification preferences
@@ -13,19 +14,13 @@ import { test, expect } from '@playwright/test';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-/** Mock the kill-all endpoint so the success toast fires reliably. */
-async function setupKillAllMock(page: import('@playwright/test').Page) {
-  await page.route('**/kubexes', (route) => {
-    route.fulfill({ status: 200, body: JSON.stringify([]) });
-  });
+/** Fire the kill-all action so a 'success' toast is emitted. */
+async function fireSuccessToast(page: import('@playwright/test').Page) {
+  // kubexes + kill-all are already mocked by mockBaseRoutes (kubexes GET).
+  // The kill-all POST needs an explicit mock here as it's a non-standard endpoint.
   await page.route('**/kubexes/kill-all', (route) => {
     route.fulfill({ status: 200, body: JSON.stringify({ status: 'ok', message: 'All kubexes have been killed' }) });
   });
-}
-
-/** Fire the kill-all action so a 'success' toast is emitted. */
-async function fireSuccessToast(page: import('@playwright/test').Page) {
-  await setupKillAllMock(page);
   await page.getByTestId('kill-all-button').click();
   const dialog = page.getByRole('dialog', { name: /kill all kubexes/i });
   await dialog.getByRole('textbox').fill('KILL ALL');
@@ -35,6 +30,7 @@ async function fireSuccessToast(page: import('@playwright/test').Page) {
 test.describe('Notification Preferences', () => {
 
   test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
     // Clear settings so defaults apply cleanly
     await page.addInitScript(() => {
       localStorage.removeItem('kubex-settings');
@@ -86,6 +82,8 @@ test.describe('Notification Preferences', () => {
   });
 
   test('turning master toast toggle off suppresses success toasts', async ({ page }) => {
+    test.skip(isLiveMode, 'Toast suppression requires mock kill-all endpoint');
+
     // Disable all toasts
     await page.getByTestId('settings-toasts-enabled').click();
     await expect(page.getByTestId('settings-toasts-enabled')).toHaveAttribute('aria-checked', 'false');
@@ -109,6 +107,8 @@ test.describe('Notification Preferences', () => {
   // ── Per-type toggle — suppress individual type ────────────────────
 
   test('turning off success type suppresses success toasts', async ({ page }) => {
+    test.skip(isLiveMode, 'Toast suppression requires mock kill-all endpoint');
+
     // Disable success toasts
     await page.getByTestId('settings-toast-success').click();
     await expect(page.getByTestId('settings-toast-success')).toHaveAttribute('aria-checked', 'false');

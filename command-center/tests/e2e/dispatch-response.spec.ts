@@ -9,35 +9,18 @@
  */
 
 import { test, expect } from '@playwright/test';
+import {
+  isLiveMode,
+  GATEWAY,
+  MOCK_TASK_ID,
+  mockBaseRoutes,
+  mockDispatch,
+  mockSSEStream,
+  mockTaskResult,
+  MOCK_SSE_RESULT,
+} from './helpers';
 
-const TASK_ID = 'mock-task-1';
-const GATEWAY = 'http://localhost:8080';
-
-/** Common route: POST /actions → dispatched */
-async function routeDispatch(page: import('@playwright/test').Page) {
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: TASK_ID, status: 'dispatched' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
-}
-
-/** Common route: GET /tasks/mock-task-1/result → completed */
-async function routeTaskResult(page: import('@playwright/test').Page, result = 'Test result text') {
-  await page.route(`${GATEWAY}/tasks/${TASK_ID}/result`, (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ task_id: TASK_ID, status: 'completed', result }),
-    });
-  });
-}
+const TASK_ID = MOCK_TASK_ID;
 
 /**
  * Fill the chat inputs and click Send, then wait for the system dispatch
@@ -78,43 +61,14 @@ async function sendChatMessage(
 
 test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () => {
   test.beforeEach(async ({ page }) => {
-    // Suppress non-test endpoints so they don't interfere
-    await page.route('**/health', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-    );
-    await page.route('**/agents', (route) => {
-      if (route.request().method() === 'GET') {
-        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-      } else {
-        route.continue();
-      }
-    });
-    await page.route('**/kubexes', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-    );
-    await page.route('**/escalations', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-    );
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
   });
 
   // ── Test 1: SSE stream returns a result event → chat shows the result ──────
 
   test('result event via SSE stream is shown in chat', async ({ page }) => {
-    await routeDispatch(page);
-
-    // Return an SSE stream with a single result event
-    await page.route(`${GATEWAY}/tasks/${TASK_ID}/stream`, (route) => {
-      const sseBody = `data: ${JSON.stringify({ type: 'result', result: 'SSE result text' })}\n\n`;
-      route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        headers: {
-          'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
-        },
-        body: sseBody,
-      });
-    });
+    await mockDispatch(page, TASK_ID);
+    await mockSSEStream(page, TASK_ID, MOCK_SSE_RESULT(TASK_ID, 'SSE result text'));
 
     await page.goto('/chat');
     await sendChatMessage(page);
@@ -129,8 +83,10 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   // ── Test 2: SSE stream ends without data → fallback getTaskResult is called ─
 
   test('fallback getTaskResult is called and result shown when SSE ends without data', async ({ page }) => {
-    await routeDispatch(page);
-    await routeTaskResult(page, 'Fallback result text');
+    test.skip(isLiveMode, 'Error simulation (404 SSE) only works in mock mode');
+
+    await mockDispatch(page, TASK_ID);
+    await mockTaskResult(page, TASK_ID, { task_id: TASK_ID, status: 'completed', result: 'Fallback result text' });
 
     // SSE stream responds with 404 — EventSource fires onerror immediately on each
     // attempt; after maxRetries (3) useSSE calls onComplete, which triggers the
@@ -160,7 +116,7 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   // ── Test 3: Sending-state labels appear during dispatch ──────────────────
 
   test('"Dispatching…" label appears immediately after Send, then transitions to streaming state', async ({ page }) => {
-    await routeDispatch(page);
+    await mockDispatch(page, TASK_ID);
 
     // Keep SSE stream open indefinitely (never resolves) so we can observe states
     await page.route(`${GATEWAY}/tasks/${TASK_ID}/stream`, (route) => {
@@ -177,7 +133,7 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
     });
 
     // Also stub the fallback so the test doesn't hang waiting for real API
-    await routeTaskResult(page);
+    await mockTaskResult(page, TASK_ID);
 
     await page.goto('/chat');
 
@@ -200,8 +156,10 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   });
 
   test('"Waiting for result…" label appears when SSE connection closes before result', async ({ page }) => {
-    await routeDispatch(page);
-    await routeTaskResult(page);
+    test.skip(isLiveMode, 'Error simulation (404 SSE) only works in mock mode');
+
+    await mockDispatch(page, TASK_ID);
+    await mockTaskResult(page, TASK_ID, { task_id: TASK_ID, status: 'completed', result: 'Test result text' });
 
     // SSE stream errors immediately (404) → after retries, status becomes 'error',
     // which maps to "Waiting for result…" in the component, then onComplete fires
@@ -226,7 +184,7 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   // ── Test 4: Error result via SSE is properly displayed in chat ───────────
 
   test('failed event via SSE is displayed as an error bubble in chat', async ({ page }) => {
-    await routeDispatch(page);
+    await mockDispatch(page, TASK_ID);
 
     // SSE stream emits a "failed" event
     await page.route(`${GATEWAY}/tasks/${TASK_ID}/stream`, (route) => {
@@ -250,7 +208,7 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   });
 
   test('cancelled event via SSE is displayed as an error bubble in chat', async ({ page }) => {
-    await routeDispatch(page);
+    await mockDispatch(page, TASK_ID);
 
     // SSE stream emits a "cancelled" event
     await page.route(`${GATEWAY}/tasks/${TASK_ID}/stream`, (route) => {
@@ -274,6 +232,8 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   // ── Test 5: Dispatch failure (non-200 from /actions) ─────────────────────
 
   test('dispatch failure shows error bubble with dispatch error message', async ({ page }) => {
+    test.skip(isLiveMode, 'Error simulation (500 dispatch) only works in mock mode');
+
     // /actions returns 500
     await page.route(`${GATEWAY}/actions`, (route) => {
       route.fulfill({
@@ -298,7 +258,7 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   // ── Test 6: No repeated polling after SSE carries result ──────────────────
 
   test('getTaskResult is NOT called when SSE delivers the result directly', async ({ page }) => {
-    await routeDispatch(page);
+    await mockDispatch(page, TASK_ID);
 
     // SSE delivers a complete result event
     await page.route(`${GATEWAY}/tasks/${TASK_ID}/stream`, (route) => {
@@ -334,8 +294,10 @@ test.describe('OrchestratorChat — dispatch-and-response flow (BUG-001)', () =>
   // ── Test 7: result bubble contains task ID ───────────────────────────────
 
   test('result bubble shows the task ID from dispatch response', async ({ page }) => {
-    await routeDispatch(page);
-    await routeTaskResult(page, 'Task ID check result');
+    test.skip(isLiveMode, 'Error simulation (404 SSE) only works in mock mode');
+
+    await mockDispatch(page, TASK_ID);
+    await mockTaskResult(page, TASK_ID, { task_id: TASK_ID, status: 'completed', result: 'Task ID check result' });
 
     // SSE errors immediately (404) → fallback getTaskResult is called
     await page.route(`${GATEWAY}/tasks/${TASK_ID}/stream`, (route) => {

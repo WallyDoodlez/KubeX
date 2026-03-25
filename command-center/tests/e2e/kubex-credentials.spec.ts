@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const MANAGER = 'http://localhost:8090';
+import { mockBaseRoutes, isLiveMode, MANAGER } from './helpers';
 
 // ── Fixtures ─────────────────────────────────────────────────────────
 
@@ -38,13 +37,7 @@ const validCredJson = JSON.stringify({
 
 /** Mock kubex list. */
 async function mockKubexList(page: import('@playwright/test').Page, data = [runningKubex]) {
-  await page.route(`${MANAGER}/kubexes`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(data),
-    }),
-  );
+  await mockBaseRoutes(page, { kubexes: data });
 }
 
 /** Mock the credentials endpoint. */
@@ -278,6 +271,8 @@ test.describe('Kubex Credentials — successful injection', () => {
 // ── Failed injection ─────────────────────────────────────────────────
 
 test.describe('Kubex Credentials — failed injection', () => {
+  test.skip(isLiveMode, 'Error-simulation tests only run in mock mode');
+
   test('failed injection shows error entry in history', async ({ page }) => {
     await mockKubexList(page);
     await mockCredentials(page, runningKubex.kubex_id, credErrorResponse, 404);

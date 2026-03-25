@@ -26,29 +26,9 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { GATEWAY, MOCK_TASK_ID, mockBaseRoutes, mockDispatch, mockSSEStream, MOCK_SSE_RESULT } from './helpers';
 
-const GATEWAY = 'http://localhost:8080';
 const TASK_ID = 'mock-task-search-1';
-
-/** Set up common stubs so network calls don't interfere */
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
 
 /** Dispatch a task that returns a result via SSE */
 async function dispatchAndGetResult(
@@ -57,27 +37,8 @@ async function dispatchAndGetResult(
   msg = 'hello world',
   result = 'Test result content',
 ) {
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: TASK_ID, status: 'dispatched' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
-
-  await page.route(`${GATEWAY}/tasks/${TASK_ID}/stream`, (route) => {
-    const sseBody = `data: ${JSON.stringify({ type: 'result', result })}\n\n`;
-    route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      headers: { 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
-      body: sseBody,
-    });
-  });
+  await mockDispatch(page, TASK_ID);
+  await mockSSEStream(page, TASK_ID, MOCK_SSE_RESULT(TASK_ID, result));
 
   // Open Advanced panel and set capability when a non-default value is needed
   if (capability && capability !== 'task_orchestration') {
@@ -96,7 +57,7 @@ async function dispatchAndGetResult(
 
 test.describe('OrchestratorChat — message search and role filter (Iteration 41)', () => {
   test.beforeEach(async ({ page }) => {
-    await setupRoutes(page);
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await page.goto('/chat');
   });
 

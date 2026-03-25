@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes } from './helpers';
 
 // ── Shared mock data ─────────────────────────────────────────────────
-const REGISTRY = 'http://localhost:8070';
-const MANAGER = 'http://localhost:8090';
+// Local overrides with export-specific agent/kubex IDs so assertions
+// match the exact text rendered in each test.
 
 const mockAgents = [
   {
@@ -45,6 +46,7 @@ async function injectTrafficEntry(page: import('@playwright/test').Page) {
 
 test.describe('Export — Traffic Log', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/traffic');
     await expect(page.locator('header h1')).toHaveText('Traffic');
   });
@@ -158,10 +160,7 @@ test.describe('Export — Traffic Log', () => {
 
 test.describe('Export — Agents Panel', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock the registry agents endpoint so agents load without a live backend
-    await page.route(`${REGISTRY}/agents`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockAgents) }),
-    );
+    await mockBaseRoutes(page, { agents: mockAgents, kubexes: mockKubexes });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
   });
@@ -218,9 +217,7 @@ test.describe('Export — Agents Panel', () => {
 
 test.describe('Export — Containers Panel', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route(`${MANAGER}/kubexes`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockKubexes) }),
-    );
+    await mockBaseRoutes(page, { agents: mockAgents, kubexes: mockKubexes });
     await page.goto('/containers');
     await expect(page.locator('header h1')).toHaveText('Containers');
   });
@@ -272,6 +269,7 @@ test.describe('Export — Containers Panel', () => {
 
 test.describe('Export — Orchestrator Chat', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/chat');
     await expect(page.locator('header h1')).toHaveText('Orchestrator');
   });

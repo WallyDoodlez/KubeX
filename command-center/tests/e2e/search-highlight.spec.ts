@@ -20,28 +20,9 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { GATEWAY, mockBaseRoutes, mockDispatch, mockSSEStream, MOCK_SSE_RESULT } from './helpers';
 
-const GATEWAY = 'http://localhost:8080';
 const TASK_ID = 'mock-task-highlight-1';
-
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
 
 /** Dispatches a task and waits for the result bubble to appear. */
 async function dispatchAndAwaitResult(
@@ -50,27 +31,8 @@ async function dispatchAndAwaitResult(
   result: string,
   taskId = TASK_ID,
 ) {
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: taskId, status: 'dispatched' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
-
-  await page.route(`${GATEWAY}/tasks/${taskId}/stream`, (route) => {
-    const sseBody = `data: ${JSON.stringify({ type: 'result', result })}\n\n`;
-    route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      headers: { 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
-      body: sseBody,
-    });
-  });
+  await mockDispatch(page, taskId);
+  await mockSSEStream(page, taskId, MOCK_SSE_RESULT(taskId, result));
 
   await page.locator('[data-testid="message-input"]').fill(msg);
   await page.locator('button', { hasText: 'Send' }).click();
@@ -85,17 +47,7 @@ async function dispatchAndAwaitError(
   errorText: string,
   taskId = 'mock-task-highlight-err',
 ) {
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: taskId, status: 'dispatched' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
+  await mockDispatch(page, taskId);
 
   await page.route(`${GATEWAY}/tasks/${taskId}/stream`, (route) => {
     // SSE "failed" event renders as an error bubble in OrchestratorChat
@@ -117,7 +69,7 @@ async function dispatchAndAwaitError(
 
 test.describe('OrchestratorChat — search result highlighting (Iteration 72)', () => {
   test.beforeEach(async ({ page }) => {
-    await setupRoutes(page);
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await page.goto('/chat');
   });
 

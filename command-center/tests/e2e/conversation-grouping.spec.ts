@@ -18,30 +18,10 @@
  */
 
 import { test, expect } from '@playwright/test';
-
-const GATEWAY = 'http://localhost:8080';
+import { GATEWAY, mockBaseRoutes, mockDispatch, mockSSEStream, MOCK_SSE_RESULT } from './helpers';
 
 const TASK_1_ID = 'task-group-test-001';
 const TASK_2_ID = 'task-group-test-002';
-
-async function setupBaseRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
 
 /**
  * Dispatch a task via the OrchestratorChat and wait for its result bubble.
@@ -54,27 +34,8 @@ async function dispatchTask(
   resultText: string,
 ) {
   // Wire up routes for this specific task
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: taskId, status: 'dispatched' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
-
-  await page.route(`${GATEWAY}/tasks/${taskId}/stream`, (route) => {
-    const sseBody = `data: ${JSON.stringify({ type: 'result', result: resultText })}\n\n`;
-    route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      headers: { 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
-      body: sseBody,
-    });
-  });
+  await mockDispatch(page, taskId);
+  await mockSSEStream(page, taskId, MOCK_SSE_RESULT(taskId, resultText));
 
   await page.locator('[data-testid="message-input"]').fill(userMessage);
   await page.locator('button', { hasText: 'Send' }).click();
@@ -87,7 +48,7 @@ async function dispatchTask(
 
 test.describe('Conversation Grouping (Iteration 71)', () => {
   test.beforeEach(async ({ page }) => {
-    await setupBaseRoutes(page);
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await page.goto('/chat');
   });
 

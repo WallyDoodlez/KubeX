@@ -863,3 +863,17 @@
   - [x] Create tests/e2e/performance.spec.ts — 12 tests: pagination limits DOM (far fewer than 200 rows), localStorage cap at 500, rapid navigation doesn't crash, no ResizeObserver errors, page load times under 3s, memo components render correctly, Clear chat button present
   - [x] Verify: npm run build clean + npx playwright test passes (154/154)
   - [x] Commit
+
+- [x] **Iteration 80: Dual-mode E2E test infrastructure (mock/live)**
+  - [x] Create `tests/e2e/helpers/config.ts` — `E2E_MODE` env var (`mock` default / `live`), service URL constants (`GATEWAY`, `REGISTRY`, `MANAGER`) configurable via env vars
+  - [x] Create `tests/e2e/helpers/test-data.ts` — centralized mock data (`MOCK_AGENTS`, `MOCK_KUBEXES`, `MOCK_TASK_ID`, `MOCK_SSE_RESULT`, `MOCK_SSE_PROGRESS`)
+  - [x] Create `tests/e2e/helpers/mock-routes.ts` — shared mock functions (`mockBaseRoutes`, `mockDispatch`, `mockSSEStream`, `mockTaskResult`, `mockTaskResult404`, `mockTaskCancel`, `mockTaskAudit`, `mockChatFlow`, `mockKubexLifecycle`, `mockKubexCredentials`, `mockAgentRegister`, `mockAgentStatusUpdate`, `mockAgentDetail`, `mockPolicyCheck`, `mockSpawnKubex`, `mockHealthRoutes`) — all no-ops in live mode
+  - [x] Create `tests/e2e/helpers/index.ts` — barrel re-export
+  - [x] Create `playwright.live.config.ts` — separate config for live E2E (60s timeout, 15s expect, 2 workers, 1 retry, JSON+HTML reporters)
+  - [x] Refactor 42 test files to use shared helpers instead of inline `page.route()` calls
+  - [x] Add `test.skip(isLiveMode, ...)` on error-simulation tests (404/500/503 responses)
+  - [x] Fix wildcard route conflict — `**/agents` intercepted SPA navigation to `/agents`; replaced with specific service URLs
+  - [x] Fix audit trail response shape — `mockTaskAudit` now wraps entries in `{ task_id, entries }` matching original API shape
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1207 passed, 23 skipped
+  - [x] Usage: `npx playwright test` (mocked, default) / `E2E_MODE=live npx playwright test --config playwright.live.config.ts` (live)

@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const MANAGER = 'http://localhost:8090';
+import { mockBaseRoutes, MANAGER, MOCK_KUBEXES } from './helpers';
 
 const mockKubexes = [
   {
@@ -27,13 +26,12 @@ const mockKubexes = [
 
 /** Route the Manager kubexes endpoint to return mock data. */
 async function mockKubexesRoute(page: import('@playwright/test').Page, data = mockKubexes) {
-  await page.route(`${MANAGER}/kubexes`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) }),
-  );
+  await mockBaseRoutes(page, { kubexes: data });
 }
 
 test.describe('Containers Panel', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/containers');
     await expect(page.locator('header h1')).toHaveText('Containers');
   });

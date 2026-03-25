@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, mockAgentStatusUpdate, isLiveMode, MOCK_AGENTS } from './helpers';
 
 /**
  * Iteration 68 — Agent status update
@@ -16,7 +17,9 @@ import { test, expect } from '@playwright/test';
 
 const AGENT_ID = 'agent-alpha-001';
 
-const MOCK_AGENTS = [
+// Use the shared MOCK_AGENTS data but need the specific agent with 'running' status
+// MOCK_AGENTS[0] is agent-alpha-001 with status 'running' — matches our test expectations
+const TEST_AGENTS = [
   {
     agent_id: 'agent-alpha-001',
     capabilities: ['summarise', 'classify', 'extract'],
@@ -28,43 +31,11 @@ const MOCK_AGENTS = [
 ];
 
 async function mockApis(page: import('@playwright/test').Page) {
-  // PATCH agent status — Registry (must be registered before the broader agents route)
-  await page.route('**/agents/*/status', (route) => {
-    if (route.request().method() === 'PATCH') {
-      const body = route.request().postDataJSON() as { status?: string };
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ agent_id: AGENT_ID, status: body?.status ?? 'unknown' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
+  // PATCH agent status — must be registered before the broader agents route
+  await mockAgentStatusUpdate(page);
 
-  // Registry agents list (GET only — after specific routes)
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_AGENTS) });
-    } else {
-      route.continue();
-    }
-  });
-
-  // Health endpoints
-  await page.route('**/health', (route) => {
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) });
-  });
-
-  // Kubexes (Manager)
-  await page.route('**/kubexes', (route) => {
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-  });
-
-  // Escalations
-  await page.route('**/escalations', (route) => {
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-  });
+  // Base routes (health, agents, kubexes, escalations)
+  await mockBaseRoutes(page, { agents: TEST_AGENTS, kubexes: [] });
 }
 
 test.describe('Iteration 68 — Agent status update', () => {
@@ -115,6 +86,7 @@ test.describe('Iteration 68 — Agent status update', () => {
   });
 
   test('error message shown when backend returns 500', async ({ page }) => {
+    test.skip(isLiveMode, 'Error-simulation test only runs in mock mode');
     // Override the PATCH handler to return an error
     await page.route('**/agents/*/status', (route) => {
       if (route.request().method() === 'PATCH') {

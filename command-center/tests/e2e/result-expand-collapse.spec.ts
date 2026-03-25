@@ -21,6 +21,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes } from './helpers';
 
 const CHAT_MESSAGES_KEY = 'kubex-chat-messages';
 
@@ -28,30 +29,11 @@ const CHAT_MESSAGES_KEY = 'kubex-chat-messages';
 const SHORT_CONTENT = 'Line 1\nLine 2\nLine 3';
 const LONG_CONTENT = Array.from({ length: 15 }, (_, i) => `Line ${i + 1}: This is a longer line of content to ensure proper rendering in the bubble.`).join('\n');
 
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
-
 async function goToChatWithMessages(
   page: import('@playwright/test').Page,
   messages: Array<{ id: string; role: string; content: string; timestamp: string }>,
 ) {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.addInitScript(
     ({ key, msgs }: { key: string; msgs: unknown[] }) => {
       localStorage.setItem(key, JSON.stringify(msgs));

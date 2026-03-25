@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, MANAGER } from './helpers';
 
 // ── Agents Table Keyboard Navigation ────────────────────────────────
 
 test.describe('Agents table keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/agents');
     // Wait for the table to be present and data rows to load
     await expect(page.locator('[data-testid="agents-table"]')).toBeVisible();
@@ -149,8 +151,6 @@ test.describe('Agents table keyboard navigation', () => {
 
 // ── Containers Table Keyboard Navigation ────────────────────────────
 
-const MANAGER = 'http://localhost:8090';
-
 const mockKubexesData = [
   {
     kubex_id: 'kubex-550e8400-e29b-41d4',
@@ -172,10 +172,8 @@ const mockKubexesData = [
 
 test.describe('Containers table keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock the Manager kubexes endpoint so the table renders with data
-    await page.route(`${MANAGER}/kubexes`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockKubexesData) }),
-    );
+    // Use mockBaseRoutes with the specific kubexes these tests require
+    await mockBaseRoutes(page, { kubexes: mockKubexesData });
     await page.goto('/containers');
     await expect(page.locator('[data-testid="containers-table"]')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('[data-testid="containers-table"] [data-nav-index="0"]')).toBeVisible({ timeout: 10000 });

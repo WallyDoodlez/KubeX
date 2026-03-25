@@ -11,38 +11,25 @@
  */
 
 import { test, expect } from '@playwright/test';
+import {
+  isLiveMode,
+  GATEWAY,
+  mockBaseRoutes,
+  mockDispatch,
+  mockSSEStream,
+  mockTaskResult,
+  mockTaskResult404,
+} from './helpers';
 
-const GATEWAY = 'http://localhost:8080';
 const RECOVERY_TASK_ID = 'recovery-task-004';
-
-async function setupBaseRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
 
 // ── 1. kubex-active-task in localStorage → component enters sending state ────
 
 test('1. when kubex-active-task exists in localStorage on mount, component enters sending state', async ({ page }) => {
-  await setupBaseRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
   // Route a non-terminating SSE stream so sending stays true
-  await page.route(`${GATEWAY}/tasks/${RECOVERY_TASK_ID}/stream`, (route) => {
-    route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' });
-  });
+  await mockSSEStream(page, RECOVERY_TASK_ID, '');
 
   // Inject the active task into localStorage before navigating to the chat page
   const recentStartedAt = new Date().toISOString();
@@ -64,7 +51,7 @@ test('1. when kubex-active-task exists in localStorage on mount, component enter
 // ── 2. No kubex-active-task → normal welcome state ───────────────────────────
 
 test('2. when no kubex-active-task in localStorage, component starts normally in welcome state', async ({ page }) => {
-  await setupBaseRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
   // Explicitly clear any lingering recovery state before navigating
   await page.addInitScript(() => {
@@ -84,7 +71,7 @@ test('2. when no kubex-active-task in localStorage, component starts normally in
 // ── 3. Stale task (>5 min) triggers poll, not SSE reconnect ─────────────────
 
 test('3. stale task (older than 5 minutes) triggers result poll instead of SSE reconnect', async ({ page }) => {
-  await setupBaseRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
   // Track which endpoints are called
   const streamRequests: string[] = [];
@@ -97,16 +84,10 @@ test('3. stale task (older than 5 minutes) triggers result poll instead of SSE r
   });
 
   // Route a completed result response for the poll
-  await page.route(`${GATEWAY}/tasks/${RECOVERY_TASK_ID}/result`, (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        task_id: RECOVERY_TASK_ID,
-        status: 'completed',
-        result: 'Recovered stale result',
-      }),
-    });
+  await mockTaskResult(page, RECOVERY_TASK_ID, {
+    task_id: RECOVERY_TASK_ID,
+    status: 'completed',
+    result: 'Recovered stale result',
   });
 
   // Stale task: started more than 5 minutes ago
@@ -134,30 +115,15 @@ test('3. stale task (older than 5 minutes) triggers result poll instead of SSE r
 // ── 4. kubex-active-task is removed after result appears ────────────────────
 
 test('4. kubex-active-task is removed from localStorage after result message appears', async ({ page }) => {
-  await setupBaseRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
   // Route dispatch success + instant SSE result
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: RECOVERY_TASK_ID, status: 'dispatched' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route(`${GATEWAY}/tasks/${RECOVERY_TASK_ID}/stream`, (route) => {
-    const body = `data: ${JSON.stringify({ type: 'result', result: 'Task done!' })}\n\n`;
-    route.fulfill({ status: 200, contentType: 'text/event-stream', body });
-  });
-  await page.route(`${GATEWAY}/tasks/${RECOVERY_TASK_ID}/result`, (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ task_id: RECOVERY_TASK_ID, status: 'completed', result: 'Task done!' }),
-    });
+  await mockDispatch(page, RECOVERY_TASK_ID);
+  await mockSSEStream(page, RECOVERY_TASK_ID, `data: ${JSON.stringify({ type: 'result', result: 'Task done!' })}\n\n`);
+  await mockTaskResult(page, RECOVERY_TASK_ID, {
+    task_id: RECOVERY_TASK_ID,
+    status: 'completed',
+    result: 'Task done!',
   });
 
   await page.goto('/chat');
@@ -178,14 +144,14 @@ test('4. kubex-active-task is removed from localStorage after result message app
 // ── 5. Invalid task ID (404) clears sending state and shows info message ─────
 
 test('5. recovery with invalid task ID (404) clears sending state and shows info message', async ({ page }) => {
-  await setupBaseRoutes(page);
+  test.skip(isLiveMode, '404 error simulation only works in mock mode');
+
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
   const INVALID_TASK_ID = 'nonexistent-task-404';
 
   // Route a 404 for the task result endpoint
-  await page.route(`${GATEWAY}/tasks/${INVALID_TASK_ID}/result`, (route) => {
-    route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'Task not found' }) });
-  });
+  await mockTaskResult404(page, INVALID_TASK_ID);
 
   // Stale task so it hits the poll path (not SSE reconnect)
   const staleStartedAt = new Date(Date.now() - 6 * 60 * 1000).toISOString();
@@ -218,16 +184,12 @@ test('5. recovery with invalid task ID (404) clears sending state and shows info
 // ── 6. Recovery timeout: textarea re-enabled after timeout fires ─────────────
 
 test('6. recovery timeout unblocks textarea when SSE never resolves', async ({ page }) => {
-  await setupBaseRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
   const STUCK_TASK_ID = 'stuck-task-005';
 
   // Route a non-terminating SSE stream — will never close, simulating a stuck backend
-  await page.route(`${GATEWAY}/tasks/${STUCK_TASK_ID}/stream`, (route) => {
-    // Hold the request open indefinitely (never fulfill)
-    // Playwright will not fulfill this, so SSE stays in connecting/open state
-    route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' });
-  });
+  await mockSSEStream(page, STUCK_TASK_ID, '');
 
   // Inject a recent active task (age < 5min) so it goes down the SSE reconnect path
   const recentStartedAt = new Date().toISOString();

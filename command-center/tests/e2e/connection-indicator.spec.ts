@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, mockHealthRoutes, isLiveMode, REGISTRY } from './helpers';
 
 /**
  * Iteration 21: Connection Health Indicator (Top Bar)
@@ -12,31 +13,37 @@ test.describe('Connection Health Indicator', () => {
   // ── Presence ─────────────────────────────────────────────────────────
 
   test('indicator is visible in the top bar on Dashboard', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await expect(page.getByTestId('connection-indicator')).toBeVisible();
   });
 
   test('indicator is visible on the Agents page (not just Dashboard)', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/agents');
     await expect(page.getByTestId('connection-indicator')).toBeVisible();
   });
 
   test('indicator is visible on the Traffic page', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/traffic');
     await expect(page.getByTestId('connection-indicator')).toBeVisible();
   });
 
   test('indicator is visible on the Chat/Orchestrator page', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/chat');
     await expect(page.getByTestId('connection-indicator')).toBeVisible();
   });
 
   test('indicator is visible on the Containers page', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/containers');
     await expect(page.getByTestId('connection-indicator')).toBeVisible();
   });
 
   test('indicator is visible on the Approvals page', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/approvals');
     await expect(page.getByTestId('connection-indicator')).toBeVisible();
   });
@@ -44,6 +51,7 @@ test.describe('Connection Health Indicator', () => {
   // ── Healthy state (default MSW handlers return healthy) ──────────────
 
   test('dot turns emerald green when all services are healthy', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     // Wait for health check to complete
     await page.waitForTimeout(2500);
@@ -54,6 +62,7 @@ test.describe('Connection Health Indicator', () => {
   });
 
   test('label shows "live" when all services are operational', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.waitForTimeout(2500);
     const label = page.getByTestId('connection-indicator-label');
@@ -64,6 +73,7 @@ test.describe('Connection Health Indicator', () => {
   // ── Accessibility ────────────────────────────────────────────────────
 
   test('indicator button has aria-label describing system health', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     const btn = page.getByTestId('connection-indicator');
     const ariaLabel = await btn.getAttribute('aria-label');
@@ -71,11 +81,13 @@ test.describe('Connection Health Indicator', () => {
   });
 
   test('indicator button has aria-haspopup="true"', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await expect(page.getByTestId('connection-indicator')).toHaveAttribute('aria-haspopup', 'true');
   });
 
   test('indicator button has aria-expanded="false" when closed', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await expect(page.getByTestId('connection-indicator')).toHaveAttribute('aria-expanded', 'false');
   });
@@ -83,23 +95,27 @@ test.describe('Connection Health Indicator', () => {
   // ── Popover open/close ───────────────────────────────────────────────
 
   test('popover is not visible before clicking the indicator', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await expect(page.getByTestId('connection-indicator-popover')).not.toBeVisible();
   });
 
   test('popover opens when indicator is clicked', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.getByTestId('connection-indicator').click();
     await expect(page.getByTestId('connection-indicator-popover')).toBeVisible();
   });
 
   test('aria-expanded becomes "true" when popover is open', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.getByTestId('connection-indicator').click();
     await expect(page.getByTestId('connection-indicator')).toHaveAttribute('aria-expanded', 'true');
   });
 
   test('popover closes when indicator is clicked again', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.getByTestId('connection-indicator').click();
     await expect(page.getByTestId('connection-indicator-popover')).toBeVisible();
@@ -108,6 +124,7 @@ test.describe('Connection Health Indicator', () => {
   });
 
   test('popover closes when Escape is pressed', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.getByTestId('connection-indicator').click();
     await expect(page.getByTestId('connection-indicator-popover')).toBeVisible();
@@ -116,6 +133,7 @@ test.describe('Connection Health Indicator', () => {
   });
 
   test('popover closes when clicking outside', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.getByTestId('connection-indicator').click();
     await expect(page.getByTestId('connection-indicator-popover')).toBeVisible();
@@ -127,6 +145,7 @@ test.describe('Connection Health Indicator', () => {
   // ── Popover content ─────────────────────────────────────────────────
 
   test('popover lists all five services', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.waitForTimeout(2500); // wait for health checks
     await page.getByTestId('connection-indicator').click();
@@ -142,6 +161,7 @@ test.describe('Connection Health Indicator', () => {
   });
 
   test('popover shows "healthy" status for services when all up', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.waitForTimeout(2500);
     await page.getByTestId('connection-indicator').click();
@@ -152,12 +172,14 @@ test.describe('Connection Health Indicator', () => {
   });
 
   test('popover has role="tooltip" for semantics', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.getByTestId('connection-indicator').click();
     await expect(page.getByTestId('connection-indicator-popover')).toHaveAttribute('role', 'tooltip');
   });
 
   test('popover service list has aria-label', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.getByTestId('connection-indicator').click();
     const list = page.getByRole('list', { name: /individual service statuses/i });
@@ -165,6 +187,7 @@ test.describe('Connection Health Indicator', () => {
   });
 
   test('popover shows refresh interval hint text', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.getByTestId('connection-indicator').click();
     await expect(page.getByTestId('connection-indicator-popover')).toContainText('Refreshes every 15s');
@@ -173,10 +196,10 @@ test.describe('Connection Health Indicator', () => {
   // ── Degraded state simulation ────────────────────────────────────────
 
   test('indicator shows degraded state when a service is down', async ({ page }) => {
+    test.skip(isLiveMode, 'Degraded state simulation requires mock health endpoint override');
+
     // Override health endpoint to return unhealthy for Registry
-    await page.route('**/localhost:8070/health', (route) => {
-      route.fulfill({ status: 503, body: JSON.stringify({ status: 'unhealthy' }) });
-    });
+    await mockHealthRoutes(page, { gateway: true, registry: false, manager: true });
 
     await page.goto('/');
     // Wait for health checks (hook fires immediately)
@@ -191,6 +214,7 @@ test.describe('Connection Health Indicator', () => {
   // ── Navigation persistence ────────────────────────────────────────
 
   test('indicator persists when navigating between pages', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await expect(page.getByTestId('connection-indicator')).toBeVisible();
 

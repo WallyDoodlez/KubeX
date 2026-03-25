@@ -1,72 +1,31 @@
 import { test, expect } from '@playwright/test';
+import {
+  isLiveMode,
+  GATEWAY,
+  mockBaseRoutes,
+  mockDispatch,
+  mockSSEStream,
+  mockTaskResult,
+  mockTaskCancel,
+} from './helpers';
 
-const GATEWAY = 'http://localhost:8080';
 const TASK_ID = 'mock-task-cancel-1';
 
 /** Set up common route intercepts for a cancel-focused test scenario */
 async function setupCancelRoutes(page: import('@playwright/test').Page) {
-  // Suppress unrelated background endpoints
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
   // Dispatch — returns a known task_id
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: TASK_ID, status: 'accepted' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
+  await mockDispatch(page, TASK_ID, { task_id: TASK_ID, status: 'accepted' });
 
   // SSE stream — keeps connection open (no data) so task stays in-flight
-  await page.route(`${GATEWAY}/tasks/${TASK_ID}/stream`, (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      headers: { 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
-      body: '',
-    });
-  });
+  await mockSSEStream(page, TASK_ID, '');
 
   // Cancel endpoint — success
-  await page.route(`${GATEWAY}/tasks/${TASK_ID}/cancel`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: TASK_ID, status: 'cancelled' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
+  await mockTaskCancel(page, TASK_ID);
 
   // Fallback task result (if triggered) — returns cancelled so the loop exits
-  await page.route(`${GATEWAY}/tasks/${TASK_ID}/result`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ task_id: TASK_ID, status: 'cancelled', result: 'Cancelled' }),
-    }),
-  );
+  await mockTaskResult(page, TASK_ID, { task_id: TASK_ID, status: 'cancelled', result: 'Cancelled' });
 }
 
 /** Dispatch a task and wait for the typing indicator to appear */
@@ -78,6 +37,7 @@ async function dispatchAndWaitForTyping(page: import('@playwright/test').Page) {
 
 test.describe('Task Cancel UI', () => {
   test('cancel button is not visible before a task is dispatched', async ({ page }) => {
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await page.goto('/chat');
     // No active task — cancel button should not be rendered
     await expect(page.locator('[data-testid="cancel-task-button"]')).not.toBeVisible();
@@ -146,6 +106,8 @@ test.describe('Task Cancel UI', () => {
   });
 
   test('cancel button is disabled while cancellation is in flight', async ({ page }) => {
+    test.skip(isLiveMode, 'Slow cancel simulation (artificial delay) only works in mock mode');
+
     await setupCancelRoutes(page);
 
     // Override cancel to respond slowly

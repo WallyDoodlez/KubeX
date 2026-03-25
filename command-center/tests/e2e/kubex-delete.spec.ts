@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const MANAGER = 'http://localhost:8090';
+import { mockBaseRoutes, MANAGER } from './helpers';
 
 const runningKubex = {
   kubex_id: 'kubex-running-del-001',
@@ -22,9 +21,7 @@ const stoppedKubex = {
 
 /** Mock the kubexes list endpoint. */
 async function mockKubexList(page: import('@playwright/test').Page, data: object[]) {
-  await page.route(`${MANAGER}/kubexes`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) }),
-  );
+  await mockBaseRoutes(page, { kubexes: data });
 }
 
 /** Mock the DELETE endpoint for a specific kubex. */

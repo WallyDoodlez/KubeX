@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const MANAGER = 'http://localhost:8090';
+import { mockBaseRoutes, isLiveMode, MANAGER } from './helpers';
 
 const runningKubex = {
   kubex_id: 'kubex-toast-run-001',
@@ -22,9 +21,7 @@ const stoppedKubex = {
 
 /** Mock kubex list — always returns the provided data. */
 async function mockKubexList(page: import('@playwright/test').Page, data: object[]) {
-  await page.route(`${MANAGER}/kubexes`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) }),
-  );
+  await mockBaseRoutes(page, { kubexes: data });
 }
 
 /** Mock a lifecycle action endpoint with a given HTTP status. */
@@ -64,6 +61,7 @@ test.describe('Iteration 66 — lifecycle action toasts', () => {
   });
 
   test('Stop action failure shows error toast', async ({ page }) => {
+    test.skip(isLiveMode, 'Error-simulation test only runs in mock mode');
     await mockKubexList(page, [runningKubex]);
     await mockLifecycleAction(page, runningKubex.kubex_id, 'stop', 500);
 
@@ -94,6 +92,7 @@ test.describe('Iteration 66 — lifecycle action toasts', () => {
   });
 
   test('Start action failure shows error toast', async ({ page }) => {
+    test.skip(isLiveMode, 'Error-simulation test only runs in mock mode');
     await mockKubexList(page, [stoppedKubex]);
     await mockLifecycleAction(page, stoppedKubex.kubex_id, 'start', 503);
 
@@ -127,6 +126,7 @@ test.describe('Iteration 66 — lifecycle action toasts', () => {
   });
 
   test('Kill confirmed action failure shows error toast', async ({ page }) => {
+    test.skip(isLiveMode, 'Error-simulation test only runs in mock mode');
     await mockKubexList(page, [runningKubex]);
     await mockLifecycleAction(page, runningKubex.kubex_id, 'kill', 500);
 

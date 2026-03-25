@@ -11,6 +11,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { mockBaseRoutes } from './helpers';
 
 // ── Mock data ─────────────────────────────────────────────────────────
 
@@ -71,26 +72,11 @@ async function seedTasks(page: Page) {
   }, entries);
 }
 
-async function mockApis(page: Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
-
 // ── Tests ─────────────────────────────────────────────────────────────
 
 test.describe('Task History Enrichment (Iteration 77)', () => {
   test.beforeEach(async ({ page }) => {
-    await mockApis(page);
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     await seedTasks(page);
   });
 

@@ -8,11 +8,13 @@
  * agent so the detail page renders its tab layout.
  */
 import { test, expect, Route } from '@playwright/test';
+import { mockBaseRoutes, GATEWAY, MOCK_AGENTS } from './helpers';
 
 const AGENT_ID = 'agent-alpha-001';
-const REGISTRY_URL = 'http://localhost:8070/agents';
-const GATEWAY_LIFECYCLE_PATTERN = `http://localhost:8080/agents/${AGENT_ID}/lifecycle`;
+const GATEWAY_LIFECYCLE_PATTERN = `${GATEWAY}/agents/${AGENT_ID}/lifecycle`;
 
+// Use the full shared MOCK_AGENTS which includes agent-alpha-001 with the fields needed
+// Override metadata to match what these tests originally expected
 const mockAgents = [
   {
     agent_id: AGENT_ID,
@@ -26,14 +28,8 @@ const mockAgents = [
 
 /** Set up route mocks for a given page so the agent detail renders correctly. */
 async function setupMocks(page: import('@playwright/test').Page) {
-  // Mock registry agents list
-  await page.route(REGISTRY_URL, (route: Route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(mockAgents),
-    });
-  });
+  // Base routes: health, agents (with our specific agent list), kubexes, escalations
+  await mockBaseRoutes(page, { agents: mockAgents, kubexes: [] });
 
   // Mock gateway lifecycle SSE — return 200 with an event, then idle
   await page.route(GATEWAY_LIFECYCLE_PATTERN, (route: Route) => {

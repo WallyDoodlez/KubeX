@@ -10,43 +10,13 @@
  */
 
 import { test, expect } from '@playwright/test';
-
-const GATEWAY = 'http://localhost:8080';
-
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
+import { mockBaseRoutes, mockDispatch, GATEWAY } from './helpers';
 
 /** Dispatch a task and wait for a mermaid result bubble. */
 async function dispatchMermaidResult(page: import('@playwright/test').Page, taskId: string) {
   const mermaidContent = '```mermaid\ngraph TD\n  A[Start] --> B[End]\n```';
 
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: taskId, status: 'dispatched' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
+  await mockDispatch(page, taskId);
 
   await page.route(`${GATEWAY}/tasks/${taskId}/stream`, (route) => {
     const sseBody = `data: ${JSON.stringify({ type: 'result', result: mermaidContent })}\n\n`;
@@ -74,7 +44,7 @@ async function dispatchMermaidResult(page: import('@playwright/test').Page, task
 
 test.describe('MermaidBlock — theme-aware rendering (Iteration 74)', () => {
   test.beforeEach(async ({ page }) => {
-    await setupRoutes(page);
+    await mockBaseRoutes(page, { agents: [], kubexes: [] });
     // Start in dark mode (clear any saved light preference)
     await page.addInitScript(() => {
       localStorage.setItem('kubex-theme', 'dark');

@@ -20,64 +20,38 @@
  */
 
 import { test, expect } from '@playwright/test';
+import {
+  GATEWAY,
+  MOCK_TASK_ID,
+  mockBaseRoutes,
+  mockDispatch,
+  mockSSEStream,
+  mockTaskResult,
+  MOCK_SSE_RESULT,
+} from './helpers';
 
-const GATEWAY = 'http://localhost:8080';
 const TASK_ID = 'kb-task-42';
 
-async function setupRoutes(page: import('@playwright/test').Page) {
-  await page.route('**/health', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) }),
-  );
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/kubexes', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-  await page.route('**/escalations', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
-  );
-}
-
 async function setupDispatch(page: import('@playwright/test').Page, taskId = TASK_ID) {
-  await page.route(`${GATEWAY}/actions`, (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ task_id: taskId, status: 'dispatched' }),
-      });
-    } else {
-      route.continue();
-    }
-  });
+  await mockDispatch(page, taskId);
   // Stream: send a result event so SSE terminates cleanly and sending=false
-  await page.route(`${GATEWAY}/tasks/${taskId}/stream`, (route) => {
-    const body = `data: ${JSON.stringify({ type: 'result', result: 'Hello from the agent!' })}\n\n`;
-    route.fulfill({ status: 200, contentType: 'text/event-stream', body });
-  });
+  await mockSSEStream(page, taskId, MOCK_SSE_RESULT(taskId, 'Hello from the agent!'));
   // Fallback result poll (if SSE doesn't trigger the result handler)
-  await page.route(`${GATEWAY}/tasks/${taskId}/result`, (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ task_id: taskId, status: 'completed', result: 'Hello from the agent!' }),
-    });
+  await mockTaskResult(page, taskId, {
+    task_id: taskId,
+    status: 'completed',
+    result: 'Hello from the agent!',
   });
 }
 
 async function goToChat(page: import('@playwright/test').Page) {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await page.goto('/chat');
   await page.waitForSelector('[data-testid="message-input"]');
 }
 
 async function goToChatWithResult(page: import('@playwright/test').Page) {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await setupDispatch(page);
   await page.goto('/chat');
   await page.waitForSelector('[data-testid="message-input"]');
@@ -150,7 +124,7 @@ test.skip('5. Escape does nothing while sending is in progress', async () => {
 // ── 6. Up arrow on empty input recalls last sent message ──────────────────
 
 test('6. Up arrow on empty input (cursor at pos 0) loads the last sent message', async ({ page }) => {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await setupDispatch(page);
   await page.goto('/chat');
   await page.waitForSelector('[data-testid="message-input"]');
@@ -180,7 +154,7 @@ test('6. Up arrow on empty input (cursor at pos 0) loads the last sent message',
 
 test('7. Up arrow with history navigates to older messages on repeated presses', async ({ page }) => {
   const TASK_ID_2 = 'kb-task-43';
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
 
   // Route two separate dispatches with different task IDs
   let callCount = 0;
@@ -247,7 +221,7 @@ test('7. Up arrow with history navigates to older messages on repeated presses',
 // ── 8. Down arrow restores buffered draft ─────────────────────────────────
 
 test('8. Down arrow restores the buffered draft after history navigation', async ({ page }) => {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await setupDispatch(page);
   await page.goto('/chat');
   await page.waitForSelector('[data-testid="message-input"]');
@@ -339,7 +313,7 @@ test('12. Up arrow does nothing when there is no sent history', async ({ page })
 // ── 13. Escape resets history navigation ─────────────────────────────────
 
 test('13. Escape resets history navigation and clears the input', async ({ page }) => {
-  await setupRoutes(page);
+  await mockBaseRoutes(page, { agents: [], kubexes: [] });
   await setupDispatch(page);
   await page.goto('/chat');
   await page.waitForSelector('[data-testid="message-input"]');

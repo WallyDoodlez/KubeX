@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const GATEWAY = 'http://localhost:8080';
+import { mockBaseRoutes, isLiveMode, GATEWAY } from './helpers';
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -28,6 +27,7 @@ async function mockSkillCheck(
 
 test.describe('Policy Check — navigation', () => {
   test('sidebar link navigates to /policy-check', async ({ page }) => {
+    await mockBaseRoutes(page);
     await page.goto('/');
     await page.click('button[aria-label="Policy Check — Skill policy tool"]');
     await expect(page).toHaveURL('/policy-check');
@@ -35,6 +35,7 @@ test.describe('Policy Check — navigation', () => {
   });
 
   test('direct navigation to /policy-check renders the page', async ({ page }) => {
+    await mockBaseRoutes(page);
     await goToPolicyCheck(page);
     await expect(page.locator('[data-testid="policy-check-heading"]')).toHaveText('Policy Skill Check');
   });
@@ -44,6 +45,7 @@ test.describe('Policy Check — navigation', () => {
 
 test.describe('Policy Check — page structure', () => {
   test('shows form with agent ID input, skills textarea, and submit button', async ({ page }) => {
+    await mockBaseRoutes(page);
     await goToPolicyCheck(page);
     await expect(page.locator('[data-testid="policy-check-form"]')).toBeVisible();
     await expect(page.locator('[data-testid="policy-agent-id-input"]')).toBeVisible();
@@ -52,11 +54,13 @@ test.describe('Policy Check — page structure', () => {
   });
 
   test('shows empty state when no checks have been run', async ({ page }) => {
+    await mockBaseRoutes(page);
     await goToPolicyCheck(page);
     await expect(page.locator('[data-testid="policy-check-empty"]')).toBeVisible();
   });
 
   test('submit button has correct label', async ({ page }) => {
+    await mockBaseRoutes(page);
     await goToPolicyCheck(page);
     await expect(page.locator('[data-testid="policy-check-submit"]')).toContainText('Check Policy');
   });
@@ -66,6 +70,7 @@ test.describe('Policy Check — page structure', () => {
 
 test.describe('Policy Check — form validation', () => {
   test('shows error when agent ID is empty', async ({ page }) => {
+    await mockBaseRoutes(page);
     await goToPolicyCheck(page);
     await page.fill('[data-testid="policy-skills-input"]', 'summarise');
     await page.click('[data-testid="policy-check-submit"]');
@@ -73,6 +78,7 @@ test.describe('Policy Check — form validation', () => {
   });
 
   test('shows error when skills are empty', async ({ page }) => {
+    await mockBaseRoutes(page);
     await goToPolicyCheck(page);
     await page.fill('[data-testid="policy-agent-id-input"]', 'agent-alpha-001');
     await page.click('[data-testid="policy-check-submit"]');
@@ -80,6 +86,7 @@ test.describe('Policy Check — form validation', () => {
   });
 
   test('clears error on subsequent submission', async ({ page }) => {
+    await mockBaseRoutes(page);
     await mockSkillCheck(page, {
       decision: 'ALLOW',
       reason: 'All skills on allowlist',
@@ -102,6 +109,7 @@ test.describe('Policy Check — form validation', () => {
 
 test.describe('Policy Check — ALLOW decision', () => {
   test('shows ALLOW result with correct badge and reason', async ({ page }) => {
+    await mockBaseRoutes(page);
     await mockSkillCheck(page, {
       decision: 'ALLOW',
       reason: 'All skills on allowlist',
@@ -121,6 +129,7 @@ test.describe('Policy Check — ALLOW decision', () => {
   });
 
   test('hides empty state once a result is present', async ({ page }) => {
+    await mockBaseRoutes(page);
     await mockSkillCheck(page, {
       decision: 'ALLOW',
       reason: 'All skills on allowlist',
@@ -140,6 +149,7 @@ test.describe('Policy Check — ALLOW decision', () => {
 
 test.describe('Policy Check — ESCALATE decision', () => {
   test('shows ESCALATE result when skill is not on allowlist', async ({ page }) => {
+    await mockBaseRoutes(page);
     await mockSkillCheck(page, {
       decision: 'ESCALATE',
       reason: "Skill 'hack' not in allowlist for agent 'agent-alpha-001'",
@@ -157,6 +167,7 @@ test.describe('Policy Check — ESCALATE decision', () => {
   });
 
   test('shows ESCALATE for unknown agent (no policy)', async ({ page }) => {
+    await mockBaseRoutes(page);
     await mockSkillCheck(page, {
       decision: 'ESCALATE',
       reason: "No skill allowlist for agent 'agent-unknown'",
@@ -178,6 +189,7 @@ test.describe('Policy Check — ESCALATE decision', () => {
 
 test.describe('Policy Check — skills parsing', () => {
   test('parses comma-separated skills into individual tags', async ({ page }) => {
+    await mockBaseRoutes(page);
     await mockSkillCheck(page, {
       decision: 'ALLOW',
       reason: 'All skills on allowlist',
@@ -198,6 +210,7 @@ test.describe('Policy Check — skills parsing', () => {
   });
 
   test('parses newline-separated skills', async ({ page }) => {
+    await mockBaseRoutes(page);
     await mockSkillCheck(page, {
       decision: 'ALLOW',
       reason: 'All skills on allowlist',
@@ -220,6 +233,7 @@ test.describe('Policy Check — skills parsing', () => {
 
 test.describe('Policy Check — history', () => {
   test('accumulates multiple results newest-first', async ({ page }) => {
+    await mockBaseRoutes(page);
     let callCount = 0;
     await page.route(`${GATEWAY}/policy/skill-check`, (route) => {
       callCount++;
@@ -255,6 +269,7 @@ test.describe('Policy Check — history', () => {
   });
 
   test('clear button removes all results and shows empty state', async ({ page }) => {
+    await mockBaseRoutes(page);
     await mockSkillCheck(page, {
       decision: 'ALLOW',
       reason: 'All skills on allowlist',
@@ -277,6 +292,8 @@ test.describe('Policy Check — history', () => {
 
 test.describe('Policy Check — error handling', () => {
   test('shows error when Gateway returns non-ok status', async ({ page }) => {
+    test.skip(isLiveMode, 'Error simulation requires mock 500 response');
+    await mockBaseRoutes(page);
     await mockSkillCheck(page, { detail: 'Internal Server Error' }, 500);
     await goToPolicyCheck(page);
     await page.fill('[data-testid="policy-agent-id-input"]', 'agent-alpha-001');
@@ -292,23 +309,27 @@ test.describe('Policy Check — error handling', () => {
 
 test.describe('Policy Check — accessibility', () => {
   test('form has accessible label', async ({ page }) => {
+    await mockBaseRoutes(page);
     await goToPolicyCheck(page);
     await expect(page.locator('[aria-label="Policy skill check form"]')).toBeVisible();
   });
 
   test('agent ID and skills inputs have associated labels', async ({ page }) => {
+    await mockBaseRoutes(page);
     await goToPolicyCheck(page);
     await expect(page.locator('label[for="policy-agent-id"]')).toBeVisible();
     await expect(page.locator('label[for="policy-skills"]')).toBeVisible();
   });
 
   test('error message has role=alert', async ({ page }) => {
+    await mockBaseRoutes(page);
     await goToPolicyCheck(page);
     await page.click('[data-testid="policy-check-submit"]');
     await expect(page.locator('[role="alert"][data-testid="policy-check-error"]')).toBeVisible();
   });
 
   test('results section has accessible label', async ({ page }) => {
+    await mockBaseRoutes(page);
     await mockSkillCheck(page, {
       decision: 'ALLOW',
       reason: 'All skills on allowlist',

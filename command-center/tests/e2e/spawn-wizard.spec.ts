@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, isLiveMode, MANAGER } from './helpers';
 
-const REGISTRY = 'http://localhost:8070';
-const MANAGER = 'http://localhost:8090';
-
+// Local spawn-wizard agents — two agents with specific capability chips the
+// wizard tests click by test-id (cap-chip-orchestrate etc.)
 const mockAgents = [
   {
     agent_id: 'agent-alpha',
@@ -18,16 +18,10 @@ const mockAgents = [
   },
 ];
 
-async function mockRegistryAgents(page: import('@playwright/test').Page) {
-  await page.route(`${REGISTRY}/agents`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(mockAgents),
-    }),
-  );
-}
-
+/**
+ * Mock the Manager kubexes POST endpoint for spawn responses.
+ * The GET path is already covered by mockBaseRoutes.
+ */
 async function mockManagerSpawn(
   page: import('@playwright/test').Page,
   response: object = { kubex_id: 'kubex-test-abc123', status: 'created' },
@@ -48,7 +42,7 @@ async function mockManagerSpawn(
 
 test.describe('Spawn Wizard — /spawn page', () => {
   test.beforeEach(async ({ page }) => {
-    await mockRegistryAgents(page);
+    await mockBaseRoutes(page, { agents: mockAgents });
     await page.goto('/spawn');
   });
 
@@ -329,6 +323,7 @@ test.describe('Spawn Wizard — /spawn page', () => {
   });
 
   test('failed spawn shows error state', async ({ page }) => {
+    test.skip(isLiveMode, 'Error simulation requires mock 500 response');
     await mockManagerSpawn(page, { detail: 'Manager unavailable' }, 500);
     await page.getByTestId('agent-id-input').fill('test-agent-99');
     await page.getByTestId('wizard-next-btn').click();

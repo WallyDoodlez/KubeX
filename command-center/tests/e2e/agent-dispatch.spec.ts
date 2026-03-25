@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, mockDispatch, isLiveMode } from './helpers';
 
 /**
  * Iteration 20 — Agent detail action dispatch
@@ -30,38 +31,11 @@ const MOCK_AGENTS = [
 
 /** Set up Playwright route interception to mock the registry and gateway APIs. */
 async function mockApis(page: import('@playwright/test').Page) {
-  // Registry agents list
-  await page.route('**/agents', (route) => {
-    if (route.request().method() === 'GET') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_AGENTS) });
-    } else {
-      route.continue();
-    }
-  });
-
-  // Health endpoints
-  await page.route('**/health', (route) => {
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) });
-  });
+  // Base routes: health, agents, kubexes, escalations
+  await mockBaseRoutes(page, { agents: MOCK_AGENTS, kubexes: [] });
 
   // Dispatch task (Gateway POST /actions)
-  await page.route('**/actions', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ task_id: 'mock-task-dispatch-001', status: 'accepted' }),
-    });
-  });
-
-  // Kubexes (Manager)
-  await page.route('**/kubexes', (route) => {
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-  });
-
-  // Escalations
-  await page.route('**/escalations', (route) => {
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-  });
+  await mockDispatch(page, 'mock-task-dispatch-001', { task_id: 'mock-task-dispatch-001', status: 'accepted' });
 }
 
 test.describe('Agent Detail — Action Dispatch (Iteration 20)', () => {
@@ -214,6 +188,8 @@ test.describe('Agent Detail — Action Dispatch (Iteration 20)', () => {
   });
 
   test('failed dispatch shows error message', async ({ page }) => {
+    test.skip(isLiveMode, 'Error-simulation test only runs in mock mode');
+
     // Override the /actions handler to return a 500 error
     await page.route('**/actions', (route) => {
       route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Server error' }) });
