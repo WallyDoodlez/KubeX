@@ -38,7 +38,7 @@ const TASK_ID = MOCK_TASK_ID;
  */
 async function sendChatMessage(
   page: import('@playwright/test').Page,
-  capability = 'test-cap',
+  capability = isLiveMode ? 'task_orchestration' : 'test-cap',
   message = 'hello world',
 ) {
   // Enable system messages so the dispatch confirmation bubble is visible
