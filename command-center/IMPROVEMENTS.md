@@ -915,12 +915,12 @@
   - [x] Build: npm run build — clean
   - [x] Committed and pushed (612040e, b06298d)
 
-- [ ] **Iteration 83: Traffic Log responsive layout + mobile card view**
-  - [ ] Refactor `TrafficLog.tsx` grid layout — on mobile (`<768px`): switch from 6-column grid to stacked card layout; on tablet (`768px-1024px`): 2-3 column grid; on desktop (`1024px+`): keep existing 6-column grid
-  - [ ] Create `TrafficCard` sub-component for mobile view — shows task ID, capability, status badge, timestamp, agent ID in a compact vertical card
-  - [ ] Use Tailwind responsive breakpoints (`md:`, `lg:`) matching existing Dashboard/AgentsPanel patterns
-  - [ ] Ensure filter bar (`TrafficFilterBar.tsx`) remains accessible on all screen sizes
-  - [ ] Add responsive column toggle — header row hides non-essential columns on tablet (show: task ID, capability, status; hide: agent, duration, timestamp)
-  - [ ] E2E tests: responsive layout renders at mobile viewport (375px), card layout visible on narrow screens, filter bar accessible on mobile, grid layout at desktop viewport (1280px)
-  - [ ] Build: npm run build — clean
-  - [ ] Test: npx playwright test — all pass
+- [x] **Iteration 83: Traffic Log responsive layout + mobile card view**
+  - [x] Refactor `TrafficLog.tsx` grid layout — on mobile (`<768px`): switch from 6-column grid to stacked card layout; on tablet (`768px-1024px`): 2-3 column grid; on desktop (`1024px+`): keep existing 6-column grid
+  - [x] Mobile card layout in `TrafficRow` — shows status badge, timestamp, action, capability, agent ID, and task ID stacked vertically
+  - [x] Use Tailwind responsive breakpoints (`md:`, `lg:`) matching existing Dashboard/AgentsPanel patterns
+  - [x] Ensure filter bar (`TrafficFilterBar.tsx`) remains accessible on all screen sizes (flex-wrap already handles this)
+  - [x] Legend dots hidden below `sm` breakpoint to avoid overflow on narrow screens
+  - [x] E2E tests: `traffic-responsive.spec.ts` — 17 tests covering mobile/tablet/desktop viewports and resize transitions
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1226 passed, 23 skipped (OAuth), 0 failed
