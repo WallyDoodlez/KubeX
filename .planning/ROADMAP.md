@@ -195,3 +195,13 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 1000 to break down)
+
+### Phase 14: Orchestrator Participant Events
+
+**Goal:** Emit `agent_joined` / `agent_left` structured progress events from MCP Bridge when dispatching to workers and receiving results. Unblocks FE Iteration 96 conversation participant model.
+**Requirements**: FE-BE-REQUESTS.md — agent_joined/agent_left section
+**Depends on:** Phase 13
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 14 to break down)

@@ -68,6 +68,7 @@ Plan: Not started
 - Phase 08.3 inserted after Phase 8: Orchestrator Context Reset (INSERTED) — meta-tool or auto-truncate for context window management
 - Phase 08.4 inserted after Phase 8: Vault Git Sync (INSERTED) — configurable remote repo, auto commit+push, pull on boot
 - Phase 13 added: Error Observability Pipeline — unified error detection, propagation, and UI-consumable reporting across Gateway/Broker/Agent boundaries
+- Phase 14 added: Orchestrator Participant Events — agent_joined/agent_left progress events from MCP Bridge, unblocks FE Iteration 96
 
 ### Decisions
 
