@@ -48,7 +48,7 @@ class BrokerStreams:
             await self._redis.xgroup_create(
                 STREAM_NAME,
                 agent_id,
-                id="0",
+                id="$",
                 mkstream=True,
             )
             logger.info("consumer_group_created", stream=STREAM_NAME, group=agent_id)

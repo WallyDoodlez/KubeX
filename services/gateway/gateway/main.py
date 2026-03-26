@@ -1091,17 +1091,20 @@ async def llm_proxy(provider: str, path: str, request: Request) -> StreamingResp
 
     # Track token usage for budget enforcement
     if gateway.budget_tracker and response.status_code == 200:
-        response_body = response.content
-        tokens = gateway.llm_proxy.count_tokens_from_response(provider, response_body)
-        if tokens["input_tokens"] or tokens["output_tokens"]:
-            task_id = request.headers.get("X-Kubex-Task-Id", "unknown")
-            await gateway.budget_tracker.increment_tokens(
-                task_id=task_id,
-                agent_id=agent_id,
-                input_tokens=tokens["input_tokens"],
-                output_tokens=tokens["output_tokens"],
-                model=provider,
-            )
+        try:
+            response_body = response.content
+            tokens = gateway.llm_proxy.count_tokens_from_response(provider, response_body)
+            if tokens["input_tokens"] or tokens["output_tokens"]:
+                task_id = request.headers.get("X-Kubex-Task-Id", "unknown")
+                await gateway.budget_tracker.increment_tokens(
+                    task_id=task_id,
+                    agent_id=agent_id,
+                    input_tokens=tokens["input_tokens"],
+                    output_tokens=tokens["output_tokens"],
+                    model=provider,
+                )
+        except Exception as exc:
+            logger.warning("budget_tracker_error", provider=provider, agent_id=agent_id, error=str(exc))
 
     # Return response (streaming or regular)
     response_headers = dict(response.headers)

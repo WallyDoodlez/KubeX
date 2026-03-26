@@ -276,6 +276,7 @@ class StandaloneAgent:
         await self._post_progress(client, task_id, f"Agent {self.config.agent_id} starting task...\n", final=False)
 
         # Call LLM (single-shot or multi-turn depending on tool definitions)
+        llm_error: Exception | None = None
         try:
             if self.tool_definitions:
                 llm_response = await self._call_llm_with_tools(client, context_message, task_id)
@@ -284,15 +285,20 @@ class StandaloneAgent:
         except Exception as exc:
             logger.error("LLM call failed for task %s: %s", task_id, exc)
             llm_response = f"Error: LLM call failed — {exc}"
+            llm_error = exc
 
         # Post progress with the LLM response
         await self._post_progress(client, task_id, llm_response, final=False)
 
         # Post final progress
-        await self._post_progress(client, task_id, "", final=True, exit_reason="completed")
+        exit_reason = "failed" if llm_error else "completed"
+        await self._post_progress(client, task_id, "", final=True, exit_reason=exit_reason)
 
         # Store result via broker
-        await self._store_result(client, task_id, llm_response)
+        if llm_error:
+            await self._store_result(client, task_id, llm_response, status="failed")
+        else:
+            await self._store_result(client, task_id, llm_response)
 
         # Acknowledge message
         if message_id:
@@ -551,12 +557,12 @@ class StandaloneAgent:
         except Exception:
             logger.debug("Failed to post progress for task %s", task_id)
 
-    async def _store_result(self, client: httpx.AsyncClient, task_id: str, result_text: str) -> None:
+    async def _store_result(self, client: httpx.AsyncClient, task_id: str, result_text: str, *, status: str = "completed") -> None:
         """Store task result via Broker POST /tasks/{task_id}/result."""
         url = f"{self.config.broker_url}/tasks/{task_id}/result"
         payload = {
             "result": {
-                "status": "completed",
+                "status": status,
                 "agent_id": self.config.agent_id,
                 "output": result_text,
             }

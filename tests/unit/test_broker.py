@@ -52,7 +52,7 @@ class TestBrokerStreams:
     async def test_ensure_stream_and_group_creates_new(self) -> None:
         await self.streams.ensure_stream_and_group("scraper")
         self.redis.xgroup_create.assert_called_once_with(
-            STREAM_NAME, "scraper", id="0", mkstream=True
+            STREAM_NAME, "scraper", id="$", mkstream=True
         )
 
     @pytest.mark.asyncio

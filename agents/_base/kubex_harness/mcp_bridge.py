@@ -466,6 +466,7 @@ class MCPBridgeServer:
         system_prompt = self._load_system_prompt()
 
         # Multi-turn tool-use loop
+        llm_error: Exception | None = None
         try:
             llm_response = await self._call_llm_with_mcp_tools(
                 context_message, task_id, system_prompt, tool_defs,
@@ -473,13 +474,18 @@ class MCPBridgeServer:
         except Exception as exc:
             logger.error("LLM call failed for task %s: %s", task_id, exc)
             llm_response = f"Error: LLM call failed — {exc}"
+            llm_error = exc
 
         # Post progress and final
+        exit_reason = "failed" if llm_error else "completed"
         await self._post_progress(task_id, llm_response)
-        await self._post_progress(task_id, "", final=True, exit_reason="completed")
+        await self._post_progress(task_id, "", final=True, exit_reason=exit_reason)
 
         # Store result via broker
-        await self._store_result(task_id, llm_response)
+        if llm_error:
+            await self._store_result(task_id, llm_response, status="failed")
+        else:
+            await self._store_result(task_id, llm_response)
 
         # Acknowledge message
         if message_id:
@@ -665,13 +671,13 @@ class MCPBridgeServer:
         except Exception:
             logger.debug("Failed to post progress for task %s", task_id)
 
-    async def _store_result(self, task_id: str, result_text: str) -> None:
+    async def _store_result(self, task_id: str, result_text: str, *, status: str = "completed") -> None:
         """Store task result via Broker POST /tasks/{task_id}/result."""
         assert self._http is not None
         try:
             resp = await self._http.post(
                 f"{self.config.broker_url}/tasks/{task_id}/result",
-                json={"result": {"status": "completed", "agent_id": self.config.agent_id, "output": result_text}},
+                json={"result": {"status": status, "agent_id": self.config.agent_id, "output": result_text}},
             )
             if resp.status_code not in (200, 201, 204):
                 logger.warning("Result store returned %d for task %s", resp.status_code, task_id)
