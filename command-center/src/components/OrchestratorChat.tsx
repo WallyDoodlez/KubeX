@@ -14,6 +14,7 @@ import { dispatchTask, getTaskResult, getTaskAudit, getAgents, getTaskStreamUrl,
 import type { AuditEntry, ChatMessage, TrafficEntry, Agent, TaskPhaseEntry } from '../types';
 import { useToast } from '../context/ToastContext';
 import { validateCapability, validateMessage } from '../utils/validation';
+import { extractResultContent } from '../utils/formatAgentResult';
 import { useSSE } from '../hooks/useSSE';
 import type { SSEStatus } from '../hooks/useSSE';
 import TerminalOutput from './TerminalOutput';
@@ -184,7 +185,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       // User has scrolled up — show FAB to signal new messages
       setHasNewMessages(true);
     }
-  }, [messages]);
+  }, [messages, sending, terminalLines.length, livePhases]);
 
   // Keep ref in sync with state (avoids stale closure in scroll listener)
   useEffect(() => {
@@ -264,20 +265,17 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       setHitlRequest(null);
       setLivePhases([]);
 
-      const resultText =
-        typeof data.result === 'string'
-          ? data.result
-          : data.result !== undefined
-          ? JSON.stringify(data.result, null, 2)
-          : JSON.stringify(data, null, 2);
+      const extracted = extractResultContent(data as Record<string, unknown>);
 
       addMessage({
         role: 'result',
-        content: resultText,
+        content: extracted.text,
         timestamp: new Date(),
         task_id: taskId ?? undefined,
         raw: data,
         phases: completedPhases,
+        agent_id: extracted.agentId,
+        duration_ms: extracted.durationMs,
       });
 
       onTrafficEntry({
@@ -353,12 +351,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
           // If the task completed (or failed/cancelled with a result), surface it
           if (rr.ok && rr.data && (rr.data.status === 'completed' || rr.data.status === 'failed' || rr.data.status === 'cancelled')) {
-            const resultText =
-              typeof rr.data.result === 'string'
-                ? rr.data.result
-                : rr.data.result !== undefined
-                ? JSON.stringify(rr.data.result, null, 2)
-                : JSON.stringify(rr.data, null, 2);
+            const extracted = extractResultContent(rr.data as Record<string, unknown>);
 
             const isSuccess = rr.data!.status === 'completed';
             const fallbackPhases = isSuccess ? buildPhasesCompleted() : buildPhasesFailed();
@@ -369,11 +362,13 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               {
                 id: crypto.randomUUID(),
                 role: isSuccess ? 'result' : 'error',
-                content: isSuccess ? resultText : `Task ${rr.data!.status}: ${resultText}`,
+                content: isSuccess ? extracted.text : `Task ${rr.data!.status}: ${extracted.text}`,
                 timestamp: new Date(),
                 task_id: taskId,
                 raw: rr.data,
                 phases: fallbackPhases,
+                agent_id: extracted.agentId,
+                duration_ms: extracted.durationMs,
               } as ChatMessage,
             ]);
 
@@ -445,12 +440,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           rr.data &&
           (rr.data.status === 'completed' || rr.data.status === 'failed' || rr.data.status === 'cancelled')
         ) {
-          const resultText =
-            typeof rr.data.result === 'string'
-              ? rr.data.result
-              : rr.data.result !== undefined
-              ? JSON.stringify(rr.data.result, null, 2)
-              : JSON.stringify(rr.data, null, 2);
+          const extracted = extractResultContent(rr.data as Record<string, unknown>);
 
           const isSuccess = rr.data.status === 'completed';
           localStorage.removeItem('kubex-active-task');
@@ -466,11 +456,13 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
             {
               id: crypto.randomUUID(),
               role: isSuccess ? 'result' : 'error',
-              content: isSuccess ? resultText : `Task ${rr.data!.status}: ${resultText}`,
+              content: isSuccess ? extracted.text : `Task ${rr.data!.status}: ${extracted.text}`,
               timestamp: new Date(),
               task_id: taskId,
               raw: rr.data,
               phases: isSuccess ? buildPhasesCompleted() : buildPhasesFailed(),
+              agent_id: extracted.agentId,
+              duration_ms: extracted.durationMs,
             } as ChatMessage,
           ]);
 
@@ -545,12 +537,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
             rr.data &&
             (rr.data.status === 'completed' || rr.data.status === 'failed' || rr.data.status === 'cancelled')
           ) {
-            const resultText =
-              typeof rr.data.result === 'string'
-                ? rr.data.result
-                : rr.data.result !== undefined
-                ? JSON.stringify(rr.data.result, null, 2)
-                : JSON.stringify(rr.data, null, 2);
+            const extracted = extractResultContent(rr.data as Record<string, unknown>);
 
             const isSuccess = rr.data.status === 'completed';
             setLivePhases([]);
@@ -559,11 +546,13 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               {
                 id: crypto.randomUUID(),
                 role: isSuccess ? 'result' : 'error',
-                content: isSuccess ? resultText : `Task ${rr.data!.status}: ${resultText}`,
+                content: isSuccess ? extracted.text : `Task ${rr.data!.status}: ${extracted.text}`,
                 timestamp: new Date(),
                 task_id: taskId,
                 raw: rr.data,
                 phases: isSuccess ? buildPhasesCompleted() : buildPhasesFailed(),
+                agent_id: extracted.agentId,
+                duration_ms: extracted.durationMs,
               } as ChatMessage,
             ]);
             localStorage.removeItem('kubex-active-task');
@@ -659,6 +648,10 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       capability: capRaw || undefined,
     });
 
+    // Force auto-scroll to bottom on send, even if the user had scrolled up
+    setAutoScroll(true);
+    autoScrollRef.current = true;
+
     setCapability('');
     setMessage('');
 
@@ -740,12 +733,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         rr.data &&
         (rr.data.status === 'completed' || rr.data.status === 'failed' || rr.data.status === 'cancelled')
       ) {
-        const resultText =
-          typeof rr.data.result === 'string'
-            ? rr.data.result
-            : rr.data.result !== undefined
-            ? JSON.stringify(rr.data.result, null, 2)
-            : JSON.stringify(rr.data, null, 2);
+        const extracted = extractResultContent(rr.data as Record<string, unknown>);
 
         const isSuccess = rr.data.status === 'completed';
         localStorage.removeItem('kubex-active-task');
@@ -761,11 +749,13 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           {
             id: crypto.randomUUID(),
             role: isSuccess ? 'result' : 'error',
-            content: isSuccess ? resultText : `Task ${rr.data!.status}: ${resultText}`,
+            content: isSuccess ? extracted.text : `Task ${rr.data!.status}: ${extracted.text}`,
             timestamp: new Date(),
             task_id: capturedTaskId,
             raw: rr.data,
             phases: isSuccess ? buildPhasesCompleted() : buildPhasesFailed(),
+            agent_id: extracted.agentId,
+            duration_ms: extracted.durationMs,
           } as ChatMessage,
         ]);
 
@@ -2223,6 +2213,11 @@ const ChatBubble = memo(function ChatBubble({
       <div className="flex justify-start" data-testid="result-bubble">
         <div className="max-w-2xl w-full">
           <div className="rounded-2xl rounded-tl-sm bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-3">
+            {message.agent_id && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 mb-2" data-testid="agent-badge">
+                {message.agent_id}
+              </span>
+            )}
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[10px] uppercase tracking-widest font-semibold text-emerald-400">
                 Result
@@ -2446,6 +2441,12 @@ const ChatBubble = memo(function ChatBubble({
               />
             )}
             </div>{/* end content wrapper */}
+
+            {message.duration_ms !== undefined && (
+              <p className="text-[10px] text-[var(--color-text-muted)] mt-2" data-testid="duration-footer">
+                completed in {message.duration_ms < 1000 ? '<1s' : `${(message.duration_ms / 1000).toFixed(1)}s`}
+              </p>
+            )}
 
             {/* Show more / Show less toggle */}
             {isLong && (

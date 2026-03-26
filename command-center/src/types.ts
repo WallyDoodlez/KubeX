@@ -122,6 +122,10 @@ export interface ChatMessage {
   phases?: TaskPhaseEntry[];
   /** User feedback on the message result — 'up' = helpful, 'down' = not helpful, null = no feedback */
   feedback?: 'up' | 'down' | null;
+  /** Agent that produced this result */
+  agent_id?: string;
+  /** Task execution duration in milliseconds */
+  duration_ms?: number;
 }
 
 // ── SSE streaming ───────────────────────────────────────────────────
