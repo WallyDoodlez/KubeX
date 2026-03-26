@@ -23,6 +23,7 @@ Also polls:
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import sys
@@ -30,6 +31,11 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
+
+# Force UTF-8 output on Windows
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 # ── Load .env ──────────────────────────────────────────────────────────
 def _load_env() -> dict[str, str]:
