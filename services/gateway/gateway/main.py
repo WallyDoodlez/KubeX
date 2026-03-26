@@ -707,6 +707,29 @@ async def stream_task_progress(task_id: str, request: Request) -> StreamingRespo
             yield f"data: {json.dumps({'error': 'Redis not available'})}\n\n"
             return
 
+        # BUG-007 fix: Check for an already-completed result BEFORE subscribing
+        # to pub/sub. If the task finished before the client connected, the
+        # pub/sub events are gone (fire-and-forget). Emit the cached result
+        # immediately so the client doesn't hang.
+        redis_for_result = gateway.redis_db0 or gateway.redis_db1
+        if redis_for_result:
+            try:
+                cached = await redis_for_result.get(f"task:result:{task_id}")
+                if cached:
+                    result_data = json.loads(cached)
+                    event = {
+                        "type": "result",
+                        "final": True,
+                        "task_id": task_id,
+                        "status": result_data.get("status", "completed"),
+                        "output": result_data.get("output", ""),
+                        "agent_id": result_data.get("agent_id", ""),
+                    }
+                    yield f"data: {json.dumps(event)}\n\n"
+                    return
+            except Exception:
+                pass  # Fall through to pub/sub path
+
         channel = f"progress:{task_id}"
         pubsub = gateway.redis_db1.pubsub()
         try:
