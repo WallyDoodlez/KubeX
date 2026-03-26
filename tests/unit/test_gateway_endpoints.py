@@ -457,3 +457,187 @@ class TestLifecycleSSE:
         assert resp.status_code == 200
         body = resp.text
         assert f"data: {event_payload}" in body
+
+
+# ─────────────────────────────────────────────
+# Phase 12 — AUTH-04: GET /agents/{id}/state endpoint
+# ─────────────────────────────────────────────
+
+
+class TestAgentStateEndpoint:
+    """Tests for GET /agents/{agent_id}/state endpoint.
+
+    Contract:
+        GET /agents/{agent_id}/state
+        Auth: Bearer token required (401 without valid token)
+        200 — state JSON when key exists in Redis DB 0
+        404 — key missing (agent has never published state)
+        503 — Redis unavailable
+    """
+
+    def setup_method(self) -> None:
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../services/gateway"))
+        from fastapi.testclient import TestClient
+        from gateway.main import app
+        app.state.gateway_service.redis_db0 = None
+        app.state.gateway_service.redis_db1 = None
+        app.state.gateway_service.budget_tracker = None
+        app.state.gateway_service.rate_limiter = None
+        self.client = TestClient(app, raise_server_exceptions=False)
+        self.auth_header = {"Authorization": "Bearer kubex-mgmt-token"}
+
+    def test_auth_required_no_header_returns_401(self) -> None:
+        """GET /agents/{id}/state without Authorization header returns 401."""
+        resp = self.client.get("/agents/test-agent/state")
+        assert resp.status_code == 401
+
+    def test_auth_required_wrong_token_returns_401(self) -> None:
+        """GET /agents/{id}/state with wrong token returns 401."""
+        resp = self.client.get(
+            "/agents/test-agent/state",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        assert resp.status_code == 401
+
+    def test_state_returned_when_key_exists(self) -> None:
+        """Returns 200 with JSON payload when agent:state:{id} key exists."""
+        from gateway.main import app
+
+        payload = json.dumps({
+            "agent_id": "agent-xyz",
+            "state": "ready",
+            "timestamp": "2026-03-24T00:00:00",
+        })
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=payload)
+        app.state.gateway_service.redis_db0 = mock_redis
+
+        resp = self.client.get(
+            "/agents/agent-xyz/state",
+            headers=self.auth_header,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["agent_id"] == "agent-xyz"
+        assert data["state"] == "ready"
+
+    def test_404_when_key_missing(self) -> None:
+        """Returns 404 when no state key found in Redis."""
+        from gateway.main import app
+
+        mock_redis = AsyncMock()
+        mock_redis.get = AsyncMock(return_value=None)
+        app.state.gateway_service.redis_db0 = mock_redis
+
+        resp = self.client.get(
+            "/agents/unknown-agent/state",
+            headers=self.auth_header,
+        )
+        assert resp.status_code == 404
+        data = resp.json()
+        assert "AgentStateNotFound" in data["error"]
+
+    def test_503_when_redis_unavailable(self) -> None:
+        """Returns 503 when redis_db0 is None."""
+        from gateway.main import app
+        app.state.gateway_service.redis_db0 = None
+
+        resp = self.client.get(
+            "/agents/any-agent/state",
+            headers=self.auth_header,
+        )
+        assert resp.status_code == 503
+
+
+# ─────────────────────────────────────────────
+# Phase 12 — AUTH-05: GET /auth/runtimes endpoints
+# ─────────────────────────────────────────────
+
+
+class TestAuthRuntimesEndpoints:
+    """Tests for GET /auth/runtimes and GET /auth/runtimes/{runtime}.
+
+    Contract:
+        GET /auth/runtimes — returns list of all 3 runtimes
+        GET /auth/runtimes/{runtime} — returns single runtime or 404
+        Auth: Bearer token required (401 without valid token)
+    """
+
+    def setup_method(self) -> None:
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../services/gateway"))
+        from fastapi.testclient import TestClient
+        from gateway.main import app
+        app.state.gateway_service.redis_db0 = None
+        app.state.gateway_service.redis_db1 = None
+        app.state.gateway_service.budget_tracker = None
+        app.state.gateway_service.rate_limiter = None
+        self.client = TestClient(app, raise_server_exceptions=False)
+        self.auth_header = {"Authorization": "Bearer kubex-mgmt-token"}
+
+    def test_list_runtimes_auth_required(self) -> None:
+        """GET /auth/runtimes without token returns 401."""
+        resp = self.client.get("/auth/runtimes")
+        assert resp.status_code == 401
+
+    def test_list_runtimes_returns_all_three(self) -> None:
+        """GET /auth/runtimes returns all 3 supported runtimes."""
+        resp = self.client.get("/auth/runtimes", headers=self.auth_header)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) == 3
+        runtime_ids = {item["runtime"] for item in data}
+        assert "claude-code" in runtime_ids
+        assert "gemini-cli" in runtime_ids
+        assert "codex-cli" in runtime_ids
+
+    def test_list_runtimes_item_has_required_fields(self) -> None:
+        """Each runtime entry has all required fields."""
+        resp = self.client.get("/auth/runtimes", headers=self.auth_header)
+        assert resp.status_code == 200
+        data = resp.json()
+        required_fields = {
+            "runtime", "display_name", "auth_command",
+            "credential_source", "container_path",
+            "instructions", "credential_example",
+        }
+        for item in data:
+            for field in required_fields:
+                assert field in item, f"Missing field '{field}' in runtime entry {item.get('runtime')}"
+
+    def test_get_single_runtime_claude_code(self) -> None:
+        """GET /auth/runtimes/claude-code returns correct entry."""
+        resp = self.client.get("/auth/runtimes/claude-code", headers=self.auth_header)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["runtime"] == "claude-code"
+        assert data["display_name"] == "Claude Code"
+        assert data["container_path"] == "/root/.claude/.credentials.json"
+
+    def test_get_single_runtime_gemini_cli(self) -> None:
+        """GET /auth/runtimes/gemini-cli returns correct entry."""
+        resp = self.client.get("/auth/runtimes/gemini-cli", headers=self.auth_header)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["runtime"] == "gemini-cli"
+        assert data["container_path"] == "/root/.gemini/oauth_creds.json"
+
+    def test_get_single_runtime_codex_cli(self) -> None:
+        """GET /auth/runtimes/codex-cli returns correct entry."""
+        resp = self.client.get("/auth/runtimes/codex-cli", headers=self.auth_header)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["runtime"] == "codex-cli"
+        assert data["container_path"] == "/root/.codex/.credentials.json"
+
+    def test_get_single_runtime_unknown_returns_404(self) -> None:
+        """GET /auth/runtimes/unknown returns 404."""
+        resp = self.client.get("/auth/runtimes/nonexistent-cli", headers=self.auth_header)
+        assert resp.status_code == 404
+        data = resp.json()
+        assert "RuntimeNotFound" in data["error"]
+
+    def test_get_single_runtime_auth_required(self) -> None:
+        """GET /auth/runtimes/{runtime} without token returns 401."""
+        resp = self.client.get("/auth/runtimes/claude-code")
+        assert resp.status_code == 401

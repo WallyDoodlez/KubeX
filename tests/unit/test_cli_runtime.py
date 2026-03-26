@@ -130,6 +130,18 @@ class TestCredentialPaths:
     def test_path_is_pathlib_path(self):
         assert isinstance(CREDENTIAL_PATHS["claude-code"], Path)
 
+    def test_codex_cli_key_exists(self):
+        """codex-cli must be in CREDENTIAL_PATHS."""
+        assert "codex-cli" in CREDENTIAL_PATHS
+
+    def test_codex_cli_path_ends_with_credentials_json(self):
+        path = CREDENTIAL_PATHS["codex-cli"]
+        assert path.name == ".credentials.json"
+        assert ".codex" in str(path)
+
+    def test_gemini_cli_key_exists(self):
+        assert "gemini-cli" in CREDENTIAL_PATHS
+
 
 # ---------------------------------------------------------------------------
 # FAILURE_PATTERNS
@@ -334,6 +346,26 @@ class TestPublishState:
         runtime._redis = None
         # Should not raise
         await runtime._publish_state(CliState.BOOTING)
+
+    @pytest.mark.asyncio
+    async def test_publish_state_side_writes_agent_state_key(self, runtime, mock_redis):
+        """_publish_state also writes to agent:state:{agent_id} key for poll-based reads."""
+        mock_redis.set = AsyncMock(return_value=True)
+        runtime._redis = mock_redis
+        await runtime._publish_state(CliState.READY)
+        mock_redis.set.assert_called_once()
+        key = mock_redis.set.call_args[0][0]
+        assert key == f"agent:state:{runtime.config.agent_id}"
+
+    @pytest.mark.asyncio
+    async def test_publish_state_side_write_failure_does_not_raise(self, runtime):
+        """Side-write to agent:state key must never block or raise."""
+        bad_redis = AsyncMock()
+        bad_redis.publish = AsyncMock(return_value=1)
+        bad_redis.set = AsyncMock(side_effect=Exception("Redis down"))
+        runtime._redis = bad_redis
+        # Should not raise even if SET fails
+        await runtime._publish_state(CliState.READY)
 
 
 # ---------------------------------------------------------------------------

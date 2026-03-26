@@ -53,6 +53,7 @@ logger = logging.getLogger("kubex_harness.cli_runtime")
 CREDENTIAL_PATHS: dict[str, Path] = {
     "claude-code": Path.home() / ".claude" / ".credentials.json",
     "gemini-cli": Path.home() / ".gemini" / "oauth_creds.json",
+    "codex-cli": Path.home() / ".codex" / ".credentials.json",
 }
 
 # Failure output patterns per reason (D-10, D-13, D-14, D-17)
@@ -98,6 +99,7 @@ CLI_SKILL_FILES: dict[str, str] = {
 _HITL_AUTH_MESSAGES: dict[str, str] = {
     "claude-code": "docker exec -it <container> claude auth login",
     "gemini-cli": "docker exec -it <container> gemini   (select 'Login with Google')",
+    "codex-cli": "docker exec -it <container> codex auth login",
 }
 
 
@@ -863,10 +865,17 @@ class CLIRuntime:
             "timestamp": datetime.utcnow().isoformat(),
         }
         channel = f"lifecycle:{self.config.agent_id}"
+        payload_json = json.dumps(payload)
         try:
-            await self._redis.publish(channel, json.dumps(payload))
+            await self._redis.publish(channel, payload_json)
         except Exception as exc:
             logger.warning("Failed to publish state %s: %s", state.value, exc)
+        # Side-write latest state to a Redis key so Gateway can serve it on demand
+        state_key = f"agent:state:{self.config.agent_id}"
+        try:
+            await self._redis.set(state_key, payload_json)
+        except Exception as exc:
+            logger.warning("Failed to set agent state key %s: %s", state_key, exc)
 
     # ------------------------------------------------------------------
     # Progress streaming

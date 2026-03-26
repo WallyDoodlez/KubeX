@@ -833,6 +833,155 @@ async def stream_agent_lifecycle(
     )
 
 
+# ─────────────────────────────────────────────
+# Agent state snapshot endpoint (Phase 12 — AUTH-04)
+# ─────────────────────────────────────────────
+
+RUNTIME_AUTH_INFO: dict[str, dict[str, Any]] = {
+    "claude-code": {
+        "runtime": "claude-code",
+        "display_name": "Claude Code",
+        "auth_command": "claude auth login",
+        "credential_source": "~/.claude/.credentials.json",
+        "container_path": "/root/.claude/.credentials.json",
+        "instructions": [
+            "Open a terminal on your machine",
+            "Run: claude auth login",
+            "Complete the authentication in your browser",
+            "Copy the contents of ~/.claude/.credentials.json",
+            "Paste the JSON into the credential panel",
+        ],
+        "credential_example": {
+            "accessToken": "sk-ant-...",
+            "refreshToken": "...",
+            "expiresAt": "2026-04-26T00:00:00Z",
+        },
+    },
+    "gemini-cli": {
+        "runtime": "gemini-cli",
+        "display_name": "Gemini CLI",
+        "auth_command": "gemini auth login",
+        "credential_source": "~/.gemini/oauth_creds.json",
+        "container_path": "/root/.gemini/oauth_creds.json",
+        "instructions": [
+            "Open a terminal on your machine",
+            "Run: gemini auth login",
+            "Complete the Google OAuth in your browser",
+            "Copy the contents of ~/.gemini/oauth_creds.json",
+            "Paste the JSON into the credential panel",
+        ],
+        "credential_example": {
+            "access_token": "ya29...",
+            "refresh_token": "...",
+            "token_uri": "https://oauth2.googleapis.com/token",
+        },
+    },
+    "codex-cli": {
+        "runtime": "codex-cli",
+        "display_name": "Codex CLI",
+        "auth_command": "codex auth login",
+        "credential_source": "~/.codex/.credentials.json",
+        "container_path": "/root/.codex/.credentials.json",
+        "instructions": [
+            "Open a terminal on your machine",
+            "Run: codex auth login",
+            "Complete the authentication in your browser",
+            "Copy the contents of ~/.codex/.credentials.json",
+            "Paste the JSON into the credential panel",
+        ],
+        "credential_example": {
+            "api_key": "sk-...",
+            "organization": "org-...",
+        },
+    },
+}
+
+
+@router.get(
+    "/agents/{agent_id}/state",
+    dependencies=[Depends(verify_token)],
+)
+async def get_agent_state(agent_id: str, request: Request) -> JSONResponse:
+    """Return the latest lifecycle state for an agent.
+
+    Reads ``agent:state:{agent_id}`` from Redis DB 0 (written by the agent
+    harness ``_publish_state()`` on every state transition).
+
+    Returns:
+      200 — state payload: ``{"agent_id": "...", "state": "...", "timestamp": "..."}``.
+      404 — no state record found (agent has never published or key expired).
+      503 — Redis unavailable.
+    """
+    gateway: GatewayService = request.app.state.gateway_service
+
+    if gateway.redis_db0 is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "RedisUnavailable", "message": "Redis DB 0 is not connected"},
+        )
+
+    key = f"agent:state:{agent_id}"
+    try:
+        raw = await gateway.redis_db0.get(key)
+    except Exception as exc:
+        logger.error("agent_state_read_failed", agent_id=agent_id, error=str(exc))
+        return JSONResponse(
+            status_code=503,
+            content={"error": "RedisUnavailable", "message": f"Redis error: {exc}"},
+        )
+
+    if raw is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "AgentStateNotFound", "message": f"No state record for agent: {agent_id}"},
+        )
+
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        data = {"raw": raw}
+
+    return JSONResponse(status_code=200, content=data)
+
+
+# ─────────────────────────────────────────────
+# Auth runtimes info endpoints (Phase 12 — AUTH-05)
+# ─────────────────────────────────────────────
+
+
+@router.get(
+    "/auth/runtimes",
+    dependencies=[Depends(verify_token)],
+)
+async def list_auth_runtimes() -> JSONResponse:
+    """Return auth info for all supported CLI runtimes.
+
+    Returns a list of runtime info objects with instructions for how to
+    authenticate each runtime and inject credentials.
+    """
+    return JSONResponse(status_code=200, content=list(RUNTIME_AUTH_INFO.values()))
+
+
+@router.get(
+    "/auth/runtimes/{runtime}",
+    dependencies=[Depends(verify_token)],
+)
+async def get_auth_runtime(runtime: str) -> JSONResponse:
+    """Return auth info for a single CLI runtime.
+
+    Returns:
+      200 — runtime info object.
+      404 — runtime not found.
+    """
+    info = RUNTIME_AUTH_INFO.get(runtime)
+    if info is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "RuntimeNotFound", "message": f"Unknown runtime: {runtime}"},
+        )
+    return JSONResponse(status_code=200, content=info)
+
+
 @router.post("/tasks/{task_id}/progress")
 async def receive_progress(task_id: str, request: Request) -> JSONResponse:
     """Receive progress chunks from worker harness and publish to Redis pub/sub."""

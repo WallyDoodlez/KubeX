@@ -25,6 +25,9 @@ AUTH-03 (credential expiry handling) is implemented agent-side: the agent checks
 | Endpoint | Method | Service | Port | Status |
 |----------|--------|---------|------|--------|
 | `/agents/{agent_id}/lifecycle` | GET (SSE) | Gateway | 8080 | **New in Phase 12** |
+| `/agents/{agent_id}/state` | GET | Gateway | 8080 | **New in Phase 12** |
+| `/auth/runtimes` | GET | Gateway | 8080 | **New in Phase 12** |
+| `/auth/runtimes/{runtime}` | GET | Gateway | 8080 | **New in Phase 12** |
 | `/kubexes/{kubex_id}/credentials` | POST | Manager | 8090 | Existing (path fix in Phase 12) |
 | `/kubexes` | GET | Manager | 8090 | Existing |
 | `/kubexes/{kubex_id}` | GET | Manager | 8090 | Existing |
@@ -159,6 +162,159 @@ subscribeToLifecycle('my-agent', 'kubex-mgmt-token', (event) => {
     showReadyStatus(event.agent_id);
   }
 });
+```
+
+---
+
+### `GET /agents/{agent_id}/state` — Agent State Snapshot
+
+**New in Phase 12**
+
+Returns the latest lifecycle state for an agent as a JSON snapshot. Use this for initial page loads before subscribing to the SSE stream, or as a poll-based fallback.
+
+**Request:**
+
+```
+GET /agents/{agent_id}/state
+Authorization: Bearer <KUBEX_MGMT_TOKEN>
+```
+
+**Response 200 — State found:**
+
+```json
+{
+  "agent_id": "my-agent",
+  "state": "ready",
+  "timestamp": "2026-03-24T12:00:00.000000"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | string | Agent identifier |
+| `state` | string | Latest state: `booting`, `credential_wait`, `ready`, `busy` |
+| `timestamp` | string | ISO 8601 UTC timestamp of last state transition |
+
+**Response 404 — No state record:**
+
+```json
+{
+  "error": "AgentStateNotFound",
+  "message": "No state record for agent: my-agent"
+}
+```
+
+This occurs if the agent has not yet started or the Redis key has expired.
+
+**Response 503 — Redis unavailable:**
+
+```json
+{
+  "error": "RedisUnavailable",
+  "message": "Redis DB 0 is not connected"
+}
+```
+
+**curl example:**
+
+```bash
+curl -H "Authorization: Bearer kubex-mgmt-token" \
+  http://gateway:8080/agents/my-agent/state
+```
+
+---
+
+### `GET /auth/runtimes` — List Auth Runtimes
+
+**New in Phase 12**
+
+Returns auth instructions and metadata for all supported CLI runtimes. Use this to populate the credential panel UI.
+
+**Request:**
+
+```
+GET /auth/runtimes
+Authorization: Bearer <KUBEX_MGMT_TOKEN>
+```
+
+**Response 200:**
+
+```json
+[
+  {
+    "runtime": "claude-code",
+    "display_name": "Claude Code",
+    "auth_command": "claude auth login",
+    "credential_source": "~/.claude/.credentials.json",
+    "container_path": "/root/.claude/.credentials.json",
+    "instructions": [
+      "Open a terminal on your machine",
+      "Run: claude auth login",
+      "Complete the authentication in your browser",
+      "Copy the contents of ~/.claude/.credentials.json",
+      "Paste the JSON into the credential panel"
+    ],
+    "credential_example": {
+      "accessToken": "sk-ant-...",
+      "refreshToken": "...",
+      "expiresAt": "2026-04-26T00:00:00Z"
+    }
+  },
+  { "...": "gemini-cli entry..." },
+  { "...": "codex-cli entry..." }
+]
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `runtime` | string | Runtime identifier key |
+| `display_name` | string | Human-readable name for UI display |
+| `auth_command` | string | CLI command to run on the user's machine |
+| `credential_source` | string | File path on the user's local machine |
+| `container_path` | string | File path inside the container where credentials are written |
+| `instructions` | string[] | Ordered steps to display to the user |
+| `credential_example` | object | Example credential JSON shape |
+
+**curl example:**
+
+```bash
+curl -H "Authorization: Bearer kubex-mgmt-token" \
+  http://gateway:8080/auth/runtimes
+```
+
+---
+
+### `GET /auth/runtimes/{runtime}` — Get Single Runtime Auth Info
+
+**New in Phase 12**
+
+Returns auth instructions for a single CLI runtime.
+
+**Request:**
+
+```
+GET /auth/runtimes/{runtime}
+Authorization: Bearer <KUBEX_MGMT_TOKEN>
+```
+
+**Path parameter:** `runtime` — one of `claude-code`, `gemini-cli`, `codex-cli`
+
+**Response 200:** Same schema as a single entry in the `GET /auth/runtimes` array response above.
+
+**Response 404 — Unknown runtime:**
+
+```json
+{
+  "error": "RuntimeNotFound",
+  "message": "Unknown runtime: unknown-cli"
+}
+```
+
+**curl example:**
+
+```bash
+curl -H "Authorization: Bearer kubex-mgmt-token" \
+  http://gateway:8080/auth/runtimes/claude-code
 ```
 
 ---

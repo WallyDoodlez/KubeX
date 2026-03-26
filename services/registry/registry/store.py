@@ -24,6 +24,10 @@ class AgentStatus(str, Enum):
     STOPPED = "stopped"
     BUSY = "busy"
     UNKNOWN = "unknown"
+    BOOTING = "booting"
+    CREDENTIAL_WAIT = "credential_wait"
+    READY = "ready"
+    IDLE = "idle"
 
 
 class AgentRegistration(BaseModel):

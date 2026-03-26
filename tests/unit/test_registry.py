@@ -16,6 +16,39 @@ from registry.store import AgentRegistration, AgentStatus, CapabilityStore
 from kubex_common.errors import AgentNotFoundError, CapabilityNotFoundError
 
 
+class TestAgentStatusEnum:
+    """Verify AgentStatus enum values include lifecycle states needed for CLI agents."""
+
+    def test_running_value(self) -> None:
+        assert AgentStatus.RUNNING == "running"
+
+    def test_stopped_value(self) -> None:
+        assert AgentStatus.STOPPED == "stopped"
+
+    def test_busy_value(self) -> None:
+        assert AgentStatus.BUSY == "busy"
+
+    def test_unknown_value(self) -> None:
+        assert AgentStatus.UNKNOWN == "unknown"
+
+    def test_booting_value(self) -> None:
+        assert AgentStatus.BOOTING == "booting"
+
+    def test_credential_wait_value(self) -> None:
+        assert AgentStatus.CREDENTIAL_WAIT == "credential_wait"
+
+    def test_ready_value(self) -> None:
+        assert AgentStatus.READY == "ready"
+
+    def test_idle_value(self) -> None:
+        assert AgentStatus.IDLE == "idle"
+
+    def test_is_str_enum(self) -> None:
+        import enum
+        assert issubclass(AgentStatus, str)
+        assert issubclass(AgentStatus, enum.Enum)
+
+
 class TestAgentRegistration:
     def test_default_status(self) -> None:
         reg = AgentRegistration(agent_id="test-agent")
