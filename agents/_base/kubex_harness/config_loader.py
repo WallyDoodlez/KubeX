@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 import yaml
@@ -74,6 +75,7 @@ class AgentConfig(BaseModel):
                       transport (CLI connects as MCP client). Default: "openai-api".
         gateway_url:  Gateway base URL (default: http://gateway:8080)
         broker_url:   Broker base URL (default: http://kubex-broker:8060)
+        registry_url: Registry base URL (default: http://registry:8070)
         description:  Human-readable agent description for MCP tool metadata (MCP-05)
         boundary:     Policy boundary this agent belongs to (default: "default")
         policy:       Policy constraints parsed from config.yaml agent.policy stanza (PROMPT-01)
@@ -88,6 +90,7 @@ class AgentConfig(BaseModel):
     runtime: str = "openai-api"  # Transport selection: "openai-api" = in-memory, anything else = stdio
     gateway_url: str = "http://gateway:8080"
     broker_url: str = "http://kubex-broker:8060"
+    registry_url: str = "http://registry:8070"
     description: str = ""
     boundary: str = "default"
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
@@ -141,6 +144,11 @@ def load_agent_config(config_path: str = "/app/config.yaml") -> AgentConfig:
     policy_raw: dict[str, Any] = file_data.get("policy", {}) or {}
     budget_raw: dict[str, Any] = file_data.get("budget", {}) or {}
 
+    # URL fields: env vars take precedence over config file values (allow Manager to inject URLs)
+    gateway_url = os.environ.get("GATEWAY_URL") or file_data.get("gateway_url", "http://gateway:8080")
+    broker_url = os.environ.get("BROKER_URL") or file_data.get("broker_url", "http://kubex-broker:8060")
+    registry_url = os.environ.get("REGISTRY_URL") or file_data.get("registry_url", "http://registry:8070")
+
     return AgentConfig(
         agent_id=agent_id,
         model=file_data.get("model", "gpt-5.2"),
@@ -148,8 +156,9 @@ def load_agent_config(config_path: str = "/app/config.yaml") -> AgentConfig:
         capabilities=file_data.get("capabilities", []) or [],
         harness_mode=file_data.get("harness_mode", "standalone"),
         runtime=file_data.get("runtime", "openai-api"),
-        gateway_url=file_data.get("gateway_url", "http://gateway:8080"),
-        broker_url=file_data.get("broker_url", "http://kubex-broker:8060"),
+        gateway_url=gateway_url,
+        broker_url=broker_url,
+        registry_url=registry_url,
         description=file_data.get("description", ""),
         boundary=file_data.get("boundary", "default"),
         policy=PolicyConfig(**policy_raw) if policy_raw else PolicyConfig(),

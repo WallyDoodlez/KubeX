@@ -163,11 +163,11 @@ class TestHookHandlers:
 
         runtime._post_progress.assert_called_once()
         call_args = runtime._post_progress.call_args
-        # task_id is first positional arg; content may be positional or keyword
+        # task_id is first positional arg
         assert call_args[0][0] == "task-1"  # task_id positional arg
-        # content may be passed as keyword argument
-        content = call_args[0][1] if len(call_args[0]) > 1 else call_args.kwargs.get("content", "")
-        assert content.startswith("turn_complete:")
+        # chunk may be passed as positional or keyword argument
+        chunk = call_args[0][1] if len(call_args[0]) > 1 else call_args.kwargs.get("chunk", "")
+        assert chunk.startswith("turn_complete:")
 
     @pytest.mark.asyncio
     async def test_stop_no_task_id_skipped(self):

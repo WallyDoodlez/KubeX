@@ -423,7 +423,7 @@ class CLIRuntime:
         """Register this agent with the Registry (retries up to 5 times)."""
         if self._http is None:
             return
-        url = f"{self.config.gateway_url}/registry/agents"
+        url = f"{self.config.registry_url}/agents"
         payload = {
             "agent_id": self.config.agent_id,
             "capabilities": self.config.capabilities,
@@ -445,7 +445,7 @@ class CLIRuntime:
         """Deregister this agent from the Registry on shutdown."""
         if self._http is None:
             return
-        url = f"{self.config.gateway_url}/registry/agents/{self.config.agent_id}"
+        url = f"{self.config.registry_url}/agents/{self.config.agent_id}"
         try:
             await self._http.delete(url)
         except Exception:
@@ -559,6 +559,7 @@ class CLIRuntime:
 
         if exit_code == 0:
             await self._post_result_success(task_id, stdout)
+            await self._post_progress(task_id, "", final=True, exit_reason="completed")
             logger.info("Task %s completed successfully", task_id)
             return
 
@@ -569,6 +570,7 @@ class CLIRuntime:
         if reason == "auth_expired":
             # D-16: no retry — go straight to CREDENTIAL_WAIT
             await self._post_result_failed(task_id, stdout, reason)
+            await self._post_progress(task_id, "", final=True, exit_reason=reason)
             self._state = CliState.CREDENTIAL_WAIT
             await self._publish_state(CliState.CREDENTIAL_WAIT)
             await self._credential_gate()
@@ -581,17 +583,19 @@ class CLIRuntime:
 
         if exit_code2 == 0:
             await self._post_result_success(task_id, stdout2)
+            await self._post_progress(task_id, "", final=True, exit_reason="completed")
             logger.info("Task %s completed on retry", task_id)
             return
 
         # Still failed after retry
         reason2 = self._classify_failure(exit_code2, stdout2)
         await self._post_result_failed(task_id, stdout2, reason2)
+        await self._post_progress(task_id, "", final=True, exit_reason=reason2)
         logger.error("Task %s failed after retry: reason=%s", task_id, reason2)
 
     async def _post_result_success(self, task_id: str, stdout: str) -> None:
-        """POST success result to Gateway."""
-        url = f"{self.config.gateway_url}/tasks/{task_id}/result"
+        """POST success result to Broker."""
+        url = f"{self.config.broker_url}/tasks/{task_id}/result"
         payload = {
             "task_id": task_id,
             "agent_id": self.config.agent_id,
@@ -607,8 +611,8 @@ class CLIRuntime:
             logger.debug("Failed to post success result for task %s", task_id)
 
     async def _post_result_failed(self, task_id: str, stdout: str, reason: str) -> None:
-        """POST failure result to Gateway."""
-        url = f"{self.config.gateway_url}/tasks/{task_id}/result"
+        """POST failure result to Broker."""
+        url = f"{self.config.broker_url}/tasks/{task_id}/result"
         payload = {
             "task_id": task_id,
             "agent_id": self.config.agent_id,
@@ -649,7 +653,7 @@ class CLIRuntime:
             return
         await self._post_progress(
             task_id,
-            content=f"turn_complete: {event.last_assistant_message[:200]}",
+            chunk=f"turn_complete: {event.last_assistant_message[:200]}",
             final=False,
         )
 
@@ -871,27 +875,29 @@ class CLIRuntime:
     async def _post_progress(
         self,
         task_id: str,
-        content: str,
+        chunk: str,
         *,
         final: bool = False,
-        sequence: int = 0,
+        exit_reason: str | None = None,
     ) -> None:
         """POST a progress chunk to Gateway ``/tasks/{task_id}/progress`` (D-09).
+
+        Uses the standard progress schema: {"chunk": ..., "final": ..., "exit_reason": ...}
+        matching MCP Bridge and Standalone harness format.
 
         Wrapped in try/except — progress posting must never raise.
         """
         if self._http is None:
             return
         url = f"{self.config.gateway_url}/tasks/{task_id}/progress"
-        payload = {
+        payload: dict[str, Any] = {
             "task_id": task_id,
-            "action": "progress_update",
-            "chunk_type": "stdout",
-            "content": content,
-            "sequence": sequence,
-            "final": final,
             "agent_id": self.config.agent_id,
+            "chunk": chunk,
+            "final": final,
         }
+        if exit_reason is not None:
+            payload["exit_reason"] = exit_reason
         try:
             await self._http.post(url, json=payload)
         except Exception:

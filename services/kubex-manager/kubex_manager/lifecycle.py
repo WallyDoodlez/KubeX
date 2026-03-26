@@ -439,6 +439,7 @@ class KubexLifecycle:
             env["KUBEX_AGENT_ID"] = agent_id
             env["KUBEX_BOUNDARY"] = boundary
             env["BROKER_URL"] = os.environ.get("BROKER_URL", "http://kubex-broker:8060")
+            env["REGISTRY_URL"] = os.environ.get("REGISTRY_URL", "http://registry:8070")
             # Pass Redis URL so the harness can publish lifecycle events (AUTH-01)
             redis_url = os.environ.get("REDIS_URL", "")
             if redis_url:

@@ -463,8 +463,8 @@ class KubexHarness:
         exit_reason: ExitReason,
         returncode: int | None,
     ) -> None:
-        """Store task result via Gateway/Broker POST /tasks/{id}/result."""
-        url = f"{self.config.gateway_url}/tasks/{self.config.task_id}/result"
+        """Store task result via Broker POST /tasks/{id}/result."""
+        url = f"{self.config.broker_url}/tasks/{self.config.task_id}/result"
         payload: dict[str, Any] = {
             "task_id": self.config.task_id,
             "agent_id": self.config.agent_id,
