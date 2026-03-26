@@ -229,6 +229,151 @@ Lifecycle events
 - Worker "need_info" cross-Kubex protocol — protocol design not yet finalized
 - Tool output schema validation — add after core bridge is stable
 - SSE streaming — Out of Scope per PROJECT.md
+- Hooks monitoring for Gemini CLI / Codex CLI — no subscriptions available; stubs exist in e2e tests
+
+---
+
+## Feature Set: OAuth Paste-Code Web Flow (Backend Endpoints)
+
+Added 2026-03-26. These backend endpoints support the Command Center UI's OAuth credential provisioning flow. The UX is: user authenticates via their CLI locally, copies the resulting credential file, pastes it into the Command Center UI, and the backend injects it into the running container.
+
+### Current State (what already works)
+
+| Endpoint | Status |
+|----------|--------|
+| `POST /kubexes/{kubex_id}/credentials` (Manager :8090) | COMPLETE — writes credential JSON to container file |
+| `GET /agents/{agent_id}/lifecycle` SSE (Gateway :8080) | COMPLETE — streams state transitions including `credential_wait` |
+| Agent-side credential gate (`cli_runtime.py`) | COMPLETE — blocks tasks until credentials present, enters `credential_wait` state |
+| FE handoff doc (`docs/HANDOFF-phase12-oauth-fe.md`) | COMPLETE — 452 lines, full API contracts |
+
+### Backend Gaps (to build)
+
+#### 1. `GET /agents/{agent_id}/state` — Current Lifecycle State (REST)
+
+**Service:** Gateway :8080
+**Why needed:** SSE lifecycle stream doesn't replay history. If the UI loads after the agent already entered `credential_wait`, there's no way to know. The handoff doc acknowledges this gap: "For the current state, call `GET /kubexes/{kubex_id}` to check Docker container status" — but Docker status (`running`) is not the same as lifecycle state (`credential_wait`).
+
+**Request:**
+```
+GET /agents/{agent_id}/state
+Authorization: Bearer <KUBEX_MGMT_TOKEN>
+```
+
+**Response 200:**
+```json
+{
+  "agent_id": "my-agent",
+  "state": "credential_wait",
+  "last_updated": "2026-03-26T12:00:00Z"
+}
+```
+
+**Implementation:** Read the last published message on `lifecycle:{agent_id}` from Redis. Could use a Redis key (`agent:state:{agent_id}`) written alongside each pub/sub publish, or `GET` the latest from the pub/sub channel history (Redis doesn't store pub/sub history, so a side-write is needed). The agent's `_publish_state()` in `cli_runtime.py` already publishes to `lifecycle:{agent_id}` — add a `SET agent:state:{agent_id}` alongside the `PUBLISH`.
+
+**Complexity:** Low
+**Dependencies:** Modify `cli_runtime.py` `_publish_state()` to write state to Redis key; add Gateway endpoint to read it.
+
+#### 2. `GET /auth/runtimes` — List Supported Runtimes with Auth Info
+
+**Service:** Gateway :8080 (or Manager :8090 — TBD)
+**Why needed:** UI should not hardcode per-runtime auth instructions. Backend knows the supported runtimes, credential paths, and auth commands.
+
+**Request:**
+```
+GET /auth/runtimes
+Authorization: Bearer <KUBEX_MGMT_TOKEN>
+```
+
+**Response 200:**
+```json
+[
+  {
+    "runtime": "claude-code",
+    "display_name": "Claude Code",
+    "auth_command": "claude auth login",
+    "credential_source": "~/.claude/.credentials.json",
+    "container_path": "/root/.claude/.credentials.json",
+    "instructions": [
+      "Open a terminal on your machine",
+      "Run: claude auth login",
+      "Complete the authentication in your browser",
+      "Copy the contents of ~/.claude/.credentials.json",
+      "Paste the JSON below"
+    ],
+    "credential_example": {
+      "accessToken": "sk-ant-...",
+      "refreshToken": "...",
+      "expiresAt": "2026-04-26T00:00:00Z"
+    }
+  },
+  {
+    "runtime": "gemini-cli",
+    "display_name": "Gemini CLI",
+    "auth_command": "gemini auth login",
+    "credential_source": "~/.gemini/oauth_creds.json",
+    "container_path": "/root/.gemini/oauth_creds.json",
+    "instructions": [
+      "Open a terminal on your machine",
+      "Run: gemini auth login",
+      "Complete the Google OAuth in your browser",
+      "Copy the contents of ~/.gemini/oauth_creds.json",
+      "Paste the JSON below"
+    ],
+    "credential_example": {
+      "access_token": "ya29...",
+      "refresh_token": "...",
+      "token_uri": "https://oauth2.googleapis.com/token"
+    }
+  },
+  {
+    "runtime": "codex-cli",
+    "display_name": "Codex CLI",
+    "auth_command": "codex auth login",
+    "credential_source": "~/.codex/.credentials.json",
+    "container_path": "/root/.codex/.credentials.json",
+    "instructions": [
+      "Open a terminal on your machine",
+      "Run: codex auth login",
+      "Complete the authentication in your browser",
+      "Copy the contents of ~/.codex/.credentials.json",
+      "Paste the JSON below"
+    ],
+    "credential_example": {
+      "api_key": "sk-...",
+      "organization": "org-..."
+    }
+  }
+]
+```
+
+**Complexity:** Low — static data, no external calls
+**Dependencies:** None
+
+#### 3. `GET /auth/runtimes/{runtime}` — Single Runtime Auth Info
+
+Same as above, filtered to one runtime. Returns 404 if runtime not recognized.
+
+**Complexity:** Low
+
+#### 4. Fix: `codex-cli` Missing from Agent-Side CREDENTIAL_PATHS
+
+**File:** `agents/_base/kubex_harness/cli_runtime.py` line 53
+**Issue:** Manager supports `codex-cli` credential injection (writes to `/root/.codex/.credentials.json`), but the agent's `CREDENTIAL_PATHS` dict only has `claude-code` and `gemini-cli`. The agent will never enter `CREDENTIAL_WAIT` for codex-cli — it just skips the credential gate entirely.
+**Fix:** Add `"codex-cli": Path.home() / ".codex" / ".credentials.json"` to `CREDENTIAL_PATHS` and add a HITL auth message for codex-cli.
+**Complexity:** Trivial
+
+#### 5. Update Handoff Doc
+
+Update `docs/HANDOFF-phase12-oauth-fe.md` with the new endpoints (state query, auth info) so the UI team can consume them.
+
+### Implementation Order
+
+1. Fix codex-cli CREDENTIAL_PATHS (trivial, unblocks agent-side)
+2. Add `SET agent:state:{agent_id}` to `_publish_state()` (enables state query)
+3. Add `GET /agents/{agent_id}/state` to Gateway
+4. Add `GET /auth/runtimes` and `GET /auth/runtimes/{runtime}` to Gateway (or Manager)
+5. Update handoff doc
+6. Tests for all new endpoints
 
 ---
 

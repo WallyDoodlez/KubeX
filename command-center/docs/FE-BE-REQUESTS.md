@@ -595,6 +595,132 @@ On stack startup, the Manager should auto-import all `skills/*/SKILL.md` files f
 
 ---
 
+## Agent Credential Injection — OAuth Paste-Code Flow (Added 2026-03-26)
+
+> The Command Center needs backend support for a guided "paste auth code" flow so users can
+> provision CLI agent credentials without docker exec. The existing `POST /kubexes/{id}/credentials`
+> endpoint handles the final injection step, but the UI needs additional endpoints to build a
+> proper guided experience.
+
+### 🔴 GET /agents/{agent_id}/state — Current agent lifecycle state (REST)
+
+- **Frontend need:** On page load, the UI must know if an agent is in `credential_wait` state to show the auth banner. The SSE lifecycle stream (`GET /agents/{agent_id}/lifecycle`) does NOT replay history — if the UI connects after the agent entered `credential_wait`, it has no way to know until the next state change.
+- **Service:** Gateway (`http://localhost:8080`)
+- **Auth:** Requires `Authorization: Bearer <KUBEX_MGMT_TOKEN>`
+- **Expected response:**
+  ```json
+  {
+    "agent_id": "my-agent",
+    "state": "credential_wait",
+    "last_updated": "2026-03-26T12:00:00Z"
+  }
+  ```
+- **Possible `state` values:** `booting`, `credential_wait`, `ready`, `busy`
+- **Backend implementation:** The agent's `_publish_state()` in `cli_runtime.py` already publishes to Redis pub/sub `lifecycle:{agent_id}`. Add a side-write: `SET agent:state:{agent_id} <json>` alongside each `PUBLISH`. The Gateway endpoint reads this key from Redis DB0.
+- **Returns 404 if:** No state has been published yet (agent hasn't booted).
+- **Action needed:** Modify `_publish_state()` to write to Redis key; add Gateway endpoint to read it.
+- **Blocker?** Yes — without this, the UI cannot detect `credential_wait` on page load.
+
+---
+
+### 🔴 GET /auth/runtimes — List supported CLI runtimes with auth instructions
+
+- **Frontend need:** The credential panel should show per-runtime auth instructions (what command to run, what file to copy, expected credential format). Currently hardcoded in the FE textarea placeholder.
+- **Service:** Gateway (`http://localhost:8080`) or Manager (`http://localhost:8090`)
+- **Auth:** Requires `Authorization: Bearer <KUBEX_MGMT_TOKEN>`
+- **Expected response:**
+  ```json
+  [
+    {
+      "runtime": "claude-code",
+      "display_name": "Claude Code",
+      "auth_command": "claude auth login",
+      "credential_source": "~/.claude/.credentials.json",
+      "container_path": "/root/.claude/.credentials.json",
+      "instructions": [
+        "Open a terminal on your machine",
+        "Run: claude auth login",
+        "Complete the authentication in your browser",
+        "Copy the contents of ~/.claude/.credentials.json",
+        "Paste the JSON below"
+      ],
+      "credential_example": {
+        "accessToken": "sk-ant-...",
+        "refreshToken": "...",
+        "expiresAt": "2026-04-26T00:00:00Z"
+      }
+    },
+    {
+      "runtime": "gemini-cli",
+      "display_name": "Gemini CLI",
+      "auth_command": "gemini auth login",
+      "credential_source": "~/.gemini/oauth_creds.json",
+      "container_path": "/root/.gemini/oauth_creds.json",
+      "instructions": [
+        "Open a terminal on your machine",
+        "Run: gemini auth login",
+        "Complete the Google OAuth in your browser",
+        "Copy the contents of ~/.gemini/oauth_creds.json",
+        "Paste the JSON below"
+      ],
+      "credential_example": {
+        "access_token": "ya29...",
+        "refresh_token": "...",
+        "token_uri": "https://oauth2.googleapis.com/token"
+      }
+    },
+    {
+      "runtime": "codex-cli",
+      "display_name": "Codex CLI",
+      "auth_command": "codex auth login",
+      "credential_source": "~/.codex/.credentials.json",
+      "container_path": "/root/.codex/.credentials.json",
+      "instructions": [
+        "Open a terminal on your machine",
+        "Run: codex auth login",
+        "Complete the authentication in your browser",
+        "Copy the contents of ~/.codex/.credentials.json",
+        "Paste the JSON below"
+      ],
+      "credential_example": {
+        "api_key": "sk-...",
+        "organization": "org-..."
+      }
+    }
+  ]
+  ```
+- **Backend implementation:** Static data — no external calls needed. Define the runtime info as a constant dict in the Gateway or Manager and serve it.
+- **Action needed:** Implement endpoint. Low complexity.
+- **Blocker?** No — FE can hardcode instructions as fallback, but this is cleaner.
+
+---
+
+### 🔴 GET /auth/runtimes/{runtime} — Single runtime auth info
+
+- **Same as above, filtered to one runtime.**
+- **Returns 404 if runtime not recognized.**
+- **Action needed:** Implement alongside `GET /auth/runtimes`.
+
+---
+
+### 🟡 Agent status enum — `credential_wait` not accepted by Registry
+
+- **Cross-reference:** Already tracked in "Type Shape Mismatches" section above.
+- **Impact on OAuth flow:** When an agent self-reports `credential_wait` via `PATCH /agents/{id}/status`, the Registry rejects it with 422 because `AgentStatus` enum only has `running | stopped | busy | unknown`. This means the Registry never shows `credential_wait` — the UI can only detect it via the SSE lifecycle stream or the proposed `GET /agents/{id}/state` endpoint.
+- **Action needed:** Add `booting`, `credential_wait`, `ready`, `idle` to `AgentStatus` enum in `services/registry/registry/store.py`.
+- **Blocker?** Yes — blocks the UI from showing credential state in agent lists.
+
+---
+
+### 🟡 codex-cli missing from agent-side CREDENTIAL_PATHS
+
+- **File:** `agents/_base/kubex_harness/cli_runtime.py` line 53
+- **Issue:** Manager supports `codex-cli` credential injection (writes to `/root/.codex/.credentials.json`), but the agent's `CREDENTIAL_PATHS` dict only has `claude-code` and `gemini-cli`. The agent never enters `credential_wait` for codex-cli.
+- **Action needed:** Add `"codex-cli": Path.home() / ".codex" / ".credentials.json"` to `CREDENTIAL_PATHS` and a HITL auth message for codex-cli.
+- **Blocker?** No — codex-cli is deferred (no subscription available).
+
+---
+
 ## Summary Table
 
 | # | Endpoint | Service | Status | Blocker? |
@@ -631,3 +757,6 @@ On stack startup, the Manager should auto-import all `skills/*/SKILL.md` files f
 | 30 | `POST /skills/import` | Manager | 🔴 MISSING | Yes (skill import) |
 | 31 | `GET /skills/{id}/export` | Manager | 🔴 MISSING | No (skill export) |
 | 32 | `POST /skills/import-bundle` | Manager | 🔴 MISSING | No (bulk import) |
+| 33 | `GET /agents/{id}/state` | Gateway | 🔴 MISSING | Yes (credential_wait detection on page load) |
+| 34 | `GET /auth/runtimes` | Gateway/Manager | 🔴 MISSING | No (auth instructions, FE can hardcode) |
+| 35 | `GET /auth/runtimes/{runtime}` | Gateway/Manager | 🔴 MISSING | No (single runtime auth info) |

@@ -1,0 +1,8 @@
+agent:
+  boundary: default
+  capabilities:
+  - claude-test
+  id: test-cli-claude
+  providers:
+  - claude-code
+  runtime: claude-code
