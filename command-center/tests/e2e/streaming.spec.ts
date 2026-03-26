@@ -110,6 +110,33 @@ test.describe('Streaming & Live Output', () => {
     expect(taskResultRequests.length).toBeLessThanOrEqual(1);
   });
 
+  test('rapid double-send produces only one user bubble', async ({ page }) => {
+    // Must mock routes so dispatch succeeds and the user bubble is created
+    const { mockBaseRoutes, mockDispatch } = await import('./helpers/mock-routes');
+    await mockBaseRoutes(page);
+    await mockDispatch(page);
+
+    await page.goto('/chat');
+    await expect(page.locator('[data-testid="message-input"]')).toBeVisible();
+
+    const input = page.locator('[data-testid="message-input"]');
+    await input.fill('double send test');
+    await input.focus();
+
+    // Fire Ctrl+Enter twice rapidly (simulates key repeat)
+    // The sendingRef guard should prevent the second call
+    await page.keyboard.press('Control+Enter');
+    await page.keyboard.press('Control+Enter');
+
+    // Wait for bubbles to settle
+    await page.waitForTimeout(500);
+
+    // User bubbles are right-aligned divs containing the message text
+    // Count how many bubbles contain our exact test message
+    const matchingBubbles = page.locator('.rounded-2xl.rounded-tr-sm', { hasText: 'double send test' });
+    expect(await matchingBubbles.count()).toBe(1);
+  });
+
   test('sending label reflects SSE connection state', async ({ page }) => {
     await page.goto('/chat');
     // Before any send, the sending indicator should not be visible
