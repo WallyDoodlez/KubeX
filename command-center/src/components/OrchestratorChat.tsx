@@ -2121,10 +2121,15 @@ const ChatBubble = memo(function ChatBubble({
 
   if (isSystem) {
     return (
-      <div className="flex justify-center" data-testid="system-message">
+      <div className="flex flex-col items-center gap-0.5" data-testid="system-message">
         <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-3 py-1">
           {highlightText(message.content, searchQuery)}
         </span>
+        <RelativeTime
+          date={message.timestamp}
+          className="text-[10px] text-[var(--color-text-muted)] font-mono-data"
+          data-testid="chat-bubble-timestamp"
+        />
       </div>
     );
   }

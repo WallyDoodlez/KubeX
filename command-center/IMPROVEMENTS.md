@@ -4,6 +4,11 @@
 
 ---
 
+- [x] **Iteration 94: Inline timestamps on all chat message types**
+  - [x] `src/components/OrchestratorChat.tsx` — audited all 4 message roles: `user`, `result`, `error` already had `<RelativeTime data-testid="chat-bubble-timestamp" />` below their bubble; `system` messages (centered pill) were missing a timestamp; added `<RelativeTime>` below the pill span, wrapped in a `flex-col items-center` container to keep the layout centered
+  - [x] `tests/e2e/inline-timestamps.spec.ts` — 5 E2E tests: user bubble timestamp visible, system bubble timestamp visible (via `.last()` to avoid strict-mode multi-match), result bubble timestamp visible, error bubble timestamp visible, all 4 types simultaneously have timestamps after a full dispatch flow
+  - [x] Build: npm run build — clean; Tests: 1343 passed, 22 skipped (OAuth), 0 failures
+
 - [x] **Iteration 93: Persist last visited page across refresh**
   - [x] `src/components/Layout.tsx` — added `LAST_PAGE_KEY`, `VALID_RESTORE_PREFIXES`, and `isValidRestorePath()` helper above `NAV_ITEMS`; added two `useEffect` hooks: (1) save non-root path to `localStorage` on every location change, (2) on mount-only, if at `/` read the saved path and redirect via `navigate(saved, { replace: true })`; root `/` is intentionally never saved to avoid overwriting a valid path before the restore effect reads it
   - [x] `tests/e2e/page-persistence.spec.ts` — 7 E2E tests: saves path on navigation, redirects from `/` to saved page on refresh, direct URLs bypass restore, no redirect when saved is `/`, no redirect when saved is invalid, saves nested `/agents/:id` paths, restores nested paths
@@ -1048,10 +1053,19 @@
   - [x] Fix: 58 test regressions (missing mockBaseRoutes in 9 test files)
   - [x] Test: npx playwright test — 1331 passed, 22 skipped
 
-- [ ] **Iteration 93: Persist last visited page across refresh**
-  - [ ] In `Layout.tsx`, save current route to `localStorage` key `kubex-last-page` on every navigation
-  - [ ] On app mount, read `kubex-last-page` and navigate to it if it differs from current path
-  - [ ] Skip redirect if URL has explicit path (direct link/bookmark should take priority)
-  - [ ] E2E tests: navigating to /agents then refreshing returns to /agents, direct URL /containers overrides saved page
+- [x] **Iteration 93: Persist last visited page across refresh**
+  - [x] Save route to `localStorage` on navigation, restore on mount if URL is `/`
+  - [x] Direct links/bookmarks take priority over saved state
+  - [x] E2E tests: `page-persistence.spec.ts` — 7 tests
+  - [x] Test: npx playwright test — 1338 passed, 22 skipped
+
+- [ ] **Iteration 94: Inline timestamps on all chat message types**
+  - [ ] Ensure all chat message types (user, result, error, system) show a relative timestamp inline (not just on hover)
+  - [ ] User messages: verify timestamp is visible (may already exist)
+  - [ ] Result bubbles: add timestamp near the "Result" label or task ID
+  - [ ] Error bubbles: add timestamp near the "Error" label
+  - [ ] System messages: add timestamp inline
+  - [ ] Use existing `RelativeTime` component for consistency
+  - [ ] E2E tests: timestamps visible on user, result, error, and system messages
   - [ ] Build: npm run build — clean
   - [ ] Test: npx playwright test — all pass
