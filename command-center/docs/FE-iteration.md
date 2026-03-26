@@ -167,3 +167,10 @@ Add `livePhases` to the effect deps so progress timeline expansion also triggers
 | Modify | `src/types.ts` — add `agent_id`, `duration_ms` to ChatMessage |
 | Modify | `src/components/OrchestratorChat.tsx` — DRY extraction, scroll fix |
 | Create | `tests/e2e/agent-result-rendering.spec.ts` |
+
+---
+
+## Git Protocol
+
+- **BUGS.md changes must be pushed immediately.** When a bug is filed, updated, or closed in `command-center/docs/BUGS.md`, commit and push right away — the backend team pulls from this file. Do not batch bug tracker updates with other work.
+- **Push after every iteration.** Once an iteration is committed and tests pass, push to remote immediately. Do not accumulate multiple iterations locally.
