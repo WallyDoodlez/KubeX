@@ -770,7 +770,7 @@ On stack startup, the Manager should auto-import all `skills/*/SKILL.md` files f
 > **REQUIRES FE + BE JOINT PLANNING.** This section describes a significant feature that
 > changes how the orchestrator chat works. The backend team will implement the plumbing,
 > but the FE UX design must be agreed with the product manager first. See
-> `docs/design-hitl-context-routing.md` for the full architecture.
+> `docs/design-orchestrator-chat-hitl.md` for the full architecture.
 
 ### Overview
 
