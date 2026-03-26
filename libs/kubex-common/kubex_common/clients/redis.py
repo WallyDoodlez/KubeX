@@ -20,7 +20,7 @@ class RedisClient:
         url: str = "redis://localhost",
         db: int = 0,
         password: str | None = None,
-        max_connections: int = 10,
+        max_connections: int = 50,
         decode_responses: bool = True,
     ) -> None:
         self._url = url
