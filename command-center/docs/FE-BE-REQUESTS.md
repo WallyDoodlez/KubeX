@@ -760,3 +760,121 @@ On stack startup, the Manager should auto-import all `skills/*/SKILL.md` files f
 | 33 | `GET /agents/{id}/state` | Gateway | 🔴 MISSING | Yes (credential_wait detection on page load) |
 | 34 | `GET /auth/runtimes` | Gateway/Manager | 🔴 MISSING | No (auth instructions, FE can hardcode) |
 | 35 | `GET /auth/runtimes/{runtime}` | Gateway/Manager | 🔴 MISSING | No (single runtime auth info) |
+| 36 | `POST /tasks/{id}/input` | Gateway | 🔴 MISSING | Yes (HITL response delivery) |
+| 37 | `POST /tasks/{id}/append` | Gateway | 🔴 MISSING | Yes (CLI context injection) |
+
+---
+
+## HITL + Context Routing — Orchestrator Chat Flow (Added 2026-03-26)
+
+> **REQUIRES FE + BE JOINT PLANNING.** This section describes a significant feature that
+> changes how the orchestrator chat works. The backend team will implement the plumbing,
+> but the FE UX design must be agreed with the product manager first. See
+> `docs/design-hitl-context-routing.md` for the full architecture.
+
+### Overview
+
+The orchestrator chat is conversational, but workers are task-based. When a worker needs
+human input (HITL) or the user wants to inject context into a running task, the orchestrator
+acts as a **lightweight router** between the user and workers.
+
+**Key principle:** The user never talks directly to a worker. The orchestrator mediates all
+communication. It uses a lightweight model (cheap, fast) for routing decisions only.
+
+### Three Interaction Patterns
+
+#### Pattern 1: Worker asks human a question (HITL)
+
+Worker → Orchestrator → UI → User responds → Orchestrator routes response:
+- If answering the worker's question → forward to worker
+- If "cancel" / "never mind" → orchestrator cancels worker, handles directly
+- If new instruction → orchestrator dispatches new work
+
+**FE impact:** The `HITLPrompt` component already handles this. The chat shows the worker's
+question attributed to the orchestrator (user doesn't see worker identity unless we design
+for it). User responds in the normal chat input. No "mode switch" needed — the orchestrator
+decides what the response means.
+
+**FE design question:** Should the UI show which worker asked the question? e.g.,
+"instagram-scraper is asking: Which account?" vs just "Which account?" This affects the
+chat bubble design.
+
+#### Pattern 2: User injects context into a running CLI task
+
+User sends new info → Orchestrator checks worker type:
+- **CLI agent** → `POST /tasks/{id}/append` pipes context into the running PTY session
+- **Non-CLI agent** → Cancel + re-dispatch with enriched context
+
+**FE impact:** Transparent to the user. They just type in the chat. The orchestrator handles
+the routing. No UI change needed for the basic flow.
+
+**FE design question:** Should the UI show a visual indicator that a task was cancelled and
+re-dispatched (for non-CLI agents)? Or should this be invisible?
+
+#### Pattern 3: Parallel tasks with context sharing
+
+User dispatches to kubex A, then dispatches to kubex B, then says "pass B's result to A."
+The orchestrator holds context from both and routes accordingly.
+
+**FE impact:** The chat shows a natural conversation. The orchestrator manages the complexity.
+The UI may want to show which tasks are active (task status indicators in the chat).
+
+**FE design question:** Should the chat show active task badges/pills? e.g.,
+"[instagram-scraper: running] [knowledge: completed]" as a status bar above the input?
+
+### New Backend Endpoints
+
+#### 🔴 POST /tasks/{task_id}/input — Deliver HITL response to a waiting agent
+
+- **Frontend file:** `src/api.ts` line 344 (already coded as `provideInput`)
+- **Used by:** `OrchestratorChat.tsx` via `HITLPrompt.tsx`
+- **Service:** Gateway (`http://localhost:8080`)
+- **Request body:** `{ "input": "string" }`
+- **Expected response:** `202 { "status": "delivered" }`
+- **Backend mechanism:** Publishes to Redis channel `hitl:{task_id}` (DB 1). The waiting agent is subscribed to this channel and resumes on receipt.
+- **Error responses:**
+  - `404` — task not found or not in `awaiting_input` state
+  - `408` — agent timed out waiting (HITL window expired)
+- **Replaces:** Row 18 in the summary table above (same endpoint, now with full spec)
+- **Blocker?** Yes — `HITLPrompt.tsx` calls this but it doesn't exist.
+
+#### 🔴 POST /tasks/{task_id}/append — Inject context into a running CLI task
+
+- **Frontend need:** Not directly called by FE — the orchestrator calls this internally when routing context to a CLI worker. However, FE may want a "send to agent" action in the future.
+- **Service:** Gateway (`http://localhost:8080`)
+- **Request body:** `{ "content": "string", "from_agent": "orchestrator" }`
+- **Expected response:** `202 { "status": "appended" }`
+- **Backend mechanism:** Publishes to Redis channel `append:{task_id}` (DB 1). The CLI Runtime subscribes to this channel and writes content to the PTY stdin.
+- **Error responses:**
+  - `404` — task not found
+  - `409` — agent is not a CLI runtime (cannot append to non-CLI task)
+- **Blocker?** Yes — required for context injection into running CLI agents.
+
+### SSE Event Types — HITL (Clarification)
+
+The SSE stream (`GET /tasks/{task_id}/stream`) will carry these HITL-related events:
+
+```json
+// Worker asking a question (surfaces in chat as a prompt)
+{"type": "hitl_request", "prompt": "Which Nike account?", "source_agent": "instagram-scraper"}
+
+// Task paused waiting for input
+{"type": "status", "status": "awaiting_input"}
+
+// Task resumed after input received
+{"type": "status", "status": "running"}
+```
+
+**FE handling:** `OrchestratorChat.tsx` already handles `hitl_request` (line 247). The
+`source_agent` field is new — FE can use it to show attribution if desired.
+
+### FE Design Decisions Needed (Discuss with PM)
+
+These UX questions must be resolved before implementation:
+
+1. **HITL attribution:** Show which worker asked the question, or keep it abstract?
+2. **Task status indicators:** Show active task badges in the chat UI?
+3. **Cancel + re-dispatch visibility:** Show when a non-CLI task was restarted with new context?
+4. **Concurrent HITL:** If two workers ask questions at the same time, how does the UI queue them? (Backend will handle sequentially for v1, but UI needs to decide on presentation.)
+5. **HITL timeout:** What does the UI show if the user doesn't respond within the timeout window? A "question expired" message?
+6. **Context injection confirmation:** When user says "pass that to the scraper," should the UI confirm the action before the orchestrator does it?
