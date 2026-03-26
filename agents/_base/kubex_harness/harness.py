@@ -338,6 +338,10 @@ class KubexHarness:
                 await pubsub.unsubscribe(channel)
             except Exception:
                 pass
+            try:
+                await redis_client.aclose()
+            except Exception:
+                pass
 
     async def _process_cancel_command(self, task_id: str) -> ExitReason:
         """Process a cancel command for the given task_id.

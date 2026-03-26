@@ -679,7 +679,7 @@ class KubexLifecycle:
         return record
 
     async def restart_kubex(self, kubex_id: str) -> KubexRecord:
-        """Restart a Kubex container.
+        """Restart a Kubex container: deregister, restart container, re-register.
 
         Args:
             kubex_id: The kubex_id to restart.
@@ -688,11 +688,18 @@ class KubexLifecycle:
             Updated KubexRecord.
         """
         record = self._get_record(kubex_id)
+
+        # Deregister before restart so the Registry doesn't hold a stale entry
+        await self._deregister_from_registry(record.agent_id)
+
         docker_client = docker.from_env()
         container = docker_client.containers.get(record.container_id)
         container.restart()
 
         record.status = KubexState.RUNNING.value
+
+        # Re-register after the container is back up
+        await self._register_with_registry(record)
 
         # Publish lifecycle event
         await self._publish_lifecycle_event(record, action="restarted")
@@ -741,14 +748,32 @@ class KubexLifecycle:
         """
         return list(self._kubexes.values())
 
-    def remove_kubex(self, kubex_id: str) -> None:
-        """Remove a Kubex record from the in-memory store.
+    async def remove_kubex(self, kubex_id: str) -> None:
+        """Remove a Kubex: stop the container, deregister from Registry, and remove from store.
 
         Args:
             kubex_id: The kubex_id to remove.
         """
         if kubex_id not in self._kubexes:
             raise KeyError(f"Kubex not found: {kubex_id}")
+
+        record = self._kubexes[kubex_id]
+
+        # Stop the container (best-effort)
+        try:
+            docker_client = docker.from_env()
+            container = docker_client.containers.get(record.container_id)
+            try:
+                container.stop(timeout=5)
+            except docker.errors.APIError:
+                with contextlib.suppress(Exception):
+                    container.kill()
+        except Exception as exc:
+            logger.warning("remove_kubex_stop_failed", kubex_id=kubex_id, error=str(exc))
+
+        # Deregister from Registry (best-effort)
+        await self._deregister_from_registry(record.agent_id)
+
         del self._kubexes[kubex_id]
 
     # ------------------------------------------------------------------

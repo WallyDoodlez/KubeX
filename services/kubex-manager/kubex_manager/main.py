@@ -306,6 +306,9 @@ async def respawn_kubex(kubex_id: str, request: Request) -> JSONResponse:
             ).model_dump(),
         )
 
+    # Deregister old agent from Registry before spawning replacement (best-effort)
+    await lifecycle._deregister_from_registry(record.agent_id)
+
     # Kill existing container (best-effort)
     try:
         import docker as _docker
@@ -607,10 +610,10 @@ async def inject_credentials(
 
 @router.delete("/kubexes/{kubex_id}", status_code=204, dependencies=[Depends(verify_token)])
 async def remove_kubex(kubex_id: str, request: Request) -> JSONResponse:
-    """Remove a Kubex record (does not stop the container)."""
+    """Remove a Kubex: stop container, deregister from Registry, and drop the record."""
     lifecycle = _get_lifecycle(request)
     try:
-        lifecycle.remove_kubex(kubex_id)
+        await lifecycle.remove_kubex(kubex_id)
     except KeyError:
         return JSONResponse(
             status_code=404,
@@ -653,6 +656,9 @@ class ManagerService(KubexService):
         """Attach Redis client to lifecycle manager and verify Docker access."""
         if self.redis:
             self.app.state.lifecycle._redis = self.redis.client
+
+        # Restore managed Kubex state from Redis on startup (KMGR-04)
+        self.app.state.lifecycle.load_from_redis()
 
         try:
             import docker

@@ -694,23 +694,27 @@ class TestKubexLifecycleQuery:
         assert r1.kubex_id in ids
         assert r2.kubex_id in ids
 
+    @pytest.mark.asyncio
     @patch("kubex_manager.lifecycle.docker.from_env")
-    def test_remove_kubex_deletes_from_store(self, mock_docker_env: MagicMock) -> None:
+    async def test_remove_kubex_deletes_from_store(self, mock_docker_env: MagicMock) -> None:
         """remove_kubex removes the record from the internal store."""
-        mock_docker, _ = make_mock_docker()
+        mock_docker, mock_container = make_mock_docker()
         mock_docker_env.return_value = mock_docker
 
         lifecycle = make_lifecycle()
         record = lifecycle.create_kubex(CreateKubexRequest(config=SAMPLE_CONFIG))
-        lifecycle.remove_kubex(record.kubex_id)
+
+        with patch.object(lifecycle, "_deregister_from_registry", new_callable=AsyncMock):
+            await lifecycle.remove_kubex(record.kubex_id)
 
         assert len(lifecycle.list_kubexes()) == 0
 
-    def test_remove_kubex_raises_key_error_for_unknown(self) -> None:
+    @pytest.mark.asyncio
+    async def test_remove_kubex_raises_key_error_for_unknown(self) -> None:
         """remove_kubex raises KeyError for an unknown kubex_id."""
         lifecycle = make_lifecycle()
         with pytest.raises(KeyError):
-            lifecycle.remove_kubex("bogus-id")
+            await lifecycle.remove_kubex("bogus-id")
 
 
 # ===========================================================================
