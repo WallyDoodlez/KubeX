@@ -1,161 +1,88 @@
-# Iteration 95: Smart Agent Result Rendering + Auto-Scroll Fix
+# Iteration 96: Conversation Participant Model — Kubex Join/Leave
 
-> Status: **DONE**
+> Status: **PLANNED**
 > Date: 2026-03-26
 
 ---
 
-## Problem Statement
+## Concept
 
-### P1: Raw JSON result dumps
+The orchestrator chat is a **group conversation**. When the orchestrator dispatches work to a kubex, that kubex "joins the chat." When its task completes or fails, it "leaves." Each kubex gets its own named bubbles, so the user sees who's talking.
 
-When the orchestrator returns a result, the chat renders it as a raw JSON blob:
-
-```json
-{
-  "type": "result",
-  "final": true,
-  "task_id": "task-f459f1e6533d",
-  "status": "completed",
-  "output": "{\n  \"status\": \"completed\",\n  \"result\": {\n    \"agent_id\": \"knowledge\",\n    \"capabilities\": [\n      \"knowledge_management\",\n      \"knowledge_query\",\n      \"knowledge_storage\"\n    ],\n    \"role_summary\": \"I'm the KubexClaw swarm's knowledge management specialist...\"\n  },\n  \"metadata\": {\n    \"agent_id\": \"knowledge\",\n    \"task_id\": \"unknown\",\n    \"duration_ms\": 0\n  }\n}",
-  "agent_id": "knowledge"
-}
-```
-
-Two bugs stacked:
-
-1. **Extraction bug** — `handleSSEMessage` checks `data.result` but the actual payload lives in `data.output`. The code falls through to `JSON.stringify(data, null, 2)` and dumps the entire SSE envelope.
-2. **Rendering bug** — Even when results arrive via the poll fallback (`rr.data.result`), the content is often a JSON string. `isLikelyJSON()` catches it and renders it in a `<pre>` block, bypassing the markdown renderer entirely.
-
-### P2: Chat doesn't scroll to progress on send
-
-When the user sends a message, the chat window doesn't auto-scroll to show the typing indicator and progress box. The user has to manually scroll down.
-
-Root cause: Auto-scroll `useEffect` only watches `messages`. The typing indicator depends on `sending` state, and the progress timeline depends on `livePhases` — neither triggers a scroll.
+This is derived entirely from existing SSE events — no backend changes required.
 
 ---
 
-## Expected Outcome
+## Architecture
 
-### Result rendering (P1)
+### Join/Leave detection
 
-Instead of raw JSON, the user should see:
+The FE maintains a `Set<string>` of active participant agent_ids for the current conversation.
 
-> **knowledge** agent
->
-> I'm the KubexClaw swarm's knowledge management specialist. I search, retrieve, create, and update notes in an Obsidian-style markdown vault (a linked knowledge base). I can organize information into facts/entities/events/decisions/logs and maintain bidirectional wiki-links between notes.
->
-> **Capabilities:** knowledge_management, knowledge_query, knowledge_storage
->
-> *completed in <1s*
+**Join trigger:** Any SSE event with an `agent_id` (or `source_agent` for HITL) that we haven't seen before → inject a system message "**{agent_id}** joined the chat" and add to participants set.
 
-- Agent name badge on result bubbles
-- Duration footer when available
-- Structured results converted to readable markdown
-- Unknown/unstructured results fall back to pretty JSON in a code block (still better than dumping the SSE envelope)
+**Leave trigger:** A terminal event (`result`, `failed`, `cancelled`) with an `agent_id` → inject a system message "**{agent_id}** left the chat" (or "left the chat — failed" for errors) and remove from participants set.
 
-### Auto-scroll (P2)
+**Orchestrator exception:** The orchestrator is always implicit — it doesn't "join" or "leave." Only worker kubexes get join/leave messages.
 
-- Sending a message snaps the view to the bottom, even if the user had scrolled up
-- Typing indicator and progress box are immediately visible after send
-- Terminal output expansion and live phase updates also trigger scroll
+### Event-to-agent mapping
+
+| SSE event type | agent_id source | Triggers join? | Triggers leave? |
+|---|---|---|---|
+| `result` / `completed` | `data.agent_id` or extracted via `extractResultContent` | Yes (if new) | Yes |
+| `failed` / `cancelled` | `data.agent_id` | Yes (if new) | Yes |
+| `hitl_request` | `data.source_agent` or `data.agent_id` | Yes (if new) | No |
+| `stdout` / `stderr` | None (orchestrator implicit) | No | No |
+
+### Message attribution
+
+Result and error bubbles already carry `agent_id` in the ChatMessage type. The bubble renders this as the sender name — like a group chat participant.
+
+HITL requests should also carry the `source_agent` so the prompt shows who's asking.
 
 ---
 
 ## Plan
 
-### A. Smart Agent Result Rendering
+### A. Participant tracking in OrchestratorChat
 
-#### A1. New utility: `src/utils/formatAgentResult.ts`
+1. Add a `useRef<Set<string>>` for `activeParticipantsRef` — tracks agent_ids that have joined but not left.
+2. Add a helper `maybeEmitJoin(agentId)` — if agent_id is truthy, not "orchestrator", and not in the set, inject a system message and add to set.
+3. Add a helper `maybeEmitLeave(agentId, status)` — if agent_id is in the set, inject a system message and remove from set.
+4. Reset the set when a new conversation starts (on `handleClearChat` or new send after idle).
 
-```ts
-extractResultContent(data) → { text: string; agentId?: string; durationMs?: number }
-```
+### B. Wire into handleSSEMessage
 
-- **Priority chain:** `data.output` → `data.result` → `data` (fallback)
-- **Double-decode:** If the extracted value is a JSON string, parse it. If the inner object has `.result`, unwrap that too.
-- **Markdown conversion:** Known fields (`role_summary`, `capabilities`, `error`) → readable markdown. Unknown object shapes → `json` code block.
-- **Metadata extraction:** Pull `agent_id` and `duration_ms` from metadata or top-level fields.
+1. **`result`/`completed`:** After extracting agent_id, call `maybeEmitJoin(agentId)` then `maybeEmitLeave(agentId, 'completed')`.
+2. **`failed`/`cancelled`:** Call `maybeEmitJoin(agentId)` then `maybeEmitLeave(agentId, data.type)`.
+3. **`hitl_request`:** Extract `source_agent` or `agent_id`, call `maybeEmitJoin(agentId)`. Store agent_id on the HITL request so the prompt shows who's asking.
 
-#### A2. Refactor `OrchestratorChat.tsx` — DRY extraction
+### C. Wire into poll fallback paths
 
-Replace all 5 identical copies of:
+The 4 poll fallback paths that call `extractResultContent(rr.data)` should also emit join/leave for the extracted `agentId`.
 
-```ts
-const resultText =
-  typeof data.result === 'string'
-    ? data.result
-    : data.result !== undefined
-    ? JSON.stringify(data.result, null, 2)
-    : JSON.stringify(data, null, 2);
-```
+### D. System message format for join/leave
 
-With a single call to `extractResultContent()`.
+Use the existing `role: 'system'` message type:
 
-Locations (all in `OrchestratorChat.tsx`):
-1. `handleSSEMessage` — SSE result event (line ~267)
-2. `handleSSEComplete` recovery poll (line ~357)
-3. Post-dispatch 2s poll (line ~449)
-4. Stale task recovery poll (line ~549)
-5. Task recovery SSE complete fallback (line ~744)
+- Join: `"{agent_id} joined the chat"`
+- Leave (completed): `"{agent_id} left the chat"`
+- Leave (failed): `"{agent_id} left the chat — task failed"`
+- Leave (cancelled): `"{agent_id} left the chat — task cancelled"`
 
-#### A3. Add `agent_id` + `duration_ms` to `ChatMessage` type
+### E. Named bubbles for worker results
 
-In `src/types.ts`, add two optional fields to the `ChatMessage` interface:
+The result bubble already shows `agent_id` as a badge (Iteration 95). Change: render it as the **sender name** above the bubble content, not as a pill inside. Same data, different position — like how chat apps show the sender name in a group chat.
 
-```ts
-agent_id?: string;      // Which agent produced this result
-duration_ms?: number;    // How long the task took
-```
+### F. HITL attribution
 
-#### A4. Agent badge + duration in ChatBubble
+When `hitl_request` carries `source_agent`, show it in the HITL prompt UI so the user knows which kubex is asking the question.
 
-In the result rendering path of `ChatBubble`:
+### G. Tests
 
-- Show a small pill badge with the agent name (e.g. `knowledge`) in the bubble header when `message.agent_id` is set
-- Show "completed in 1.2s" as a subtle footer line when `message.duration_ms` is set
-
-#### A5. Smarter JSON rendering
-
-`extractResultContent` converts structured results to markdown before they reach the `isLikelyJSON` check, so fewer results hit the `<pre>` path. The `isLikelyJSON` fallback stays for genuinely raw JSON responses.
-
-### B. Auto-Scroll on Send + Progress Visibility
-
-#### B1. Scroll on sending state change
-
-Add `sending` and `terminalLines.length` to the auto-scroll `useEffect` dependencies:
-
-```ts
-useEffect(() => {
-  if (autoScrollRef.current) {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    setHasNewMessages(false);
-  } else {
-    setHasNewMessages(true);
-  }
-}, [messages, sending, terminalLines.length]);
-```
-
-#### B2. Force auto-scroll on send
-
-In `handleSend`, after `addMessage`, explicitly re-engage auto-scroll:
-
-```ts
-setAutoScroll(true);
-autoScrollRef.current = true;
-```
-
-This snaps the user back to bottom even if they had scrolled up mid-conversation.
-
-#### B3. Scroll on live phase updates
-
-Add `livePhases` to the effect deps so progress timeline expansion also triggers scroll.
-
-### C. Tests
-
-- **Unit:** `tests/unit/formatAgentResult.test.ts` — extraction paths, double-decode, markdown conversion, unknown shapes, missing fields
-- **E2E:** `tests/e2e/agent-result-rendering.spec.ts` — mock SSE result with the exact payload shape above, verify readable text (not raw JSON), agent badge visible, duration visible
-- **E2E:** Add scroll-on-send assertion to existing chat E2E — after send, typing indicator should be visible in viewport
+- E2E: Mock SSE events with different agent_ids, verify join/leave system messages appear
+- E2E: Verify result bubbles show agent name as sender
+- E2E: Verify HITL prompt shows source agent name
 
 ---
 
@@ -163,14 +90,13 @@ Add `livePhases` to the effect deps so progress timeline expansion also triggers
 
 | Action | File |
 |--------|------|
-| Create | `src/utils/formatAgentResult.ts` |
-| Modify | `src/types.ts` — add `agent_id`, `duration_ms` to ChatMessage |
-| Modify | `src/components/OrchestratorChat.tsx` — DRY extraction, scroll fix |
-| Create | `tests/e2e/agent-result-rendering.spec.ts` |
+| Modify | `src/components/OrchestratorChat.tsx` — participant tracking, join/leave messages, bubble attribution |
+| Modify | `src/components/HITLPrompt.tsx` — show source agent (if needed) |
+| Create | `tests/e2e/conversation-participants.spec.ts` |
 
 ---
 
 ## Git Protocol
 
-- **BUGS.md changes must be pushed immediately.** When a bug is filed, updated, or closed in `command-center/docs/BUGS.md`, commit and push right away — the backend team pulls from this file. Do not batch bug tracker updates with other work.
-- **Push after every iteration.** Once an iteration is committed and tests pass, push to remote immediately. Do not accumulate multiple iterations locally.
+- **BUGS.md changes must be pushed immediately.**
+- **Push after every iteration.**
