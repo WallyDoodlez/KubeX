@@ -14,11 +14,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Gemini CLI globally (required for runtime: gemini-cli containers)
-RUN npm install -g @google/gemini-cli@0.34.0
+# Install CLI runtimes globally
+RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli@0.34.0
 
-# Verify Node.js and Gemini CLI are available
-RUN node --version && gemini --version
+# Verify Node.js and CLI runtimes are available
+RUN node --version && claude --version && gemini --version
 
 # Install kubex-common
 COPY libs/kubex-common /tmp/kubex-common
