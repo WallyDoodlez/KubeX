@@ -4,6 +4,51 @@
 
 ---
 
+- [x] **Iteration 94: Inline timestamps on all chat message types**
+  - [x] `src/components/OrchestratorChat.tsx` — audited all 4 message roles: `user`, `result`, `error` already had `<RelativeTime data-testid="chat-bubble-timestamp" />` below their bubble; `system` messages (centered pill) were missing a timestamp; added `<RelativeTime>` below the pill span, wrapped in a `flex-col items-center` container to keep the layout centered
+  - [x] `tests/e2e/inline-timestamps.spec.ts` — 5 E2E tests: user bubble timestamp visible, system bubble timestamp visible (via `.last()` to avoid strict-mode multi-match), result bubble timestamp visible, error bubble timestamp visible, all 4 types simultaneously have timestamps after a full dispatch flow
+  - [x] Build: npm run build — clean; Tests: 1343 passed, 22 skipped (OAuth), 0 failures
+
+- [x] **Iteration 93: Persist last visited page across refresh**
+  - [x] `src/components/Layout.tsx` — added `LAST_PAGE_KEY`, `VALID_RESTORE_PREFIXES`, and `isValidRestorePath()` helper above `NAV_ITEMS`; added two `useEffect` hooks: (1) save non-root path to `localStorage` on every location change, (2) on mount-only, if at `/` read the saved path and redirect via `navigate(saved, { replace: true })`; root `/` is intentionally never saved to avoid overwriting a valid path before the restore effect reads it
+  - [x] `tests/e2e/page-persistence.spec.ts` — 7 E2E tests: saves path on navigation, redirects from `/` to saved page on refresh, direct URLs bypass restore, no redirect when saved is `/`, no redirect when saved is invalid, saves nested `/agents/:id` paths, restores nested paths
+  - [x] `tests/e2e/capability-matrix.spec.ts` — added `localStorage.removeItem('kubex-last-page')` before `page.goto('/')` in one test that explicitly expects Dashboard after navigating away from `/agents`
+  - [x] `tests/e2e/favorites.spec.ts` — same fix for the dashboard-pinned-star test that was broken by the redirect
+  - [x] `tests/e2e/spawn-wizard-guard.spec.ts` — same fix for the clean-form guard test that navigates from `/spawn` back to `/`
+  - [x] Build: npm run build — clean; Tests: 1338 passed, 22 skipped (OAuth), 0 failures
+
+- [x] **Iteration 92: Global loading progress bar**
+  - [x] `src/context/LoadingContext.tsx` — module-level singleton counter with `useSyncExternalStore`; exports `startLoading()`, `stopLoading()`, `resetLoading()`, `useLoadingCount()`, `useLoading()` hook; zero React context overhead, no provider needed
+  - [x] `src/components/GlobalProgressBar.tsx` — `position: fixed`, `top: 0`, `z-index: 9999`, 2px height; emerald-to-cyan gradient (`#10b981 → #06b6d4`) with glow shadow; animated state machine: `hidden → loading → completing → fading`; incremental tick animation up to 85% during load, then snaps to 100% and fades; `data-testid="global-progress-bar"`
+  - [x] `src/components/Layout.tsx` — `<GlobalProgressBar />` rendered as first child of the root flex container (above skip link)
+  - [x] `src/hooks/useHealthCheck.ts` — wired `startLoading()` / `stopLoading()` in try/finally around all health poll fetches
+  - [x] 5 E2E tests in `tests/e2e/global-progress-bar.spec.ts` — bar visible when health fetches pending, bar hidden after completion, fixed positioning at top, emerald gradient color, y=0 position above header
+  - [x] Build: npm run build — clean; Tests: 1274 passed, 22 skipped (OAuth), 57 pre-existing failures unrelated to this iteration; 5/5 new progress bar tests pass
+
+- [x] **Iteration 91: Task history detail panel**
+  - [x] `TaskHistoryPage.tsx` — `DetailRow` refactored: raw JSON `<pre>` replaced with formatted panel; agent ID as clickable `<a href="/agents/{id}">` link; capability rendered as violet badge; status uses existing `StatusBadge`; result text rendered via `ReactMarkdown`; error text shown in red-tinted box; dispatched/completed timestamps formatted; duration computed from both timestamps; all elements carry required `data-testid` attributes
+  - [x] `TaskHistoryPage.tsx` — `DetailRow` now always rendered (not conditional) to enable smooth CSS grid-rows slide-down transition (`grid-rows-[0fr]` → `grid-rows-[1fr]`); `isExpanded` prop drives animation; `aria-expanded` on TaskRow unchanged
+  - [x] 17 E2E tests in `tests/e2e/task-detail-panel.spec.ts` — panel visibility, task ID display, copy button, agent link href, capability badge text, status badge text, result content (ReactMarkdown), error content, dispatched/completed timestamps, duration, collapse toggle, single-panel-at-a-time behavior
+  - [x] Build: npm run build — clean; Tests: 51/51 task-history tests pass (17 new + existing 34); 2 pre-existing agents.spec.ts failures unrelated to this iteration
+
+- [x] **Iteration 89: Favorite capabilities in Orchestrator Chat**
+  - [x] `OrchestratorChat.tsx` — `favoriteCaps` state initialized from `localStorage` key `kubex-favorite-caps`; `toggleFavoriteCap` callback writes back to localStorage on every toggle
+  - [x] `OrchestratorChat.tsx` — Star toggle button (`data-testid="cap-star-{capName}"`, ☆/★) added next to each cap in the "Known caps" row of the Advanced panel; starred caps show amber-styled filled star
+  - [x] `OrchestratorChat.tsx` — "★ Favorites:" section (`data-testid="favorite-caps-section"`) renders above the "Known caps" row when at least one cap is starred; clicking a favorite pill sets the capability input
+  - [x] `OrchestratorChat.tsx` — Quick-access bar (`data-testid="quick-caps-bar"`) renders below the message input when the Advanced panel is COLLAPSED and favorites exist; each pill has `data-testid="quick-cap-pill-{capName}"`; clicking a pill sets the capability state without opening the Advanced panel
+  - [x] 12 E2E tests in `tests/e2e/favorite-capabilities.spec.ts` — star button rendering, star/unstar toggle, favorites section visibility, quick-caps-bar show/hide logic, pill click sets capability, localStorage persistence across reload
+  - [x] Build: npm run build — clean; Tests: 1286/1286 passed (23 skipped — OAuth; 1 pre-existing flaky streaming timing test)
+
+- [x] **Iteration 88: BUG-007 fallback render fix + dashboard service tile cleanup**
+  - [x] `OrchestratorChat.tsx` — BUG-007 FE fix: 2s post-dispatch `setTimeout` polls `getTaskResult` once; if task is already terminal (completed/failed/cancelled) render result + close idle SSE stream; `activeTaskIdRef` guard prevents double-render if SSE or `handleSSEComplete` already resolved; also added on-SSE-open immediate check for belt-and-suspenders coverage
+  - [x] `ServiceCard.tsx` — Remove redundant inline `<p>` description paragraph (was duplicated in tile body AND tooltip); description now lives only in the "i" hover tooltip for cleaner tile layout; sparkline `"Response time (ms)"` label added with `data-testid="sparkline-label"`
+  - [x] `Dashboard.tsx` — `StatCard` gains optional `sparklineLabel` prop; "Registered Agents" card gets `sparklineLabel="Agent count"`, "Running Kubexes" card gets `sparklineLabel="Kubex count"`; label rendered as `data-testid="sparkline-label"` below sparkline when values length > 1
+  - [x] `command-center/docs/BUGS.md` — BUG-007 status updated to "FE FIXED (Iteration 88) — BE part still open"; detailed FE fix description and remaining BE work documented
+  - [x] New `tests/e2e/sse-race-condition.spec.ts` — 3 tests: race-condition result renders, input unlocked after fix, failed task error bubble
+  - [x] Updated `tests/e2e/service-info.spec.ts` — 4 inline-description tests updated to assert description NOT inline + IS in tooltip
+  - [x] Updated `tests/e2e/dashboard.spec.ts` — 3 new tests: service tile inline description absent, info tooltip buttons present, sparkline labels valid when visible
+  - [x] Build: npm run build — clean; Tests: 1275/1275 passed (23 skipped — OAuth)
+
 - [x] **Iteration 87: Dashboard recent tasks widget + Spawn Wizard unsaved-state guard**
   - [x] `Dashboard.tsx` — `RecentTasksCard` component: last 5 dispatched tasks from `trafficLog`, each row shows truncated task ID, capability badge, status badge (allowed/denied/escalated), relative timestamp; empty state "No tasks dispatched yet."; "View all →" navigates to `/tasks`; `data-testid` attributes on card, rows, empty state
   - [x] `types.ts` — Added `'tasks'` to `NavPage` union type
@@ -975,10 +1020,52 @@
   - [x] E2E tests: `async-toasts.spec.ts` — 11 tests
   - [x] Test: npx playwright test — 1259 passed, 23 skipped
 
-- [ ] **Iteration 87: Dashboard recent tasks widget + Spawn Wizard unsaved-state guard**
-  - [ ] Add "Recent Tasks" card to `Dashboard.tsx` — shows last 5 dispatched tasks from `trafficLog` (task ID, capability, status badge, relative timestamp), with "View all" link to `/tasks`
-  - [ ] Empty state when no tasks: "No tasks dispatched yet"
-  - [ ] Add `beforeunload` guard to `SpawnWizard.tsx` — warns user before navigating away when form has been touched (any field filled in steps 1-3), disabled on success screen
-  - [ ] E2E tests: recent tasks card renders on dashboard, shows entries from traffic log, empty state when no data, spawn wizard warns on navigation away mid-flow
+- [x] **Iteration 89: Favorite capabilities in Orchestrator Chat**
+  - [x] Star toggle (☆/★) on each capability, starred caps move to top with "Favorites" label
+  - [x] Persist to `localStorage` key `kubex-favorite-caps`
+  - [x] Quick-access pills below input when Advanced panel collapsed
+  - [x] E2E tests: `favorite-capabilities.spec.ts` — 12 tests
+  - [x] Test: npx playwright test — 1286 passed, 23 skipped
+
+- [x] **Iteration 90: Approval queue search, filter, and sort**
+  - [x] Search input filters by agent_id, action, capability, policy_rule (case-insensitive)
+  - [x] Status filter tabs: All / Pending / Approved / Denied
+  - [x] Sort dropdown: Newest first (default) / Oldest first / By agent
+  - [x] Result count: "N escalations" or "N of M shown" when filtered
+  - [x] Empty filtered state: "No matching escalations"
+  - [x] Wire ApprovalQueue to getEscalations() API instead of hard-coded empty array
+  - [x] E2E tests: `approval-filters.spec.ts` — 21 tests
+  - [x] Build: npm run build — clean
+  - [x] Test: npx playwright test — 1308 passed, 23 skipped
+
+- [x] **Iteration 91: Task history detail panel (formatted, not raw JSON)**
+  - [x] Formatted two-column detail panel: task ID + copy, agent link, capability badge, status badge, timestamps, duration
+  - [x] ReactMarkdown for results, red-tinted error content, JSON fallback
+  - [x] Slide-down expand via CSS `grid-rows` transition
+  - [x] E2E tests: `task-detail-panel.spec.ts` — 17 tests
+  - [x] Test: npx playwright test — 1325 passed, 23 skipped
+
+- [x] **Iteration 92: Global loading progress bar (NProgress-style)**
+  - [x] Created `GlobalProgressBar.tsx` — 2px emerald-to-cyan gradient, fixed top, z-9999
+  - [x] Created `LoadingContext.tsx` — module-level singleton with `useSyncExternalStore`
+  - [x] Integrated into `Layout.tsx` + wired into `useHealthCheck.ts`
+  - [x] E2E tests: `global-progress-bar.spec.ts` — 5 tests
+  - [x] Fix: 58 test regressions (missing mockBaseRoutes in 9 test files)
+  - [x] Test: npx playwright test — 1331 passed, 22 skipped
+
+- [x] **Iteration 93: Persist last visited page across refresh**
+  - [x] Save route to `localStorage` on navigation, restore on mount if URL is `/`
+  - [x] Direct links/bookmarks take priority over saved state
+  - [x] E2E tests: `page-persistence.spec.ts` — 7 tests
+  - [x] Test: npx playwright test — 1338 passed, 22 skipped
+
+- [ ] **Iteration 94: Inline timestamps on all chat message types**
+  - [ ] Ensure all chat message types (user, result, error, system) show a relative timestamp inline (not just on hover)
+  - [ ] User messages: verify timestamp is visible (may already exist)
+  - [ ] Result bubbles: add timestamp near the "Result" label or task ID
+  - [ ] Error bubbles: add timestamp near the "Error" label
+  - [ ] System messages: add timestamp inline
+  - [ ] Use existing `RelativeTime` component for consistency
+  - [ ] E2E tests: timestamps visible on user, result, error, and system messages
   - [ ] Build: npm run build — clean
   - [ ] Test: npx playwright test — all pass

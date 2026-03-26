@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes } from './helpers';
 
 test.describe('System Status Banner', () => {
   test('renders on the Dashboard page', async ({ page }) => {
@@ -7,7 +8,8 @@ test.describe('System Status Banner', () => {
   });
 
   test('shows operational state when all services are healthy', async ({ page }) => {
-    // Default MSW handlers return healthy for all services
+    // Mock health routes so all services respond as healthy
+    await mockBaseRoutes(page);
     await page.goto('/');
     // Wait for health checks to complete
     await page.waitForTimeout(2000);

@@ -166,15 +166,20 @@ test.describe('Iteration 86 — AgentRegisterModal toast', () => {
   test('successful registration shows success toast with agent ID', async ({ page }) => {
     test.skip(isLiveMode, 'Mock only');
     await mockBaseRoutes(page, { agents: MOCK_AGENTS });
-    await page.route(`${REGISTRY}/agents`, (route) => {
+    await page.route(`${REGISTRY}/agents`, async (route) => {
       if (route.request().method() === 'POST') {
-        route.fulfill({
+        await route.fulfill({
           status: 201,
           contentType: 'application/json',
           body: JSON.stringify({ agent_id: 'toast-agent-001', status: 'registered' }),
         });
       } else {
-        route.continue();
+        // GET — serve mock agents so the table loads
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(MOCK_AGENTS),
+        });
       }
     });
 
@@ -194,15 +199,20 @@ test.describe('Iteration 86 — AgentRegisterModal toast', () => {
   test('failed registration shows error toast', async ({ page }) => {
     test.skip(isLiveMode, 'Mock only');
     await mockBaseRoutes(page, { agents: MOCK_AGENTS });
-    await page.route(`${REGISTRY}/agents`, (route) => {
+    await page.route(`${REGISTRY}/agents`, async (route) => {
       if (route.request().method() === 'POST') {
-        route.fulfill({
+        await route.fulfill({
           status: 409,
           contentType: 'application/json',
           body: JSON.stringify({ error: 'Agent ID already exists' }),
         });
       } else {
-        route.continue();
+        // GET — serve mock agents so the table loads
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(MOCK_AGENTS),
+        });
       }
     });
 

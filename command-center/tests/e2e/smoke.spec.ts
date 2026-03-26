@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes } from './helpers';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -52,14 +53,16 @@ test.describe('Smoke Tests', () => {
   });
 
   test('routes render correct content for each section', async ({ page }) => {
+    // Mock health routes so ConnectionIndicator shows "live" (operational)
+    await mockBaseRoutes(page);
     await page.goto('/');
 
     // ── Dashboard ────────────────────────────────────────────────────
     await clickNav(page, 'Dashboard');
     // Dashboard shows service cards or a system overview heading area
     await expect(page.locator('header h1')).toHaveText('Dashboard');
-    // The "live" indicator is always present
-    await expect(page.locator('text=live')).toBeVisible();
+    // The "live" indicator appears once the health check completes with all services healthy
+    await expect(page.locator('text=live')).toBeVisible({ timeout: 8000 });
 
     // ── Agents ───────────────────────────────────────────────────────
     await clickNav(page, 'Agents');

@@ -1,24 +1,60 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import type { ApprovalRequest, ApprovalDecision } from '../types';
+import { getEscalations } from '../api';
 import ConfirmDialog from './ConfirmDialog';
 import { SkeletonCard } from './SkeletonLoader';
 import EmptyState from './EmptyState';
 import RelativeTime from './RelativeTime';
 
-// Mock data since the Gateway doesn't have a dedicated escalations endpoint yet.
-// In production, this would be fetched via getEscalations().
-const MOCK_ESCALATIONS: ApprovalRequest[] = [];
+type StatusFilter = 'all' | 'pending' | 'approved' | 'denied';
+type SortOrder = 'newest' | 'oldest' | 'agent';
+
+const STATUS_TABS: { key: StatusFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'denied', label: 'Denied' },
+];
 
 export default function ApprovalQueue() {
-  const [requests, setRequests] = useState<ApprovalRequest[]>(MOCK_ESCALATIONS);
+  const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmAction, setConfirmAction] = useState<{ id: string; decision: ApprovalDecision } | null>(null);
 
-  // Simulate initial load — in production this would call getEscalations()
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 0);
-    return () => clearTimeout(t);
+  // Search / filter / sort state
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sort, setSort] = useState<SortOrder>('newest');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await getEscalations();
+    if (res.ok && Array.isArray(res.data)) {
+      // Map raw API objects to ApprovalRequest — Gateway may return ISO strings for timestamp
+      const mapped: ApprovalRequest[] = res.data.map((item: unknown) => {
+        const r = item as Record<string, unknown>;
+        return {
+          id: String(r['id'] ?? ''),
+          task_id: String(r['task_id'] ?? ''),
+          agent_id: String(r['agent_id'] ?? ''),
+          action: String(r['action'] ?? ''),
+          capability: r['capability'] != null ? String(r['capability']) : undefined,
+          reason: String(r['reason'] ?? ''),
+          policy_rule: r['policy_rule'] != null ? String(r['policy_rule']) : undefined,
+          timestamp: r['timestamp'] instanceof Date
+            ? r['timestamp']
+            : new Date(String(r['timestamp'] ?? Date.now())),
+          status: (r['status'] as ApprovalRequest['status']) ?? 'pending',
+        };
+      });
+      setRequests(mapped);
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   function handleResolve() {
     if (!confirmAction) return;
@@ -32,8 +68,47 @@ export default function ApprovalQueue() {
     setConfirmAction(null);
   }
 
-  const pending = requests.filter((r) => r.status === 'pending');
-  const resolved = requests.filter((r) => r.status !== 'pending');
+  // Filtering + sorting pipeline (derived, not state)
+  const { sorted, isFiltered } = useMemo(() => {
+    // 1. Status filter ('denied' maps to status === 'rejected')
+    const statusFiltered =
+      statusFilter === 'all'
+        ? requests
+        : statusFilter === 'denied'
+          ? requests.filter((r) => r.status === 'rejected')
+          : requests.filter((r) => r.status === statusFilter);
+
+    // 2. Search filter
+    const q = search.trim().toLowerCase();
+    const searched = q
+      ? statusFiltered.filter(
+          (r) =>
+            r.agent_id.toLowerCase().includes(q) ||
+            r.action.toLowerCase().includes(q) ||
+            (r.capability ?? '').toLowerCase().includes(q) ||
+            (r.policy_rule ?? '').toLowerCase().includes(q),
+        )
+      : statusFiltered;
+
+    // 3. Sort
+    const result = [...searched].sort((a, b) => {
+      if (sort === 'oldest')
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      if (sort === 'agent') return a.agent_id.localeCompare(b.agent_id);
+      // newest first (default)
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+
+    return {
+      sorted: result,
+      isFiltered: q !== '' || statusFilter !== 'all',
+    };
+  }, [requests, search, statusFilter, sort]);
+
+  const countText =
+    isFiltered
+      ? `${sorted.length} of ${requests.length} shown`
+      : `${requests.length} escalation${requests.length !== 1 ? 's' : ''}`;
 
   return (
     <div className="p-6 animate-fade-in">
@@ -41,46 +116,108 @@ export default function ApprovalQueue() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-sm font-semibold text-[var(--color-text)]">Approval Queue</h2>
-          <p className="text-xs text-[var(--color-text-dim)]">
-            {pending.length} pending · {resolved.length} resolved
-          </p>
         </div>
       </div>
 
-      {/* Pending approvals */}
+      {/* Search + Sort row */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by agent, action, capability, policy…"
+            data-testid="approval-search"
+            className="w-full pl-8 pr-8 py-1.5 rounded-lg text-sm bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-colors"
+          />
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] text-sm pointer-events-none">
+            ⌕
+          </span>
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-dim)] hover:text-[var(--color-text)] text-sm transition-colors"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortOrder)}
+          data-testid="approval-sort"
+          className="py-1.5 px-2 rounded-lg text-sm bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] focus:outline-none focus:border-emerald-500/50 transition-colors"
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="agent">By agent</option>
+        </select>
+      </div>
+
+      {/* Filter tabs + result count */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-1">
+          {STATUS_TABS.map(({ key, label }) => (
+            <button
+              key={key}
+              data-testid={`approval-filter-${key}`}
+              onClick={() => setStatusFilter(key)}
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                statusFilter === key
+                  ? 'bg-[var(--color-border)] text-[var(--color-text)]'
+                  : 'text-[var(--color-text-dim)] hover:text-[var(--color-text)]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {!loading && (
+          <span
+            data-testid="approval-count"
+            className="text-xs text-[var(--color-text-dim)] font-mono-data"
+          >
+            {countText}
+          </span>
+        )}
+      </div>
+
+      {/* List */}
       {loading ? (
         <div className="space-y-3">
           <SkeletonCard />
           <SkeletonCard />
         </div>
-      ) : pending.length === 0 && resolved.length === 0 ? (
+      ) : requests.length === 0 ? (
         <EmptyState
           icon="✓"
           title="No pending approvals"
           description="Escalated actions from the policy engine will appear here."
         />
+      ) : sorted.length === 0 ? (
+        <div
+          data-testid="approval-empty-filtered"
+          className="flex flex-col items-center justify-center py-16 text-center"
+        >
+          <span className="text-2xl mb-3 opacity-40">⌕</span>
+          <p className="text-sm font-medium text-[var(--color-text-dim)]">No matching escalations</p>
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">Try adjusting your search or filter</p>
+        </div>
       ) : (
         <div className="space-y-3">
-          {pending.map((req) => (
-            <ApprovalCard
-              key={req.id}
-              request={req}
-              onApprove={() => setConfirmAction({ id: req.id, decision: 'approve' })}
-              onReject={() => setConfirmAction({ id: req.id, decision: 'reject' })}
-            />
-          ))}
-
-          {resolved.length > 0 && (
-            <>
-              <div className="flex items-center gap-2 mt-6 mb-2">
-                <span className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] font-semibold">Resolved</span>
-                <span className="flex-1 h-px bg-[var(--color-border)]" />
-              </div>
-              {resolved.map((req) => (
-                <ApprovalCard key={req.id} request={req} resolved />
-              ))}
-            </>
-          )}
+          {sorted.map((req) => {
+            const isResolved = req.status !== 'pending';
+            return (
+              <ApprovalCard
+                key={req.id}
+                request={req}
+                resolved={isResolved}
+                onApprove={isResolved ? undefined : () => setConfirmAction({ id: req.id, decision: 'approve' })}
+                onReject={isResolved ? undefined : () => setConfirmAction({ id: req.id, decision: 'reject' })}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -110,14 +247,16 @@ const ApprovalCard = memo(function ApprovalCard({
   onReject?: () => void;
   resolved?: boolean;
 }) {
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     pending: 'border-l-amber-500/60',
     approved: 'border-l-emerald-500/60',
     rejected: 'border-l-red-500/60',
   };
 
   return (
-    <div className={`rounded-r-xl border border-[var(--color-border)] border-l-2 ${statusColors[request.status]} bg-[var(--color-surface)] p-4 ${resolved ? 'opacity-60' : ''}`}>
+    <div
+      className={`rounded-r-xl border border-[var(--color-border)] border-l-2 ${statusColors[request.status] ?? 'border-l-[var(--color-border)]'} bg-[var(--color-surface)] p-4 ${resolved ? 'opacity-60' : ''}`}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -162,7 +301,9 @@ const ApprovalCard = memo(function ApprovalCard({
             </>
           )}
           {resolved && (
-            <span className={`text-[10px] font-semibold uppercase ${request.status === 'approved' ? 'text-emerald-400' : 'text-red-400'}`}>
+            <span
+              className={`text-[10px] font-semibold uppercase ${request.status === 'approved' ? 'text-emerald-400' : 'text-red-400'}`}
+            >
               {request.status}
             </span>
           )}

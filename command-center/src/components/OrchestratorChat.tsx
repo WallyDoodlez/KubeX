@@ -39,6 +39,28 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [msgError, setMsgError] = useState<string | null>(null);
   const [knownCaps, setKnownCaps] = useState<string[]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  // Favorite capabilities — persisted to localStorage
+  const [favoriteCaps, setFavoriteCaps] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('kubex-favorite-caps');
+      return stored ? (JSON.parse(stored) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleFavoriteCap = useCallback((cap: string) => {
+    setFavoriteCaps((prev) => {
+      const next = prev.includes(cap) ? prev.filter((c) => c !== cap) : [...prev, cap];
+      try {
+        localStorage.setItem('kubex-favorite-caps', JSON.stringify(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  }, []);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -402,10 +424,68 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     onComplete: handleSSEComplete,
   });
 
-  // Advance timeline phase when SSE connection opens
+  // Advance timeline phase when SSE connection opens.
+  // Also check for the SSE race condition (BUG-007): if the task completed before the
+  // stream opened, no events will ever arrive. Poll once immediately on open — if the
+  // task is already terminal, render the result and close the stream.
   useEffect(() => {
     if (sseStatus === 'open' && sending) {
       setLivePhases(buildPhases('Streaming'));
+
+      const taskId = activeTaskIdRef.current;
+      const cap = activeCapRef.current;
+      if (!taskId) return;
+
+      (async () => {
+        const rr = await getTaskResult(taskId);
+        // Only act if we are still in the sending state for this task
+        if (!activeTaskIdRef.current) return; // cancelled/completed in the meantime
+        if (
+          rr.ok &&
+          rr.data &&
+          (rr.data.status === 'completed' || rr.data.status === 'failed' || rr.data.status === 'cancelled')
+        ) {
+          const resultText =
+            typeof rr.data.result === 'string'
+              ? rr.data.result
+              : rr.data.result !== undefined
+              ? JSON.stringify(rr.data.result, null, 2)
+              : JSON.stringify(rr.data, null, 2);
+
+          const isSuccess = rr.data.status === 'completed';
+          localStorage.removeItem('kubex-active-task');
+          closeSSE();
+          setSending(false);
+          setStreamUrl(null);
+          setHitlRequest(null);
+          setLivePhases([]);
+          activeTaskIdRef.current = null;
+
+          setMessages((msgs) => [
+            ...msgs,
+            {
+              id: crypto.randomUUID(),
+              role: isSuccess ? 'result' : 'error',
+              content: isSuccess ? resultText : `Task ${rr.data!.status}: ${resultText}`,
+              timestamp: new Date(),
+              task_id: taskId,
+              raw: rr.data,
+              phases: isSuccess ? buildPhasesCompleted() : buildPhasesFailed(),
+            } as ChatMessage,
+          ]);
+
+          onTrafficEntry({
+            id: crypto.randomUUID(),
+            timestamp: new Date(),
+            agent_id: 'orchestrator',
+            action: 'task_result',
+            capability: cap,
+            status: isSuccess ? 'allowed' : 'escalated',
+            task_id: taskId,
+          });
+        }
+        // If task is still running, do nothing — SSE events will arrive normally
+      })();
     }
   }, [sseStatus, sending]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -640,6 +720,67 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     // Connect SSE stream
     setStreamUrl(getTaskStreamUrl(taskId));
     setLivePhases(buildPhases('Connecting'));
+
+    // BUG-007 fix: fast-task race-condition guard.
+    // If the task completes in < ~2s (before the SSE stream can connect and receive events),
+    // the SSE stream sits idle with no events forever. Poll once after a short delay — if the
+    // result is already there, render it immediately and close the stream.
+    const capturedTaskId = taskId;
+    const capturedCap = cap;
+    setTimeout(async () => {
+      // Only act if this task is still the active one and we are still sending
+      if (activeTaskIdRef.current !== capturedTaskId) return;
+
+      const rr = await getTaskResult(capturedTaskId);
+      // Check again after the async call
+      if (activeTaskIdRef.current !== capturedTaskId) return;
+
+      if (
+        rr.ok &&
+        rr.data &&
+        (rr.data.status === 'completed' || rr.data.status === 'failed' || rr.data.status === 'cancelled')
+      ) {
+        const resultText =
+          typeof rr.data.result === 'string'
+            ? rr.data.result
+            : rr.data.result !== undefined
+            ? JSON.stringify(rr.data.result, null, 2)
+            : JSON.stringify(rr.data, null, 2);
+
+        const isSuccess = rr.data.status === 'completed';
+        localStorage.removeItem('kubex-active-task');
+        closeSSE();
+        setSending(false);
+        setStreamUrl(null);
+        setHitlRequest(null);
+        setLivePhases([]);
+        activeTaskIdRef.current = null;
+
+        setMessages((msgs) => [
+          ...msgs,
+          {
+            id: crypto.randomUUID(),
+            role: isSuccess ? 'result' : 'error',
+            content: isSuccess ? resultText : `Task ${rr.data!.status}: ${resultText}`,
+            timestamp: new Date(),
+            task_id: capturedTaskId,
+            raw: rr.data,
+            phases: isSuccess ? buildPhasesCompleted() : buildPhasesFailed(),
+          } as ChatMessage,
+        ]);
+
+        onTrafficEntry({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          agent_id: 'orchestrator',
+          action: 'task_result',
+          capability: capturedCap,
+          status: isSuccess ? 'allowed' : 'escalated',
+          task_id: capturedTaskId,
+        });
+      }
+      // If task is still running, SSE events will arrive normally (or handleSSEComplete will fire)
+    }, 2000);
   }
 
   async function handleHITLSubmit(taskId: string, input: string) {
@@ -1312,6 +1453,32 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           </div>
         </div>
 
+        {/* Quick-access favorite capability pills — shown when Advanced panel is collapsed and favorites exist */}
+        {!advancedOpen && favoriteCaps.length > 0 && (
+          <div
+            data-testid="quick-caps-bar"
+            className="mt-2 flex flex-wrap gap-1.5 items-center"
+          >
+            <span className="text-[9px] text-[var(--color-text-muted)] self-center">Quick:</span>
+            {favoriteCaps.map((cap) => (
+              <button
+                key={cap}
+                data-testid={`quick-cap-pill-${cap}`}
+                onClick={() => setCapability(cap)}
+                disabled={sending}
+                className="
+                  text-xs font-mono-data px-3 py-1 rounded-full
+                  bg-gray-700 hover:bg-gray-600 text-gray-200
+                  disabled:opacity-40 disabled:cursor-not-allowed
+                  transition-colors border border-gray-600
+                "
+              >
+                {cap}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Advanced panel — capability selector + known caps chips */}
         {advancedOpen && (
           <div
@@ -1353,17 +1520,49 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
             {capError && <p className="text-[10px] text-red-400 mt-0.5">{capError}</p>}
 
             {knownCaps.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                <span className="text-[10px] text-[var(--color-text-muted)] self-center">Known caps:</span>
-                {knownCaps.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCapability(c)}
-                    className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-border-strong)] transition-colors border border-[var(--color-border-strong)]"
-                  >
-                    {c}
-                  </button>
-                ))}
+              <div className="mt-2 space-y-2">
+                {/* Favorites section — only shown when at least one cap is starred */}
+                {favoriteCaps.length > 0 && (
+                  <div data-testid="favorite-caps-section" className="flex flex-wrap gap-1 items-center">
+                    <span className="text-[10px] text-amber-400/80 self-center">★ Favorites:</span>
+                    {favoriteCaps.filter((c) => knownCaps.includes(c)).map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setCapability(c)}
+                        className="text-[10px] font-mono-data px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 hover:text-amber-200 hover:bg-amber-500/20 transition-colors border border-amber-500/30"
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* All known caps with star toggles */}
+                <div className="flex flex-wrap gap-1 items-center">
+                  <span className="text-[10px] text-[var(--color-text-muted)] self-center">Known caps:</span>
+                  {knownCaps.map((c) => (
+                    <div key={c} className="flex items-center gap-0">
+                      <button
+                        onClick={() => setCapability(c)}
+                        className="text-[10px] font-mono-data px-1.5 py-0.5 rounded-l bg-[var(--color-border)] text-[var(--color-text-dim)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-border-strong)] transition-colors border border-[var(--color-border-strong)]"
+                      >
+                        {c}
+                      </button>
+                      <button
+                        data-testid={`cap-star-${c}`}
+                        onClick={() => toggleFavoriteCap(c)}
+                        aria-label={favoriteCaps.includes(c) ? `Unstar ${c}` : `Star ${c}`}
+                        className={`text-[10px] px-1 py-0.5 rounded-r transition-colors border border-l-0 border-[var(--color-border-strong)] ${
+                          favoriteCaps.includes(c)
+                            ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25'
+                            : 'bg-[var(--color-border)] text-[var(--color-text-muted)] hover:text-amber-400 hover:bg-[var(--color-border-strong)]'
+                        }`}
+                      >
+                        {favoriteCaps.includes(c) ? '★' : '☆'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -1922,10 +2121,15 @@ const ChatBubble = memo(function ChatBubble({
 
   if (isSystem) {
     return (
-      <div className="flex justify-center" data-testid="system-message">
+      <div className="flex flex-col items-center gap-0.5" data-testid="system-message">
         <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-full px-3 py-1">
           {highlightText(message.content, searchQuery)}
         </span>
+        <RelativeTime
+          date={message.timestamp}
+          className="text-[10px] text-[var(--color-text-muted)] font-mono-data"
+          data-testid="chat-bubble-timestamp"
+        />
       </div>
     );
   }

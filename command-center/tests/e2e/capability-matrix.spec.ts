@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes, MOCK_AGENTS } from './helpers';
 
 /**
  * Capability Matrix — Iteration 29
@@ -9,6 +10,7 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('Capability Matrix', () => {
   test.beforeEach(async ({ page }) => {
+    await mockBaseRoutes(page, { agents: MOCK_AGENTS });
     await page.goto('/agents');
     await expect(page.locator('header h1')).toHaveText('Agents');
     // Wait for the matrix to be present (agents have loaded)
@@ -149,6 +151,8 @@ test.describe('Capability Matrix', () => {
 
   test('matrix is visible after navigating away and back', async ({ page }) => {
     // Navigate to Dashboard using direct URL (avoids button vs <a> selector issues)
+    // Clear last-page so the restore redirect does not interfere.
+    await page.evaluate(() => localStorage.removeItem('kubex-last-page'));
     await page.goto('/');
     await expect(page.locator('header h1')).toHaveText('Dashboard');
     // Navigate back to Agents

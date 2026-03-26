@@ -12,8 +12,16 @@
  *   - Time-window filter: Last 1 h / 24 h / 7 d / All time
  *   - "Clear all filters" button when any filter is active
  *   - All new filters persisted in URL query params
+ *
+ * Iteration 91: Task history detail panel
+ *   - Formatted detail panel replaces raw JSON
+ *   - Agent ID as clickable link, capability badge, status badge
+ *   - Result rendered with ReactMarkdown, error in red box
+ *   - Duration computed from timestamps
+ *   - Slide-down transition with grid-rows trick
  */
 import { useState, useMemo, memo } from 'react';
+import ReactMarkdown from 'react-markdown';
 import type { TrafficEntry, ActionStatus } from '../types';
 import { useSearch } from '../hooks/useSearch';
 import { useSort } from '../hooks/useSort';
@@ -83,77 +91,207 @@ const sortComparators: Record<SortKey, (a: TrafficEntry, b: TrafficEntry) => num
 
 // ── Sub-components ───────────────────────────────────────────────────
 
-interface DetailRowProps {
-  entry: TrafficEntry;
+/** Type-guard helpers for entry.details */
+function getDetailsRecord(details: unknown): Record<string, unknown> | null {
+  if (details && typeof details === 'object' && !Array.isArray(details)) {
+    return details as Record<string, unknown>;
+  }
+  return null;
 }
 
-const DetailRow = memo(function DetailRow({ entry }: DetailRowProps) {
-  const detailJson = entry.details
-    ? JSON.stringify(entry.details, null, 2)
-    : null;
+function getDetailsString(details: unknown, key: string): string | null {
+  const rec = getDetailsRecord(details);
+  if (!rec) return null;
+  const val = rec[key];
+  return typeof val === 'string' ? val : null;
+}
+
+/** Format an ISO timestamp to a readable local string */
+function formatTimestamp(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+/** Compute duration string between two ISO timestamps */
+function computeDuration(fromDate: Date, toIso: string): string | null {
+  try {
+    const toMs = new Date(toIso).getTime();
+    const fromMs = fromDate.getTime();
+    if (isNaN(toMs) || isNaN(fromMs)) return null;
+    const diffSec = Math.round((toMs - fromMs) / 1000);
+    if (diffSec < 0) return null;
+    if (diffSec < 60) return `${diffSec}s`;
+    const mins = Math.floor(diffSec / 60);
+    const secs = diffSec % 60;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  } catch {
+    return null;
+  }
+}
+
+interface DetailRowProps {
+  entry: TrafficEntry;
+  isExpanded: boolean;
+}
+
+const DetailRow = memo(function DetailRow({ entry, isExpanded }: DetailRowProps) {
+  const details = getDetailsRecord(entry.details);
+  const resultText = getDetailsString(entry.details, 'result');
+  const errorText = getDetailsString(entry.details, 'error');
+  const completedAt = getDetailsString(entry.details, 'completed_at');
+  const duration = completedAt ? computeDuration(entry.timestamp, completedAt) : null;
+  const capability = entry.capability ?? '—';
 
   return (
     <tr
       data-testid={`task-detail-row-${entry.id}`}
       className="bg-[var(--color-surface-dark)]/50"
     >
-      <td colSpan={6} className="px-4 py-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          {/* Meta */}
-          <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] font-semibold">
-              Task metadata
-            </p>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Task ID</span>
-                <span className="font-mono-data text-[var(--color-text-secondary)] truncate">
-                  {entry.task_id ?? '—'}
-                </span>
-                {entry.task_id && <CopyButton text={entry.task_id} ariaLabel="Copy task ID" />}
+      <td colSpan={6} className="px-0 py-0 overflow-hidden">
+        {/* Grid-rows transition trick for smooth slide-down */}
+        <div
+          className={[
+            'grid transition-all duration-200 ease-in-out',
+            isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+          ].join(' ')}
+        >
+          <div className="overflow-hidden">
+            <div
+              data-testid={`task-detail-panel-${entry.id}`}
+              className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-5 text-xs"
+            >
+              {/* ── Left column: metadata ── */}
+              <div className="space-y-3">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] font-semibold">
+                  Task metadata
+                </p>
+
+                {/* Task ID + copy */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Task ID</span>
+                  <span className="font-mono-data text-[var(--color-text-secondary)] truncate">
+                    {entry.task_id ?? '—'}
+                  </span>
+                  {entry.task_id && (
+                    <CopyButton text={entry.task_id} ariaLabel="Copy task ID" testId="task-detail-copy-task-id" />
+                  )}
+                </div>
+
+                {/* Agent ID — clickable link */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Agent</span>
+                  <a
+                    href={`/agents/${entry.agent_id}`}
+                    data-testid="task-detail-agent-link"
+                    onClick={(e) => e.stopPropagation()}
+                    className="font-mono-data text-emerald-400 hover:text-emerald-300 hover:underline truncate transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
+                  >
+                    {entry.agent_id}
+                  </a>
+                  <CopyButton text={entry.agent_id} ariaLabel="Copy agent ID" testId="task-detail-copy-agent-id" />
+                </div>
+
+                {/* Capability badge */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Capability</span>
+                  {capability !== '—' ? (
+                    <span
+                      data-testid="task-detail-capability"
+                      className="inline-block font-mono-data bg-violet-500/15 border border-violet-500/30 text-violet-300 rounded px-1.5 py-0.5 text-[11px]"
+                    >
+                      {capability}
+                    </span>
+                  ) : (
+                    <span data-testid="task-detail-capability" className="text-[var(--color-text-muted)]">—</span>
+                  )}
+                </div>
+
+                {/* Status badge */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Status</span>
+                  <span data-testid="task-detail-status">
+                    <StatusBadge status={entry.status} />
+                  </span>
+                </div>
+
+                {/* Policy rule */}
+                {entry.policy_rule && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Policy rule</span>
+                    <span className="font-mono-data text-[var(--color-text-secondary)]">
+                      {entry.policy_rule}
+                    </span>
+                  </div>
+                )}
+
+                {/* Timestamps */}
+                <div className="flex items-start gap-2">
+                  <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Dispatched</span>
+                  <span className="font-mono-data text-[var(--color-text-secondary)] text-[11px]">
+                    {formatTimestamp(entry.timestamp.toISOString())}
+                  </span>
+                </div>
+
+                {completedAt && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Completed</span>
+                    <span className="font-mono-data text-[var(--color-text-secondary)] text-[11px]">
+                      {formatTimestamp(completedAt)}
+                    </span>
+                  </div>
+                )}
+
+                {duration && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Duration</span>
+                    <span className="font-mono-data text-sky-400 text-[11px]">{duration}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Agent</span>
-                <span className="font-mono-data text-[var(--color-text-secondary)] truncate">
-                  {entry.agent_id}
-                </span>
-                <CopyButton text={entry.agent_id} ariaLabel="Copy agent ID" />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Capability</span>
-                <span className="font-mono-data text-[var(--color-text-secondary)]">
-                  {entry.capability ?? '—'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Policy rule</span>
-                <span className="font-mono-data text-[var(--color-text-secondary)]">
-                  {entry.policy_rule ?? '—'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Dispatched</span>
-                <span className="font-mono-data text-[var(--color-text-secondary)]">
-                  {entry.timestamp.toISOString()}
-                </span>
-              </div>
+
+              {/* ── Right column: result / error ── */}
+              {(resultText || errorText || (details && !resultText && !errorText)) && (
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] font-semibold">
+                    {errorText ? 'Error' : 'Result'}
+                  </p>
+
+                  {resultText ? (
+                    <div
+                      data-testid="task-detail-result"
+                      className="prose prose-invert prose-xs max-w-none bg-[var(--color-bg)] rounded-lg p-3 border border-[var(--color-border)] text-[var(--color-text-secondary)] overflow-auto max-h-52 text-xs [&_p]:my-1 [&_ul]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-xs"
+                    >
+                      <ReactMarkdown>{resultText}</ReactMarkdown>
+                    </div>
+                  ) : errorText ? (
+                    <div
+                      data-testid="task-detail-result"
+                      className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-300 font-mono-data text-[11px] overflow-auto max-h-52"
+                    >
+                      {errorText}
+                    </div>
+                  ) : details ? (
+                    <pre
+                      data-testid="task-detail-result"
+                      className="bg-[var(--color-bg)] rounded-lg p-3 text-[10px] font-mono-data text-[var(--color-text-secondary)] overflow-auto max-h-40 border border-[var(--color-border)]"
+                    >
+                      {JSON.stringify(details, null, 2)}
+                    </pre>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Details JSON */}
-          {detailJson && (
-            <div className="space-y-2">
-              <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] font-semibold">
-                Details
-              </p>
-              <pre
-                data-testid={`task-detail-json-${entry.id}`}
-                className="bg-[var(--color-bg)] rounded-lg p-3 text-[10px] font-mono-data text-[var(--color-text-secondary)] overflow-auto max-h-40 border border-[var(--color-border)]"
-              >
-                {detailJson}
-              </pre>
-            </div>
-          )}
         </div>
       </td>
     </tr>
@@ -611,9 +749,11 @@ export default function TaskHistoryPage({ entries }: TaskHistoryPageProps) {
                         isExpanded={expandedId === entry.id}
                         onToggle={() => toggleExpand(entry.id)}
                       />
-                      {expandedId === entry.id && (
-                        <DetailRow key={`detail-${entry.id}`} entry={entry} />
-                      )}
+                      <DetailRow
+                        key={`detail-${entry.id}`}
+                        entry={entry}
+                        isExpanded={expandedId === entry.id}
+                      />
                     </>
                   ))}
                 </tbody>

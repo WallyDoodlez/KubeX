@@ -8,6 +8,7 @@ import {
 import type { ServiceHealth } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { usePolling } from './usePolling';
+import { startLoading, stopLoading } from '../context/LoadingContext';
 
 const HEALTH_INTERVAL = 15_000; // 15 s — slightly less aggressive than Dashboard's 10 s
 
@@ -27,6 +28,8 @@ export function useHealthCheck(): void {
   const { setServices, setLastHealthPollAt } = useAppContext();
 
   const checkHealth = useCallback(async () => {
+    startLoading();
+    try {
     const checks = [
       { name: 'Gateway',  fn: getGatewayHealth  },
       { name: 'Registry', fn: getRegistryHealth },
@@ -70,6 +73,9 @@ export function useHealthCheck(): void {
       }),
     );
     setLastHealthPollAt(new Date());
+    } finally {
+      stopLoading();
+    }
   }, [setServices, setLastHealthPollAt]);
 
   usePolling(checkHealth, {

@@ -103,6 +103,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           icon="◎"
           onClick={() => onNavigate('agents')}
           sparklineValues={agentSeries.values}
+          sparklineLabel="Agent count"
         />
         <StatCard
           label="Running Kubexes"
@@ -111,6 +112,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           icon="⬡"
           onClick={() => onNavigate('containers')}
           sparklineValues={kubexSeries.values}
+          sparklineLabel="Kubex count"
         />
       </div>
 
@@ -235,6 +237,7 @@ function StatCard({
   icon,
   onClick,
   sparklineValues,
+  sparklineLabel,
 }: {
   label: string;
   value: string;
@@ -242,6 +245,7 @@ function StatCard({
   icon: string;
   onClick?: () => void;
   sparklineValues?: number[];
+  sparklineLabel?: string;
 }) {
   const accentColors = {
     emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -273,6 +277,9 @@ function StatCard({
       {sparklineValues && sparklineValues.length > 1 && (
         <div className="mt-2">
           <Sparkline values={sparklineValues} width={160} height={24} color={sparklineColorMap[accent]} />
+          {sparklineLabel && (
+            <p className="text-[10px] text-[var(--color-text-dim)] mt-0.5" data-testid="sparkline-label">{sparklineLabel}</p>
+          )}
         </div>
       )}
     </div>

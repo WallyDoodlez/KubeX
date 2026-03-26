@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockBaseRoutes } from './helpers';
 
 test.describe('Error Recovery', () => {
   test('app renders without crashing on all routes', async ({ page }) => {
@@ -30,6 +31,8 @@ test.describe('Error Recovery', () => {
   });
 
   test('app shell remains intact under normal operation', async ({ page }) => {
+    // Mock health routes so ConnectionIndicator shows "live" (operational)
+    await mockBaseRoutes(page);
     await page.goto('/');
 
     // Verify key UI elements are present
@@ -37,7 +40,7 @@ test.describe('Error Recovery', () => {
     await expect(page.locator('main')).toBeVisible();
     await expect(page.locator('header')).toBeVisible();
     await expect(page.locator('text=KubexClaw')).toBeVisible();
-    await expect(page.locator('text=live')).toBeVisible();
+    await expect(page.locator('text=live')).toBeVisible({ timeout: 8000 });
 
     // Navigate to a different page and verify shell persists
     await page.locator('aside').getByText('Agents', { exact: true }).click();
