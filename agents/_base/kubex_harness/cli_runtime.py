@@ -459,9 +459,13 @@ class CLIRuntime:
         """Poll the Broker for tasks, dispatching each via _execute_task.
 
         READY -> BUSY -> READY cycle per task. Stops when ``_running`` is False.
+        Uses /messages/consume/{capability} endpoint with capability-based
+        consumer groups (same pattern as MCP Bridge orchestrator).
         """
-        caps = ",".join(self.config.capabilities)
-        poll_url = f"{self.config.broker_url}/tasks/next"
+        # CLI agents poll one capability at a time; use the first capability
+        # as the consumer group name (matches Broker's filter_by_capability logic)
+        primary_cap = self.config.capabilities[0] if self.config.capabilities else "default"
+        poll_url = f"{self.config.broker_url}/messages/consume/{primary_cap}"
 
         while self._running:
             # Pre-flight credential check (Pitfall 3 — token may expire mid-session)
@@ -477,15 +481,33 @@ class CLIRuntime:
                 if self._http is None:
                     await asyncio.sleep(2)
                     continue
-                resp = await self._http.get(poll_url, params={"capabilities": caps})
-                if resp.status_code == 204:
-                    await asyncio.sleep(2)
-                    continue
+                resp = await self._http.get(poll_url, params={"count": 1, "block_ms": 0})
                 if resp.status_code == 200:
-                    task = resp.json()
+                    messages = resp.json()
+                    if not messages:
+                        await asyncio.sleep(2)
+                        continue
+                    # Extract task from first message
+                    msg = messages[0]
+                    task = {
+                        "task_id": msg.get("task_id", ""),
+                        "message": msg.get("context_message", ""),
+                        "capability": msg.get("capability", primary_cap),
+                        "_message_id": msg.get("message_id", ""),
+                    }
                     self._state = CliState.BUSY
                     await self._publish_state(CliState.BUSY)
                     await self._execute_task(task)
+                    # ACK the message after task completion
+                    message_id = task.get("_message_id", "")
+                    if message_id and self._http:
+                        try:
+                            await self._http.post(
+                                f"{self.config.broker_url}/messages/{message_id}/ack",
+                                json={"group": primary_cap, "message_id": message_id},
+                            )
+                        except Exception:
+                            logger.warning("Failed to ACK message %s", message_id)
                     if self._state != CliState.CREDENTIAL_WAIT:
                         self._state = CliState.READY
                         await self._publish_state(CliState.READY)
