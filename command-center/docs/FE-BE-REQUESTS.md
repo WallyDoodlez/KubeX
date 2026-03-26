@@ -878,3 +878,59 @@ These UX questions must be resolved before implementation:
 4. **Concurrent HITL:** If two workers ask questions at the same time, how does the UI queue them? (Backend will handle sequentially for v1, but UI needs to decide on presentation.)
 5. **HITL timeout:** What does the UI show if the user doesn't respond within the timeout window? A "question expired" message?
 6. **Context injection confirmation:** When user says "pass that to the scraper," should the UI confirm the action before the orchestrator does it?
+
+---
+
+### 🔴 Conversation Participant Events — agent_joined / agent_left
+
+- **Requested:** 2026-03-26
+- **Feature:** Structured SSE progress events that tell the FE which worker kubexes are involved in an orchestrator task
+- **Why:** The FE wants to show the orchestrator chat as a group conversation — kubexes "join" when dispatched and "leave" when their sub-task resolves. Currently impossible because the orchestrator stamps its own `agent_id` on all progress events (`mcp_bridge.py:663`, `cli_runtime.py:904`), losing the worker's identity.
+
+**What the orchestrator sends today:**
+
+All progress events have `"agent_id": "orchestrator"`. The worker's agent_id is only inside the free-text `output` string — unreliable for FE parsing.
+
+**What the FE needs:**
+
+Two new progress event types emitted by the orchestrator on its own progress channel (`progress:{orchestrator_task_id}`):
+
+```json
+{"type": "agent_joined", "agent_id": "instagram-scraper", "sub_task_id": "task-xxx", "capability": "scrape_instagram"}
+```
+
+```json
+{"type": "agent_left", "agent_id": "instagram-scraper", "sub_task_id": "task-xxx", "status": "completed", "duration_ms": 4200}
+```
+
+**Where to emit in BE code:**
+
+| Event | Trigger | File |
+|-------|---------|------|
+| `agent_joined` | `kubex__dispatch_task` tool call returns successfully | `mcp_bridge.py` — inside `_call_tool` or equivalent dispatch handler |
+| `agent_left` | `kubex__check_task_status` / `kubex__get_task_result` returns a terminal status (`completed`/`failed`/`cancelled`) | `mcp_bridge.py` — inside tool result handler |
+
+These are calls to the existing `_post_progress()` method — no new endpoints needed. The orchestrator already knows the target `agent_id` and `sub_task_id` from the tool call arguments/response.
+
+**For CLI-based orchestrators** (`cli_runtime.py`): The orchestrator runs as a CLI subprocess (Claude Code, Gemini CLI). It doesn't call MCP tools — it writes to stdout. The FE cannot get structured participant events from a CLI orchestrator without a new mechanism (e.g., hook events for dispatch/completion). This is a harder problem and may be deferred.
+
+**FE fallback (works today, no BE change):** The FE already extracts `agent_id` from the result payload via `extractResultContent()`. If the inner JSON contains a non-orchestrator `agent_id`, the FE can show it. This is fragile but covers the common case.
+
+- **Blocker?** Yes — blocks Iteration 96 (conversation participant model)
+- **Priority:** Medium — FE has a degraded fallback via result extraction
+- **Complexity:** Low for MCP Bridge orchestrators (add 2 `_post_progress` calls). Higher for CLI orchestrators.
+
+---
+
+### 🟡 HITL source_agent Attribution — Not Yet Implemented
+
+- **Requested:** 2026-03-26
+- **Feature:** The `hitl_request` SSE event should include `source_agent` field identifying which worker asked the question
+- **Design doc:** `docs/design-orchestrator-chat-hitl.md` line 63 specifies this:
+  ```json
+  {"type": "hitl_request", "prompt": "Which account?", "source_agent": "instagram-scraper"}
+  ```
+- **Current state:** The HITL forwarding path in `mcp_bridge.py` does not detect worker HITL requests or forward them with `source_agent`. The design is written but not implemented.
+- **FE use:** Show which kubex is asking the user a question in the chat UI
+- **Blocker?** No — FE can show HITL prompts without attribution (current behavior). But needed for the conversation participant model.
+- **Priority:** Medium — tied to Iteration 96
