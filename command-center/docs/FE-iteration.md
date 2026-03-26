@@ -1,6 +1,6 @@
 # Iteration 95: Smart Agent Result Rendering + Auto-Scroll Fix
 
-> Status: **PLANNED**
+> Status: **DONE**
 > Date: 2026-03-26
 
 ---
