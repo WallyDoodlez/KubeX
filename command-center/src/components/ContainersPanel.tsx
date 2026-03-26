@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, memo } from 'react';
+import { useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
 import type { Kubex } from '../types';
 import { getKubexes, killKubex, startKubex, stopKubex, restartKubex, respawnKubex, deleteKubex } from '../api';
 import StatusBadge from './StatusBadge';
@@ -22,6 +22,8 @@ import KubexConfigPanel from './KubexConfigPanel';
 import KubexInstallDepPanel from './KubexInstallDepPanel';
 import KubexCredentialPanel from './KubexCredentialPanel';
 import { useToast } from '../context/ToastContext';
+import { useAgentLifecycle } from '../hooks/useAgentLifecycle';
+import type { KubexRuntime } from '../types';
 
 // Status filter options
 type StatusFilter = 'all' | 'running' | 'created' | 'stopped' | 'error';
@@ -572,6 +574,52 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
   const [configOpen, setConfigOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
   const [credOpen, setCredOpen] = useState(false);
+  // Brief "Authorized!" confirmation shown after credential_wait → ready transition
+  const [showAuthorized, setShowAuthorized] = useState(false);
+  // Track the previous lifecycle state to detect transitions (mutable ref, no re-render)
+  const prevLifecycleStateRef = useRef<string | null>(null);
+
+  // Subscribe to the agent's lifecycle SSE — only when the container is running
+  // and has an agent_id registered. Pass null to skip when not applicable.
+  const lifecycleAgentId = isRunning && kubex.agent_id ? kubex.agent_id : null;
+  const { state: lifecycleState } = useAgentLifecycle(lifecycleAgentId);
+
+  const needsAuth = lifecycleState === 'credential_wait';
+
+  // Detect runtime from kubex config (best-effort). Falls back to 'claude-code'.
+  const detectedRuntime: KubexRuntime = (() => {
+    const cfg = kubex.config;
+    if (!cfg) return 'claude-code';
+    const agentSection = cfg.agent as Record<string, unknown> | undefined;
+    const providers = agentSection?.providers as string[] | undefined;
+    const runtime = (cfg.runtime as string | undefined)
+      ?? (agentSection?.runtime as string | undefined)
+      ?? providers?.[0];
+    if (typeof runtime === 'string') {
+      if (runtime.includes('gemini')) return 'gemini-cli';
+      if (runtime.includes('codex')) return 'codex-cli';
+    }
+    return 'claude-code';
+  })();
+
+  // Auto-open credential panel and show "Authorized" banner on state transitions
+  useEffect(() => {
+    const prev = prevLifecycleStateRef.current;
+    prevLifecycleStateRef.current = lifecycleState;
+
+    if (lifecycleState === 'credential_wait' && prev !== 'credential_wait') {
+      setCredOpen(true);
+    }
+    if (
+      prev === 'credential_wait' &&
+      (lifecycleState === 'ready' || lifecycleState === 'running' || lifecycleState === 'busy')
+    ) {
+      setCredOpen(false);
+      setShowAuthorized(true);
+      const timer = setTimeout(() => setShowAuthorized(false), 4_000);
+      return () => clearTimeout(timer);
+    }
+  }, [lifecycleState]);
 
   return (
     <div
@@ -580,6 +628,42 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
         ${!isLast ? 'border-b border-[var(--color-border)]' : ''}
       `}
     >
+      {/* Auth-required banner — shown when agent SSE signals credential_wait */}
+      {needsAuth && (
+        <div
+          className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/10 border-b border-amber-500/30"
+          data-testid={`kubex-auth-banner-${kubex.kubex_id}`}
+          role="alert"
+        >
+          <span className="text-xs text-amber-300 flex items-center gap-2">
+            <span aria-hidden="true">⚠</span>
+            Agent needs authentication — waiting for credentials
+          </span>
+          <button
+            type="button"
+            onClick={() => setCredOpen(true)}
+            data-testid={`kubex-auth-authorize-${kubex.kubex_id}`}
+            className="px-3 py-1 text-[10px] rounded border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 transition-colors whitespace-nowrap font-medium"
+          >
+            Authorize
+          </button>
+        </div>
+      )}
+
+      {/* "Authorized" confirmation — shown briefly after credential_wait → ready */}
+      {showAuthorized && (
+        <div
+          className="flex items-center gap-2 px-4 py-1.5 bg-cyan-500/10 border-b border-cyan-500/20"
+          data-testid={`kubex-authorized-banner-${kubex.kubex_id}`}
+          role="status"
+        >
+          <span className="text-xs text-cyan-300 flex items-center gap-2">
+            <span aria-hidden="true">✓</span>
+            Authorized — agent resumed
+          </span>
+        </div>
+      )}
+
       {/* Main row */}
       <div
         {...rowProps}
@@ -725,7 +809,7 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
             </button>
           )}
 
-          {/* Credentials — shown only when running */}
+          {/* Credentials — shown only when running; glows amber when auth is needed */}
           {isRunning && (
             <button
               onClick={() => setCredOpen((v) => !v)}
@@ -733,12 +817,14 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
               title={credOpen ? 'Close credential injector' : 'Inject OAuth credentials into this container'}
               aria-expanded={credOpen}
               className={`px-2 py-1 text-[10px] rounded border transition-colors ${
-                credOpen
+                needsAuth
+                  ? 'border-amber-500/60 bg-amber-500/10 text-amber-300 animate-pulse'
+                  : credOpen
                   ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300'
                   : 'border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10'
               }`}
             >
-              Creds
+              {needsAuth ? '⚠ Creds' : 'Creds'}
             </button>
           )}
 
@@ -765,9 +851,13 @@ const KubexRow = memo(function KubexRow({ kubex, isLast, actionIn, selected, foc
         <KubexInstallDepPanel kubexId={kubex.kubex_id} />
       )}
 
-      {/* Expandable credential panel — only when running */}
+      {/* Expandable credential panel — only when running.
+          Pre-seeds the runtime from kubex config when auto-opened via lifecycle SSE. */}
       {credOpen && isRunning && (
-        <KubexCredentialPanel kubexId={kubex.kubex_id} />
+        <KubexCredentialPanel
+          kubexId={kubex.kubex_id}
+          initialRuntime={detectedRuntime}
+        />
       )}
     </div>
   );
