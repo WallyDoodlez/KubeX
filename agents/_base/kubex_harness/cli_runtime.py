@@ -607,8 +607,8 @@ class CLIRuntime:
         try:
             if self._http:
                 await self._http.post(url, json=payload)
-        except Exception:
-            logger.debug("Failed to post success result for task %s", task_id)
+        except Exception as exc:
+            logger.warning("Failed to post success result for task %s: %s", task_id, exc)
 
     async def _post_result_failed(self, task_id: str, stdout: str, reason: str) -> None:
         """POST failure result to Broker."""
@@ -625,8 +625,8 @@ class CLIRuntime:
         try:
             if self._http:
                 await self._http.post(url, json=payload)
-        except Exception:
-            logger.debug("Failed to post failure result for task %s", task_id)
+        except Exception as exc:
+            logger.warning("Failed to post failure result for task %s: %s", task_id, exc)
 
     # ------------------------------------------------------------------
     # Hook event handlers (Phase 10 — called by hook_server.py)
@@ -900,8 +900,8 @@ class CLIRuntime:
             payload["exit_reason"] = exit_reason
         try:
             await self._http.post(url, json=payload)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to post progress for task %s: %s", task_id, exc)
 
     # ------------------------------------------------------------------
     # HITL

@@ -111,8 +111,16 @@ async def handle_action(request: Request, body: ActionRequest) -> JSONResponse:
         gateway.budget_tracker = BudgetTracker(gateway.redis_db1)
 
     if gateway.budget_tracker and body.context.task_id:
-        token_count = await gateway.budget_tracker.get_task_tokens(body.context.task_id)
-        daily_cost = await gateway.budget_tracker.get_daily_cost(body.agent_id)
+        try:
+            token_count = await gateway.budget_tracker.get_task_tokens(body.context.task_id)
+            daily_cost = await gateway.budget_tracker.get_daily_cost(body.agent_id)
+        except Exception as exc:
+            logger.warning(
+                "budget_check_failed",
+                agent_id=body.agent_id,
+                task_id=body.context.task_id,
+                error=str(exc),
+            )
 
     policy_result = gateway.policy_engine.evaluate(
         body,
@@ -306,8 +314,35 @@ async def _handle_dispatch_task(request: Request, body: ActionRequest, gateway: 
             ).model_dump(),
         )
 
-    # Resolve capability via Registry
+    registry_url = os.environ.get("REGISTRY_URL", "http://registry:8070")
     broker_url = os.environ.get("BROKER_URL", "http://broker:8060")
+
+    # Validate capability against Registry — return 404 if no agent has it
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            cap_resp = await client.get(f"{registry_url}/capabilities/{capability}")
+        if cap_resp.status_code == 404:
+            logger.warning(
+                "capability_not_found",
+                capability=capability,
+                agent_id=body.agent_id,
+            )
+            return JSONResponse(
+                status_code=404,
+                content=ErrorResponse(
+                    error="CapabilityNotFound",
+                    message=f"No registered agent has capability '{capability}'",
+                    details={"capability": capability},
+                ).model_dump(),
+            )
+    except Exception as exc:
+        # Registry unreachable — log warning but allow dispatch to proceed
+        # (graceful degradation: don't block if Registry is temporarily down)
+        logger.warning(
+            "capability_check_failed",
+            capability=capability,
+            error=str(exc),
+        )
 
     # Create TaskDelivery and send to Broker
     delivery = TaskDelivery(

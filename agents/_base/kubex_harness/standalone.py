@@ -554,8 +554,8 @@ class StandaloneAgent:
             payload["exit_reason"] = exit_reason
         try:
             await client.post(url, json=payload)
-        except Exception:
-            logger.debug("Failed to post progress for task %s", task_id)
+        except Exception as exc:
+            logger.warning("Failed to post progress for task %s: %s", task_id, exc)
 
     async def _store_result(self, client: httpx.AsyncClient, task_id: str, result_text: str, *, status: str = "completed") -> None:
         """Store task result via Broker POST /tasks/{task_id}/result."""
@@ -571,8 +571,8 @@ class StandaloneAgent:
             resp = await client.post(url, json=payload)
             if resp.status_code not in (200, 201, 204):
                 logger.warning("Result store returned %d for task %s", resp.status_code, task_id)
-        except Exception:
-            logger.debug("Failed to store result for task %s", task_id)
+        except Exception as exc:
+            logger.warning("Failed to store result for task %s: %s", task_id, exc)
 
     async def _ack(self, client: httpx.AsyncClient, message_id: str, group: str) -> None:
         """Acknowledge a message on the Broker."""

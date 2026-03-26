@@ -184,12 +184,13 @@ class BrokerStreams:
                         delivery_count=delivery_count,
                     )
                 else:
-                    # Re-claim for retry
+                    # Re-claim for retry — xclaim transfers ownership back to the consumer
+                    # so that the next xreadgroup with id=0 (pending entries) will re-deliver it.
                     await self._redis.xclaim(
                         STREAM_NAME,
                         agent_id,
                         agent_id,
-                        min_idle_time=RETRY_AFTER_MS,
+                        min_idle_time=0,
                         message_ids=[message_id],
                     )
 
@@ -235,7 +236,7 @@ class BrokerStreams:
                 "from_agent": delivery.from_agent,
                 "timestamp": datetime.now(UTC).isoformat(),
             }
-            await self._redis.xadd("audit:messages", audit_payload)
+            await self._redis.xadd("audit:messages", audit_payload, maxlen=10000, approximate=True)
         except Exception as exc:
             logger.warning("audit_failed", error=str(exc))
 

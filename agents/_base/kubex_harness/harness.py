@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import signal
 import subprocess
@@ -24,6 +25,8 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger("kubex_harness.harness")
 
 import httpx
 import redis.asyncio  # type: ignore[import]
@@ -439,9 +442,15 @@ class KubexHarness:
             payload["exit_reason"] = exit_reason
 
         try:
-            await http_client.post(url, json=payload)
-        except Exception:
-            pass
+            resp = await http_client.post(url, json=payload)
+            if resp.status_code not in (200, 201, 202, 204):
+                logger.warning(
+                    "progress_post_returned_%d for task %s",
+                    resp.status_code,
+                    self.config.task_id,
+                )
+        except Exception as exc:
+            logger.warning("Failed to post progress for task %s: %s", self.config.task_id, exc)
 
     async def _post_final_progress(
         self,
@@ -474,6 +483,12 @@ class KubexHarness:
             },
         }
         try:
-            await http_client.post(url, json=payload)
-        except Exception:
-            pass
+            resp = await http_client.post(url, json=payload)
+            if resp.status_code not in (200, 201, 202, 204):
+                logger.warning(
+                    "result_store_returned_%d for task %s",
+                    resp.status_code,
+                    self.config.task_id,
+                )
+        except Exception as exc:
+            logger.warning("Failed to store result for task %s: %s", self.config.task_id, exc)

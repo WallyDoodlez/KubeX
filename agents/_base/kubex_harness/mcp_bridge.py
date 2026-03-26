@@ -668,8 +668,8 @@ class MCPBridgeServer:
             payload["exit_reason"] = exit_reason
         try:
             await self._http.post(f"{self.config.gateway_url}/tasks/{task_id}/progress", json=payload)
-        except Exception:
-            logger.debug("Failed to post progress for task %s", task_id)
+        except Exception as exc:
+            logger.warning("Failed to post progress for task %s: %s", task_id, exc)
 
     async def _store_result(self, task_id: str, result_text: str, *, status: str = "completed") -> None:
         """Store task result via Broker POST /tasks/{task_id}/result."""
@@ -681,8 +681,8 @@ class MCPBridgeServer:
             )
             if resp.status_code not in (200, 201, 204):
                 logger.warning("Result store returned %d for task %s", resp.status_code, task_id)
-        except Exception:
-            logger.debug("Failed to store result for task %s", task_id)
+        except Exception as exc:
+            logger.warning("Failed to store result for task %s: %s", task_id, exc)
 
     async def _ack(self, message_id: str, group: str) -> None:
         """Acknowledge a message on the Broker."""
