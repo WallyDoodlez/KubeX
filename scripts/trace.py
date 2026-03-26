@@ -181,9 +181,9 @@ def _poll_health():
 
     services = {
         "Gateway": "http://localhost:8080/health",
-        "Broker": "http://localhost:8060/health",
         "Registry": "http://localhost:8070/health",
         "Manager": "http://localhost:8090/health",
+        # Broker has no host port — check via Redis stream existence instead
     }
 
     last_status: dict[str, str] = {}
@@ -211,6 +211,22 @@ def _poll_health():
                 if key != last_status.get(name):
                     _print_event("error", name, f"{RED}unreachable{RESET}", str(e)[:100])
                     last_status[name] = key
+
+        # Check Broker via Redis (no host port exposed)
+        try:
+            import redis as _redis
+            r = _redis.from_url(REDIS_URL, db=0, decode_responses=True)
+            stream_len = r.xlen("boundary:default")
+            key = f"Broker:ok:{stream_len}"
+            if key != last_status.get("Broker"):
+                _print_event("health", "Broker", f"{GREEN}alive{RESET} (stream: {stream_len} msgs)")
+                last_status["Broker"] = key
+            r.close()
+        except Exception as e:
+            key = "Broker:error"
+            if key != last_status.get("Broker"):
+                _print_event("error", "Broker", f"{RED}Redis unreachable{RESET}", str(e)[:100])
+                last_status["Broker"] = key
 
         time.sleep(10)
 
