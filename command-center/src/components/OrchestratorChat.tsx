@@ -113,6 +113,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   const [hitlRequest, setHitlRequest] = useState<{ taskId: string; prompt: string } | null>(null);
   const activeTaskIdRef = useRef<string | null>(null);
   const activeCapRef = useRef<string>('');
+  const sendingRef = useRef(false); // synchronous guard against double-fire
 
   // Task recovery state — true while we are reconnecting to a persisted in-flight task
   const [recovering, setRecovering] = useState(false);
@@ -260,7 +261,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     if (data.type === 'result' || data.type === 'completed') {
       const completedPhases = buildPhasesCompleted();
       localStorage.removeItem('kubex-active-task');
-      setSending(false);
+      setSending(false); sendingRef.current = false;
       setStreamUrl(null);
       setHitlRequest(null);
       setLivePhases([]);
@@ -293,7 +294,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     if (data.type === 'failed' || data.type === 'cancelled') {
       const failedPhases = buildPhasesFailed();
       localStorage.removeItem('kubex-active-task');
-      setSending(false);
+      setSending(false); sendingRef.current = false;
       setStreamUrl(null);
       setHitlRequest(null);
       setLivePhases([]);
@@ -445,7 +446,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           const isSuccess = rr.data.status === 'completed';
           localStorage.removeItem('kubex-active-task');
           closeSSE();
-          setSending(false);
+          setSending(false); sendingRef.current = false;
           setStreamUrl(null);
           setHitlRequest(null);
           setLivePhases([]);
@@ -517,7 +518,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
           if (!rr.ok) {
             // Task ID not found or backend error (e.g. 404) — clear everything
             localStorage.removeItem('kubex-active-task');
-            setSending(false);
+            setSending(false); sendingRef.current = false;
             setLivePhases([]);
             setRecovering(false);
             setMessages((prev) => [
@@ -556,7 +557,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               } as ChatMessage,
             ]);
             localStorage.removeItem('kubex-active-task');
-            setSending(false);
+            setSending(false); sendingRef.current = false;
           } else {
             // Still running — reconnect SSE and let it drive the result
             setStreamUrl(getTaskStreamUrl(taskId));
@@ -605,7 +606,8 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
   async function handleSend() {
     const msg = message.trim();
-    if (!msg || sending) return;
+    if (!msg || sending || sendingRef.current) return;
+    sendingRef.current = true;
 
     // Use explicitly chosen capability (from Advanced panel), or default to "task_orchestration"
     const capRaw = capability.trim();
@@ -679,7 +681,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         policy_rule: res.error ?? `HTTP ${res.status}`,
       });
 
-      setSending(false);
+      setSending(false); sendingRef.current = false;
       return;
     }
 
@@ -738,7 +740,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         const isSuccess = rr.data.status === 'completed';
         localStorage.removeItem('kubex-active-task');
         closeSSE();
-        setSending(false);
+        setSending(false); sendingRef.current = false;
         setStreamUrl(null);
         setHitlRequest(null);
         setLivePhases([]);
@@ -793,7 +795,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     closeSSE();
     // Eagerly clear sending state — do not wait for the network call
     setStreamUrl(null);
-    setSending(false);
+    setSending(false); sendingRef.current = false;
     setLivePhases([]);
     setTerminalLines([]);
     setHitlRequest(null);
