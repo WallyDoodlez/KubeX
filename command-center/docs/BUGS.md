@@ -90,7 +90,7 @@
 
 ### BUG-010: Phase 14 participant events not emitted — no agent_joined/hitl_request chunks
 - **Severity:** P1
-- **Status:** FIXED
+- **Status:** REOPENED
 - **Found:** 2026-03-27
 - **Fixed:** 2026-03-27
 - **Component:** Backend — `agents/_base/kubex_harness/standalone.py` + Frontend — `command-center/src/components/OrchestratorChat.tsx`
@@ -101,6 +101,13 @@
   1. **Backend:** Added `_build_result_payload()` to `StandaloneAgent`. Detects when `result_text` is a JSON string with `status: "need_info"` and passes through the structured fields (`status`, `agent_id`, `request`, `data`) directly without the `completed` envelope. All other responses use the existing envelope. 13 new unit tests added to `test_orchestrator_loop.py`.
   2. **Frontend:** `handleSSEComplete` now clears `activeTaskIdRef.current = null` after resolving. BUG-007 2-second poll now also guards on `!sendingRef.current` to prevent firing after `handleSSEComplete` has already resolved the task.
 - **Fixed in:** da107d9
+- **REOPENED 2026-03-27:** After fixing BUG-011/012/013, the orchestrator now processes tasks and polls sub-tasks successfully. But `_handle_poll_task` still does NOT enter the `need_info` branch. Evidence from live UAT:
+  - Orchestrator polls `kubex__poll_task("task-cbd446b557bf")` → first 404 (not ready), then 200 OK
+  - But NO `agent_joined` or `hitl_request` events are emitted
+  - Orchestrator completes at iteration 4/20 and returns the `need_info` JSON as its own completed result
+  - The `standalone.py` fix (da107d9) may not be correctly setting `status: "need_info"` in the result payload, OR `_handle_poll_task` is checking a different field path
+  - **Duplicate bubbles** still present — the FE fix in BUG-010 may not have been applied (check if `handleSSEComplete` clears `activeTaskIdRef`)
+- **Still blocks:** UAT for Iteration 96
 
 ---
 
