@@ -141,6 +141,16 @@ Plans:
   4. The Command Center can consume all pipeline errors via a single API and display them in context (per-task errors, system-wide health)
 **Plans**: TBD
 
+### Phase 14: Orchestrator Participant Events
+**Goal:** Emit `agent_joined` / `agent_left` structured progress events from MCP Bridge when workers interact via HITL, plus `source_agent` attribution on `hitl_request` events. Unblocks FE Iteration 96 conversation participant model.
+**Requirements**: FE-BE-REQUESTS.md — agent_joined/agent_left section
+**Depends on:** Phase 12
+**Plans:** 2 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — Participant tracking infrastructure, agent_joined emission, hitl_request source_agent attribution
+- [ ] 14-02-PLAN.md — kubex__forward_hitl_response tool, agent_left emission, tracking cleanup on terminal states
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -156,6 +166,7 @@ Plans:
 | 11. Gemini CLI Runtime | v1.2 | 1/1 | Complete    | 2026-03-23 |
 | 12. OAuth Command Center Web Flow | v1.2 | 2/2 | Complete    | 2026-03-24 |
 | 13. Error Observability Pipeline | v1.2 | 0/? | Not started | - |
+| 14. Orchestrator Participant Events | v1.2 | 0/2 | Not started | - |
 
 ## Backlog
 
@@ -195,13 +206,3 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 1000 to break down)
-
-### Phase 14: Orchestrator Participant Events
-
-**Goal:** Emit `agent_joined` / `agent_left` structured progress events from MCP Bridge when dispatching to workers and receiving results. Unblocks FE Iteration 96 conversation participant model.
-**Requirements**: FE-BE-REQUESTS.md — agent_joined/agent_left section
-**Depends on:** Phase 13
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 14 to break down)
