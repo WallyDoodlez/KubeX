@@ -315,7 +315,7 @@ async def _handle_dispatch_task(request: Request, body: ActionRequest, gateway: 
         )
 
     registry_url = os.environ.get("REGISTRY_URL", "http://registry:8070")
-    broker_url = os.environ.get("BROKER_URL", "http://broker:8060")
+    broker_url = os.environ.get("BROKER_URL", "http://kubex-broker:8060")
 
     # Validate capability against Registry — return 404 if no agent has it
     try:
@@ -446,7 +446,7 @@ async def _handle_reviewer_evaluation(
     Returns a dict with keys: decision, reasoning, risk_level.
     Raises TimeoutError if the reviewer does not respond within *timeout* seconds.
     """
-    broker_url = os.environ.get("BROKER_URL", "http://broker:8060")
+    broker_url = os.environ.get("BROKER_URL", "http://kubex-broker:8060")
     review_task_id = f"rev-{uuid.uuid4().hex[:12]}"
 
     review_payload = {

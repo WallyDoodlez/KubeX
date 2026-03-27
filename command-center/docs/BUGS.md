@@ -20,16 +20,22 @@
 
 ### BUG-013: Orchestrator uses wrong Broker URL — hits `broker:8060` instead of `kubex-broker:8060`
 - **Severity:** P0
-- **Status:** OPEN
+- **Status:** FIXED
 - **Found:** 2026-03-27
-- **Component:** Backend — `mcp_bridge.py` or harness config loading
-- **Description:** After BUG-012 fix, the orchestrator's task loop IS running (heartbeat visible, WARNING logs visible), but it's hitting `http://broker:8060` which doesn't resolve. The config.yaml says `broker_url: "http://kubex-broker:8060"` (correct Docker service name), but the harness is using a hardcoded default `http://broker:8060` instead.
+- **Fixed:** 2026-03-27
+- **Component:** Backend — `agents/_base/Dockerfile` + `docker-compose.yml`
+- **Description:** After BUG-012 fix, the orchestrator's task loop IS running (heartbeat visible, WARNING logs visible), but it's hitting `http://broker:8060` which doesn't resolve. The config.yaml says `broker_url: "http://kubex-broker:8060"` (correct Docker service name), but the harness is using a hardcoded stale default `http://broker:8060` instead.
 - **Evidence:**
   - `docker logs kubexclaw-orchestrator` shows: `WARNING Broker not reachable at http://broker:8060`
   - `agents/orchestrator/config.yaml` line 13: `broker_url: "http://kubex-broker:8060"`
   - Docker service name in compose: `kubex-broker`
-- **Root cause:** TBD — the harness config loader may have a default `broker_url` that takes precedence over `config.yaml`, or the config field isn't being read correctly
-- **Blocks:** UAT for Iteration 96
+- **Root cause:** `agents/_base/Dockerfile` line 41 had a stale baked-in `ENV BROKER_URL=http://broker:8060` from before the service was renamed to `kubex-broker`. Since `config_loader.py` checks `os.environ.get("BROKER_URL")` first (env var > config.yaml value), this Dockerfile ENV override silently ignored the correct `config.yaml` value. Additionally, none of the agent service entries in `docker-compose.yml` explicitly set `BROKER_URL`, so no runtime override corrected it.
+- **Fix:**
+  1. `agents/_base/Dockerfile`: Changed `ENV BROKER_URL=http://broker:8060` → `ENV BROKER_URL=http://kubex-broker:8060`
+  2. `docker-compose.yml`: Added `BROKER_URL=http://kubex-broker:8060` to all 5 agent environment blocks (orchestrator, instagram-scraper, knowledge, reviewer, hello-world) — belt-and-suspenders so runtime env always wins over image defaults
+  3. `services/gateway/gateway/main.py`: Fixed two stale fallback defaults `http://broker:8060` → `http://kubex-broker:8060`
+  4. `workflow/coordinator.py`, `pipeline/coordinator.py`: Fixed stale default `http://broker:8060` → `http://kubex-broker:8060`
+- **Fixed in:** (see commit)
 
 ---
 

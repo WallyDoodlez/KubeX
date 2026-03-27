@@ -109,7 +109,7 @@ def agent_config() -> AgentConfig:
         skills=["task-management"],
         capabilities=["task_orchestration", "task_management"],
         gateway_url="http://gateway:8080",
-        broker_url="http://broker:8060",
+        broker_url="http://kubex-broker:8060",
     )
 
 

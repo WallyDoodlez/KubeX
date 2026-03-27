@@ -38,7 +38,7 @@ RUN mkdir -p /run/secrets
 
 # Default environment
 ENV GATEWAY_URL=http://gateway:8080
-ENV BROKER_URL=http://broker:8060
+ENV BROKER_URL=http://kubex-broker:8060
 ENV KUBEX_PROGRESS_BUFFER_MS=500
 ENV KUBEX_PROGRESS_MAX_CHUNK_KB=16
 ENV KUBEX_ABORT_GRACE_PERIOD_S=30

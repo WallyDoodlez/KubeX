@@ -35,7 +35,7 @@ class PipelineCoordinator:
     """
 
     gateway_url: str = "http://gateway:8080"
-    broker_url: str = "http://broker:8060"
+    broker_url: str = "http://kubex-broker:8060"
     registry_url: str = "http://registry:8070"
     _tasks: dict[str, dict[str, Any]] = field(default_factory=dict)
 
