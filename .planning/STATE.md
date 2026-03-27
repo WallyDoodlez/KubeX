@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 12-02-PLAN.md
-last_updated: "2026-03-24T00:51:35.138Z"
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-03-27T02:44:02.994Z"
 progress:
-  total_phases: 9
+  total_phases: 12
   completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 19
+  completed_plans: 17
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Any Kubex can become any agent — new capabilities are skill files, not Docker builds.
-**Current focus:** Phase 12 — oauth-command-center-web-flow
+**Current focus:** Phase 14 — orchestrator-participant-events
 
 ## Current Position
 
-Phase: 999.1
-Plan: Not started
+Phase: 14 (orchestrator-participant-events) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Plan: Not started
 | Phase 11-gemini-cli-runtime P01 | 358 | 3 tasks | 5 files |
 | Phase 12-oauth-command-center-web-flow P01 | 237 | 3 tasks | 4 files |
 | Phase 12 P02 | 121 | 1 tasks | 1 files |
+| Phase 14-orchestrator-participant-events P01 | 155 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,7 @@ Recent decisions affecting current work:
 - [Phase 12-oauth-command-center-web-flow]: AUTH-03 resolved by D-09: agent-side pre-flight in _execute_task_inner is sufficient; no Gateway dispatch-time check needed
 - [Phase 12]: Handoff doc supersedes docs/HANDOFF-oauth-command-center.md (Phase 9) — Phase 9 doc described gaps; Phase 12 doc is the authoritative post-implementation reference
 - [Phase 12]: FE must use fetch() + ReadableStream instead of native EventSource for lifecycle SSE — EventSource API does not support custom headers required for Bearer auth
+- [Phase 14-orchestrator-participant-events]: _joined_sub_tasks set used for agent_joined dedup (D-14); _active_task_id cleared in finally block in _handle_message for safe cleanup; _post_progress failures in need_info block caught per-call so poll return is never blocked
 
 ### Pending Todos
 
@@ -126,6 +128,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T00:47:13.271Z
-Stopped at: Completed 12-02-PLAN.md
+Last session: 2026-03-27T02:44:02.991Z
+Stopped at: Completed 14-01-PLAN.md
 Resume file: None
