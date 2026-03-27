@@ -461,6 +461,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
             });
 
             localStorage.removeItem('kubex-active-task');
+            activeTaskIdRef.current = null;
             resolved = true;
             break;
           }
@@ -469,6 +470,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
         if (!resolved) {
           // All retries exhausted — task still pending or unreachable
           localStorage.removeItem('kubex-active-task');
+          activeTaskIdRef.current = null;
           setLivePhases([]);
           setMessages((msgs) => [
             ...msgs,
@@ -800,12 +802,17 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     const capturedTaskId = taskId;
     const capturedCap = cap;
     setTimeout(async () => {
-      // Only act if this task is still the active one and we are still sending
+      // Only act if this task is still the active one and we are still sending.
+      // sendingRef.current check prevents a duplicate bubble when handleSSEComplete
+      // already resolved the task (it sets sending=false synchronously via setSending
+      // returning false, but doesn't clear activeTaskIdRef until later).
       if (activeTaskIdRef.current !== capturedTaskId) return;
+      if (!sendingRef.current) return;
 
       const rr = await getTaskResult(capturedTaskId);
       // Check again after the async call
       if (activeTaskIdRef.current !== capturedTaskId) return;
+      if (!sendingRef.current) return;
 
       if (
         rr.ok &&

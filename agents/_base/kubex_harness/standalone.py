@@ -557,16 +557,50 @@ class StandaloneAgent:
         except Exception as exc:
             logger.warning("Failed to post progress for task %s: %s", task_id, exc)
 
+    def _build_result_payload(self, result_text: str, *, status: str = "completed") -> dict:
+        """Build the result dict to store in the Broker.
+
+        If the LLM output is a structured JSON with a recognised ``status`` field
+        (e.g. ``need_info``), the structured fields are passed through directly so
+        that the orchestrator's ``_handle_poll_task`` can read the correct status.
+        Otherwise, the response is wrapped in the standard ``{status, agent_id,
+        output}`` envelope.
+
+        Recognised pass-through statuses: ``need_info``.
+        """
+        if status == "completed":
+            # Try to detect a structured result returned by the LLM as JSON text.
+            try:
+                parsed = json.loads(result_text)
+                llm_status = parsed.get("status", "") if isinstance(parsed, dict) else ""
+                if llm_status == "need_info":
+                    # Pass through the structured need_info result.
+                    # Ensure agent_id is available at the top level so orchestrator
+                    # can attribute the event to the correct worker.
+                    result: dict = {
+                        "status": "need_info",
+                        "agent_id": (
+                            parsed.get("agent_id")
+                            or (parsed.get("metadata") or {}).get("agent_id")
+                            or self.config.agent_id
+                        ),
+                        "request": parsed.get("request", ""),
+                        "data": parsed.get("data", {}),
+                    }
+                    return result
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                pass  # Not JSON — fall through to default envelope
+
+        return {
+            "status": status,
+            "agent_id": self.config.agent_id,
+            "output": result_text,
+        }
+
     async def _store_result(self, client: httpx.AsyncClient, task_id: str, result_text: str, *, status: str = "completed") -> None:
         """Store task result via Broker POST /tasks/{task_id}/result."""
         url = f"{self.config.broker_url}/tasks/{task_id}/result"
-        payload = {
-            "result": {
-                "status": status,
-                "agent_id": self.config.agent_id,
-                "output": result_text,
-            }
-        }
+        payload = {"result": self._build_result_payload(result_text, status=status)}
         try:
             resp = await client.post(url, json=payload)
             if resp.status_code not in (200, 201, 204):

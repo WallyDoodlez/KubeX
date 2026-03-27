@@ -425,3 +425,124 @@ class TestErrorHandling:
         with patch.object(agent, "_get_tool_handler", return_value=None):
             result = await agent._call_llm_with_tools(client, "test", "task-1")
         assert result == "Recovered."
+
+
+# ---------------------------------------------------------------------------
+# TestBuildResultPayload (BUG-010 fix)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildResultPayload:
+    """_build_result_payload passes through need_info status so orchestrator can detect it."""
+
+    def test_plain_text_uses_completed_envelope(self, agent):
+        """Plain text response is wrapped in {status: completed, agent_id, output}."""
+        payload = agent._build_result_payload("Hello, world!")
+        assert payload["status"] == "completed"
+        assert payload["agent_id"] == agent.config.agent_id
+        assert payload["output"] == "Hello, world!"
+
+    def test_need_info_json_passes_through_status(self, agent):
+        """LLM output with status=need_info is stored with status=need_info, not completed."""
+        need_info_json = json.dumps({
+            "status": "need_info",
+            "request": "What is 1 + 1?",
+            "data": {"question_number": 1, "total_questions": 3},
+        })
+        payload = agent._build_result_payload(need_info_json)
+        assert payload["status"] == "need_info"
+        assert payload["request"] == "What is 1 + 1?"
+        assert payload["data"]["question_number"] == 1
+
+    def test_need_info_includes_agent_id_at_top_level(self, agent):
+        """need_info payload includes agent_id at top level for orchestrator attribution."""
+        need_info_json = json.dumps({
+            "status": "need_info",
+            "request": "Which account?",
+            "data": {},
+        })
+        payload = agent._build_result_payload(need_info_json)
+        assert "agent_id" in payload
+        assert payload["agent_id"] != ""
+
+    def test_need_info_agent_id_from_metadata(self, agent):
+        """agent_id extracted from metadata.agent_id when present in the LLM output."""
+        need_info_json = json.dumps({
+            "status": "need_info",
+            "request": "Which account?",
+            "data": {},
+            "metadata": {"agent_id": "hello-world-123", "task_id": "t-abc", "duration_ms": 0},
+        })
+        payload = agent._build_result_payload(need_info_json)
+        assert payload["agent_id"] == "hello-world-123"
+
+    def test_need_info_agent_id_from_top_level(self, agent):
+        """agent_id extracted from top-level agent_id field when present."""
+        need_info_json = json.dumps({
+            "status": "need_info",
+            "request": "Which account?",
+            "data": {},
+            "agent_id": "explicit-agent",
+        })
+        payload = agent._build_result_payload(need_info_json)
+        assert payload["agent_id"] == "explicit-agent"
+
+    def test_need_info_agent_id_falls_back_to_self(self, agent):
+        """agent_id falls back to self.config.agent_id when not in LLM output."""
+        need_info_json = json.dumps({
+            "status": "need_info",
+            "request": "Which account?",
+            "data": {},
+        })
+        payload = agent._build_result_payload(need_info_json)
+        assert payload["agent_id"] == agent.config.agent_id
+
+    def test_need_info_no_output_field(self, agent):
+        """need_info payload does not have an 'output' field — uses request/data instead."""
+        need_info_json = json.dumps({
+            "status": "need_info",
+            "request": "Tell me more",
+            "data": {"raw": [1, 2, 3]},
+        })
+        payload = agent._build_result_payload(need_info_json)
+        assert "output" not in payload
+
+    def test_completed_status_in_json_still_uses_envelope(self, agent):
+        """JSON with status=completed is wrapped normally (no special pass-through)."""
+        completed_json = json.dumps({"status": "completed", "result": {"answer": "42"}})
+        payload = agent._build_result_payload(completed_json)
+        assert payload["status"] == "completed"
+        assert "output" in payload  # standard envelope
+
+    def test_failed_status_uses_error_envelope(self, agent):
+        """Explicit status='failed' argument always produces {status: failed, output: ...}."""
+        payload = agent._build_result_payload("LLM error", status="failed")
+        assert payload["status"] == "failed"
+        assert payload["output"] == "LLM error"
+        assert payload["agent_id"] == agent.config.agent_id
+
+    def test_non_json_text_uses_completed_envelope(self, agent):
+        """Non-JSON text is wrapped in {status: completed, output: <text>}."""
+        payload = agent._build_result_payload("Just a plain answer.")
+        assert payload["status"] == "completed"
+        assert payload["output"] == "Just a plain answer."
+
+    def test_invalid_json_uses_completed_envelope(self, agent):
+        """Malformed JSON is wrapped as plain text in completed envelope."""
+        payload = agent._build_result_payload("{not valid json")
+        assert payload["status"] == "completed"
+        assert payload["output"] == "{not valid json"
+
+    def test_empty_request_field_default(self, agent):
+        """need_info result with no 'request' field gets empty string default."""
+        need_info_json = json.dumps({"status": "need_info", "data": {}})
+        payload = agent._build_result_payload(need_info_json)
+        assert payload["status"] == "need_info"
+        assert payload["request"] == ""
+
+    def test_empty_data_field_default(self, agent):
+        """need_info result with no 'data' field gets empty dict default."""
+        need_info_json = json.dumps({"status": "need_info", "request": "Something?"})
+        payload = agent._build_result_payload(need_info_json)
+        assert payload["status"] == "need_info"
+        assert payload["data"] == {}
