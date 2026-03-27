@@ -83,6 +83,12 @@ class MCPBridgeServer:
             os.environ.get("MAX_DELEGATION_DEPTH", str(DEFAULT_MAX_DELEGATION_DEPTH))
         )
 
+        # Phase 14: Participant event tracking
+        self._joined_sub_tasks: set[str] = set()      # D-14: prevent duplicate agent_joined
+        self._task_capability: dict[str, str] = {}     # Pitfall 4: capability lookup at poll time
+        self._active_task_id: str | None = None        # Orchestrator task_id for progress routing
+        self._sub_task_agent: dict[str, str] = {}      # sub_task_id -> worker agent_id (for agent_left in Plan 02)
+
         self.registry_url = os.environ.get("REGISTRY_URL", "http://registry:8070")
         self.redis_url = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 
@@ -128,6 +134,41 @@ class MCPBridgeServer:
 
                 # D-05/D-06: Handle need_info status from workers
                 if result_status == "need_info":
+                    worker_agent_id = data.get("agent_id", "unknown")
+                    capability = self._task_capability.get(task_id, "unknown")
+                    orch_task_id = self._active_task_id
+
+                    # D-01/D-03/D-14: Emit agent_joined once per sub-task and track worker identity
+                    if orch_task_id and task_id not in self._joined_sub_tasks:
+                        self._joined_sub_tasks.add(task_id)
+                        self._sub_task_agent[task_id] = worker_agent_id
+                        try:
+                            await self._post_progress(
+                                orch_task_id,
+                                json.dumps({
+                                    "type": "agent_joined",
+                                    "agent_id": worker_agent_id,
+                                    "sub_task_id": task_id,
+                                    "capability": capability,
+                                }),
+                            )
+                        except Exception:
+                            logger.warning("Failed to emit agent_joined for sub-task %s", task_id)
+
+                    # D-10: Emit hitl_request with source_agent on every need_info poll
+                    if orch_task_id:
+                        try:
+                            await self._post_progress(
+                                orch_task_id,
+                                json.dumps({
+                                    "type": "hitl_request",
+                                    "prompt": data.get("request", ""),
+                                    "source_agent": worker_agent_id,
+                                }),
+                            )
+                        except Exception:
+                            logger.warning("Failed to emit hitl_request for sub-task %s", task_id)
+
                     return {
                         "status": "need_info",
                         "task_id": task_id,
@@ -456,42 +497,48 @@ class MCPBridgeServer:
         logger.info("Processing task %s: %s", task_id, context_message[:100])
         assert self._http is not None
 
-        # Post initial progress
-        await self._post_progress(task_id, f"Agent {self.config.agent_id} starting task...\n")
-
-        # Build tool definitions from currently registered MCP tools
-        tool_defs = self._build_openai_tool_definitions()
-
-        # Build system prompt from skills
-        system_prompt = self._load_system_prompt()
-
-        # Multi-turn tool-use loop
-        llm_error: Exception | None = None
+        # Phase 14: Track orchestrator task_id for participant event routing
+        self._active_task_id = task_id
         try:
-            llm_response = await self._call_llm_with_mcp_tools(
-                context_message, task_id, system_prompt, tool_defs,
-            )
-        except Exception as exc:
-            logger.error("LLM call failed for task %s: %s", task_id, exc)
-            llm_response = f"Error: LLM call failed — {exc}"
-            llm_error = exc
+            # Post initial progress
+            await self._post_progress(task_id, f"Agent {self.config.agent_id} starting task...\n")
 
-        # Post progress and final
-        exit_reason = "failed" if llm_error else "completed"
-        await self._post_progress(task_id, llm_response)
-        await self._post_progress(task_id, "", final=True, exit_reason=exit_reason)
+            # Build tool definitions from currently registered MCP tools
+            tool_defs = self._build_openai_tool_definitions()
 
-        # Store result via broker
-        if llm_error:
-            await self._store_result(task_id, llm_response, status="failed")
-        else:
-            await self._store_result(task_id, llm_response)
+            # Build system prompt from skills
+            system_prompt = self._load_system_prompt()
 
-        # Acknowledge message
-        if message_id:
-            await self._ack(message_id, consumer_group)
+            # Multi-turn tool-use loop
+            llm_error: Exception | None = None
+            try:
+                llm_response = await self._call_llm_with_mcp_tools(
+                    context_message, task_id, system_prompt, tool_defs,
+                )
+            except Exception as exc:
+                logger.error("LLM call failed for task %s: %s", task_id, exc)
+                llm_response = f"Error: LLM call failed — {exc}"
+                llm_error = exc
 
-        logger.info("Task %s completed", task_id)
+            # Post progress and final
+            exit_reason = "failed" if llm_error else "completed"
+            await self._post_progress(task_id, llm_response)
+            await self._post_progress(task_id, "", final=True, exit_reason=exit_reason)
+
+            # Store result via broker
+            if llm_error:
+                await self._store_result(task_id, llm_response, status="failed")
+            else:
+                await self._store_result(task_id, llm_response)
+
+            # Acknowledge message
+            if message_id:
+                await self._ack(message_id, consumer_group)
+
+            logger.info("Task %s completed", task_id)
+        finally:
+            # Phase 14: Clear active task id so sub-task polls don't route to stale task
+            self._active_task_id = None
 
     def _load_system_prompt(self) -> str:
         """Load system prompt: preamble (with worker list) + skill files."""
@@ -871,6 +918,8 @@ class MCPBridgeServer:
                 task_id = data.get("task_id", "unknown")
                 # Track delegation depth for this task chain (D-07)
                 self._delegation_depth[task_id] = delegation_depth
+                # Phase 14: Track capability for participant event emission at poll time (Pitfall 4)
+                self._task_capability[task_id] = capability
                 return {
                     "status": "dispatched",
                     "task_id": task_id,
