@@ -18,6 +18,21 @@
 
 ## Open Bugs
 
+### BUG-013: Orchestrator uses wrong Broker URL — hits `broker:8060` instead of `kubex-broker:8060`
+- **Severity:** P0
+- **Status:** OPEN
+- **Found:** 2026-03-27
+- **Component:** Backend — `mcp_bridge.py` or harness config loading
+- **Description:** After BUG-012 fix, the orchestrator's task loop IS running (heartbeat visible, WARNING logs visible), but it's hitting `http://broker:8060` which doesn't resolve. The config.yaml says `broker_url: "http://kubex-broker:8060"` (correct Docker service name), but the harness is using a hardcoded default `http://broker:8060` instead.
+- **Evidence:**
+  - `docker logs kubexclaw-orchestrator` shows: `WARNING Broker not reachable at http://broker:8060`
+  - `agents/orchestrator/config.yaml` line 13: `broker_url: "http://kubex-broker:8060"`
+  - Docker service name in compose: `kubex-broker`
+- **Root cause:** TBD — the harness config loader may have a default `broker_url` that takes precedence over `config.yaml`, or the config field isn't being read correctly
+- **Blocks:** UAT for Iteration 96
+
+---
+
 ### BUG-012: Orchestrator task loop not polling Broker after BUG-011 fix
 - **Severity:** P0
 - **Status:** FIXED
