@@ -967,6 +967,252 @@ class TestTransportSelection:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# TestParticipantEvents (Phase 14)
+# ---------------------------------------------------------------------------
+
+
+class TestParticipantEvents:
+    """Phase 14: agent_joined and hitl_request emission from _handle_poll_task."""
+
+    @pytest.fixture()
+    def participant_bridge(self, config, mock_fastmcp):
+        """MCPBridgeServer with _post_progress mocked as AsyncMock and active task set."""
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+        server = MCPBridgeServer(config)
+        server._http = MagicMock(spec=httpx.AsyncClient)
+        server._http.get = AsyncMock()
+        server._http.post = AsyncMock()
+        server._post_progress = AsyncMock()
+        server._active_task_id = "orch-task-1"
+        server._task_capability["sub-task-123"] = "scrape_instagram"
+        return server
+
+    def _make_need_info_response(
+        self,
+        agent_id: str = "worker-1",
+        request: str = "Which account?",
+        data: dict | None = None,
+    ) -> "MagicMock":
+        return _mock_response(
+            200,
+            json_data={
+                "status": "need_info",
+                "agent_id": agent_id,
+                "request": request,
+                "data": data or {},
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_agent_joined_emitted_on_first_need_info(self, participant_bridge):
+        """D-01/D-03/D-14: agent_joined emitted on first need_info for a sub-task."""
+        participant_bridge._http.get.return_value = self._make_need_info_response(
+            agent_id="worker-1", request="Which account?"
+        )
+
+        result = await participant_bridge._handle_poll_task("sub-task-123")
+
+        assert result["status"] == "need_info"
+
+        # Find the agent_joined call
+        calls = participant_bridge._post_progress.call_args_list
+        agent_joined_calls = [
+            c for c in calls
+            if "agent_joined" in (c.args[1] if c.args else c.kwargs.get("chunk", ""))
+        ]
+        assert len(agent_joined_calls) >= 1
+        chunk = agent_joined_calls[0].args[1]
+        payload = json.loads(chunk)
+        assert payload["type"] == "agent_joined"
+        assert payload["agent_id"] == "worker-1"
+        assert payload["sub_task_id"] == "sub-task-123"
+        assert payload["capability"] == "scrape_instagram"
+
+    @pytest.mark.asyncio
+    async def test_agent_joined_not_emitted_on_second_poll(self, participant_bridge):
+        """D-03/D-14: second poll of same sub_task_id with need_info does NOT emit agent_joined again."""
+        participant_bridge._http.get.return_value = self._make_need_info_response()
+
+        # First poll
+        await participant_bridge._handle_poll_task("sub-task-123")
+        first_count = participant_bridge._post_progress.call_count
+
+        # Second poll
+        participant_bridge._post_progress.reset_mock()
+        await participant_bridge._handle_poll_task("sub-task-123")
+
+        # On second poll: only hitl_request (no agent_joined)
+        second_calls = participant_bridge._post_progress.call_args_list
+        agent_joined_calls = [
+            c for c in second_calls
+            if "agent_joined" in (c.args[1] if c.args else c.kwargs.get("chunk", ""))
+        ]
+        assert len(agent_joined_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_hitl_request_emitted_with_source_agent(self, participant_bridge):
+        """D-10: hitl_request event emitted with source_agent field on every need_info poll."""
+        participant_bridge._http.get.return_value = self._make_need_info_response(
+            agent_id="worker-1", request="Which account?"
+        )
+
+        await participant_bridge._handle_poll_task("sub-task-123")
+
+        calls = participant_bridge._post_progress.call_args_list
+        hitl_calls = [
+            c for c in calls
+            if "hitl_request" in (c.args[1] if c.args else c.kwargs.get("chunk", ""))
+        ]
+        assert len(hitl_calls) >= 1
+        chunk = hitl_calls[0].args[1]
+        payload = json.loads(chunk)
+        assert payload["type"] == "hitl_request"
+        assert payload["prompt"] == "Which account?"
+        assert payload["source_agent"] == "worker-1"
+
+    @pytest.mark.asyncio
+    async def test_hitl_request_emitted_on_every_poll(self, participant_bridge):
+        """hitl_request emits on EVERY need_info poll (not deduped like agent_joined)."""
+        participant_bridge._http.get.return_value = self._make_need_info_response()
+
+        # First poll
+        await participant_bridge._handle_poll_task("sub-task-123")
+
+        # Second poll
+        participant_bridge._post_progress.reset_mock()
+        await participant_bridge._handle_poll_task("sub-task-123")
+
+        second_calls = participant_bridge._post_progress.call_args_list
+        hitl_calls = [
+            c for c in second_calls
+            if "hitl_request" in (c.args[1] if c.args else c.kwargs.get("chunk", ""))
+        ]
+        assert len(hitl_calls) >= 1
+
+    @pytest.mark.asyncio
+    async def test_capability_comes_from_task_capability_dict(self, participant_bridge):
+        """Pitfall 4: capability in agent_joined comes from _task_capability populated at dispatch."""
+        participant_bridge._task_capability["sub-task-456"] = "knowledge_management"
+        participant_bridge._http.get.return_value = self._make_need_info_response(
+            agent_id="knowledge-worker"
+        )
+
+        await participant_bridge._handle_poll_task("sub-task-456")
+
+        calls = participant_bridge._post_progress.call_args_list
+        agent_joined_calls = [
+            c for c in calls
+            if "agent_joined" in (c.args[1] if c.args else c.kwargs.get("chunk", ""))
+        ]
+        assert len(agent_joined_calls) >= 1
+        payload = json.loads(agent_joined_calls[0].args[1])
+        assert payload["capability"] == "knowledge_management"
+
+    @pytest.mark.asyncio
+    async def test_post_progress_failure_does_not_block_poll_return(self, participant_bridge):
+        """Per Claude discretion: _post_progress failure must not block the poll return value."""
+        participant_bridge._post_progress.side_effect = RuntimeError("Progress endpoint down")
+        participant_bridge._http.get.return_value = self._make_need_info_response()
+
+        result = await participant_bridge._handle_poll_task("sub-task-123")
+
+        # Must still return the need_info dict — failure is swallowed
+        assert result["status"] == "need_info"
+        assert result["task_id"] == "sub-task-123"
+
+    @pytest.mark.asyncio
+    async def test_missing_agent_id_uses_unknown_fallback(self, participant_bridge):
+        """Pitfall 5: when result has no agent_id field, agent_joined uses 'unknown'."""
+        participant_bridge._http.get.return_value = _mock_response(
+            200,
+            json_data={"status": "need_info", "request": "Something?", "data": {}},
+            # note: no agent_id in this payload
+        )
+
+        await participant_bridge._handle_poll_task("sub-task-123")
+
+        calls = participant_bridge._post_progress.call_args_list
+        agent_joined_calls = [
+            c for c in calls
+            if "agent_joined" in (c.args[1] if c.args else c.kwargs.get("chunk", ""))
+        ]
+        assert len(agent_joined_calls) >= 1
+        payload = json.loads(agent_joined_calls[0].args[1])
+        assert payload["agent_id"] == "unknown"
+
+    @pytest.mark.asyncio
+    async def test_sub_task_agent_populated_after_first_need_info(self, participant_bridge):
+        """_sub_task_agent[task_id] is populated with worker_agent_id inside the dedup guard (for Plan 02 agent_left)."""
+        participant_bridge._http.get.return_value = self._make_need_info_response(
+            agent_id="instagram-scraper-1"
+        )
+
+        await participant_bridge._handle_poll_task("sub-task-123")
+
+        assert participant_bridge._sub_task_agent["sub-task-123"] == "instagram-scraper-1"
+
+    @pytest.mark.asyncio
+    async def test_no_events_emitted_when_active_task_id_is_none(self, participant_bridge):
+        """When _active_task_id is None, no participant events are emitted (no orch task to route to)."""
+        participant_bridge._active_task_id = None
+        participant_bridge._http.get.return_value = self._make_need_info_response()
+
+        result = await participant_bridge._handle_poll_task("sub-task-123")
+
+        assert result["status"] == "need_info"
+        participant_bridge._post_progress.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_task_capability_stored_at_dispatch(self, participant_bridge):
+        """_task_capability[task_id] = capability is set during _handle_worker_dispatch."""
+        participant_bridge._http.post.return_value = _mock_response(
+            200, json_data={"task_id": "new-task-999"}
+        )
+
+        await participant_bridge._handle_worker_dispatch(
+            capability="scrape_instagram",
+            task="Scrape the feed",
+        )
+
+        assert participant_bridge._task_capability["new-task-999"] == "scrape_instagram"
+
+    @pytest.mark.asyncio
+    async def test_joined_sub_tasks_tracking_dict_starts_empty(self, config, mock_fastmcp):
+        """_joined_sub_tasks starts as empty set on MCPBridgeServer init."""
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+        server = MCPBridgeServer(config)
+        assert hasattr(server, "_joined_sub_tasks")
+        assert isinstance(server._joined_sub_tasks, set)
+        assert len(server._joined_sub_tasks) == 0
+
+    @pytest.mark.asyncio
+    async def test_sub_task_agent_dict_starts_empty(self, config, mock_fastmcp):
+        """_sub_task_agent starts as empty dict on MCPBridgeServer init."""
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+        server = MCPBridgeServer(config)
+        assert hasattr(server, "_sub_task_agent")
+        assert isinstance(server._sub_task_agent, dict)
+        assert len(server._sub_task_agent) == 0
+
+    @pytest.mark.asyncio
+    async def test_active_task_id_starts_none(self, config, mock_fastmcp):
+        """_active_task_id starts as None on MCPBridgeServer init."""
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+        server = MCPBridgeServer(config)
+        assert hasattr(server, "_active_task_id")
+        assert server._active_task_id is None
+
+    @pytest.mark.asyncio
+    async def test_task_capability_dict_starts_empty(self, config, mock_fastmcp):
+        """_task_capability starts as empty dict on MCPBridgeServer init."""
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+        server = MCPBridgeServer(config)
+        assert hasattr(server, "_task_capability")
+        assert isinstance(server._task_capability, dict)
+        assert len(server._task_capability) == 0
+
+
 def aiter_from_list(items: list) -> Any:
     """Create an async iterator from a list (for mocking pubsub.listen())."""
 
