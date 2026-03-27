@@ -18,6 +18,28 @@
 
 ## Open Bugs
 
+### BUG-010: Phase 14 participant events not emitted — no agent_joined/hitl_request chunks
+- **Severity:** P1
+- **Status:** OPEN
+- **Found:** 2026-03-27
+- **Component:** Backend — MCP Bridge orchestrator (`mcp_bridge.py`)
+- **Description:** When the orchestrator dispatches a sub-task to hello-world (hitl-test) and the worker returns `need_info`, the orchestrator does NOT emit `agent_joined` or `hitl_request` structured chunk events on the progress channel. Instead, it returns the raw `need_info` JSON as a regular result. The FE never sees the chunk events that Phase 14 was designed to emit.
+- **Evidence (live UAT 2026-03-27):**
+  - Sent: "Run the hitl-test skill on the hello-world agent"
+  - Hello-world responded with `need_info` containing "What is 1 + 1?"
+  - FE received: two duplicate result bubbles containing raw JSON `{"status": "need_info", "result": {"question": "What is 1 + 1?", ...}}`
+  - FE did NOT receive: any `agent_joined`, `hitl_request`, or `agent_left` chunk events
+  - No HITL prompt appeared — no `hitl_request` chunk was parsed
+  - System messages only show "Task dispatched" — no "{agent} joined the chat"
+- **Expected behavior:**
+  1. On first `need_info` from hello-world: emit `agent_joined` chunk event → FE shows "hello-world joined the chat"
+  2. On each `need_info` poll: emit `hitl_request` chunk event with `source_agent: "hello-world"` → FE shows HITL prompt with attribution
+  3. HITL prompt appears with "What is 1 + 1?" and "hello-world — Input Required" header
+- **Additional issue:** Two duplicate result bubbles appeared for the same `need_info` — possible duplicate SSE delivery
+- **Blocks:** Full UAT for Iteration 96 (conversation participant model)
+
+---
+
 ### BUG-009: Orchestrator dispatch to hello-world agent — task stays pending
 - **Severity:** P1
 - **Status:** FIXED
