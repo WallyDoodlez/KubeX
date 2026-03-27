@@ -166,7 +166,7 @@ Plans:
 | 11. Gemini CLI Runtime | v1.2 | 1/1 | Complete    | 2026-03-23 |
 | 12. OAuth Command Center Web Flow | v1.2 | 2/2 | Complete    | 2026-03-24 |
 | 13. Error Observability Pipeline | v1.2 | 0/? | Not started | - |
-| 14. Orchestrator Participant Events | v1.2 | 2/2 | Complete   | 2026-03-27 |
+| 14. Orchestrator Participant Events | v1.2 | 2/2 | Complete    | 2026-03-27 |
 
 ## Backlog
 
