@@ -96,6 +96,7 @@ class MCPBridgeServer:
         self._register_poll_tool()
         self._register_vault_tools()
         self._register_meta_tools()
+        self._register_hitl_tools()
 
     def _register_poll_tool(self) -> None:
         """Register kubex__poll_task -- always available."""
@@ -409,6 +410,75 @@ class MCPBridgeServer:
             return {"status": "error", "code": resp.status_code, "message": resp.text[:200]}
         except Exception as exc:
             return {"status": "error", "message": str(exc)}
+
+    # ------------------------------------------------------------------
+    # HITL forwarding tools (Phase 14, Plan 02)
+    # ------------------------------------------------------------------
+
+    def _register_hitl_tools(self) -> None:
+        """Register HITL forwarding tools (Phase 14)."""
+
+        @self._mcp.tool(
+            name="kubex__forward_hitl_response",
+            description=(
+                "Forward a user's answer to a worker that requested HITL input. "
+                "The worker will receive the answer and resume processing. "
+                "Call this when the user has answered a worker's question."
+            ),
+        )
+        async def kubex__forward_hitl_response(sub_task_id: str, answer: str) -> dict:
+            return await self._handle_forward_hitl(sub_task_id=sub_task_id, answer=answer)
+
+    async def _handle_forward_hitl(self, sub_task_id: str, answer: str) -> dict:
+        """Forward user HITL answer to a worker and emit agent_left (D-02, D-07, D-11).
+
+        Stores the answer as a result on the sub-task via Broker. The worker's
+        poll loop will pick up the answer on the next iteration.
+
+        NOTE: Worker-side resumption is a known gap — Phase 14 covers orchestrator-side
+        delivery only. Broker acceptance of hitl_answer status is assumed but unverified.
+        """
+        try:
+            assert self._http is not None
+            # Store answer via Broker result endpoint
+            resp = await self._http.post(
+                f"{self.config.broker_url}/tasks/{sub_task_id}/result",
+                json={
+                    "result": {
+                        "status": "hitl_answer",
+                        "agent_id": self.config.agent_id,
+                        "output": answer,
+                    }
+                },
+            )
+            if resp.status_code not in (200, 201, 204):
+                return {"status": "error", "message": f"Broker returned {resp.status_code}"}
+        except Exception as exc:
+            return {"status": "error", "message": f"Failed to forward answer: {exc}"}
+
+        # D-02/D-11: Emit agent_left after forwarding
+        worker_agent_id = self._sub_task_agent.get(sub_task_id, "unknown")
+        orch_task_id = self._active_task_id
+        if orch_task_id:
+            try:
+                await self._post_progress(
+                    orch_task_id,
+                    json.dumps({
+                        "type": "agent_left",
+                        "agent_id": worker_agent_id,
+                        "sub_task_id": sub_task_id,
+                        "status": "resolved",
+                    }),
+                )
+            except Exception:
+                logger.warning("Failed to emit agent_left for sub-task %s", sub_task_id)
+
+        # Cleanup tracking state (Pitfall 2)
+        self._joined_sub_tasks.discard(sub_task_id)
+        self._sub_task_agent.pop(sub_task_id, None)
+        self._task_capability.pop(sub_task_id, None)
+
+        return {"status": "forwarded", "sub_task_id": sub_task_id}
 
     # ------------------------------------------------------------------
     # Task consumption + LLM tool-use loop (API mode)

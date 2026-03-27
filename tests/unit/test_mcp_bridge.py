@@ -1218,11 +1218,16 @@ class TestParticipantEvents:
     # ------------------------------------------------------------------
 
     def test_forward_hitl_tool_registered(self, config, mock_fastmcp):
-        """kubex__forward_hitl_response is registered in the MCP tool manager."""
+        """kubex__forward_hitl_response is registered via _mcp.tool() during __init__."""
         from kubex_harness.mcp_bridge import MCPBridgeServer
-        server = MCPBridgeServer(config)
-        tool_names = [t.name for t in server._mcp._tool_manager.list_tools()]
-        assert "kubex__forward_hitl_response" in tool_names
+        _, mock_instance = mock_fastmcp
+        MCPBridgeServer(config)
+        # Collect all 'name' kwargs passed to mock_instance.tool()
+        registered_names = [
+            call.kwargs.get("name") or (call.args[0] if call.args else None)
+            for call in mock_instance.tool.call_args_list
+        ]
+        assert "kubex__forward_hitl_response" in registered_names
 
     @pytest.mark.asyncio
     async def test_agent_left_emitted_after_hitl_forward(self, participant_bridge):
