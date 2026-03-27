@@ -20,11 +20,16 @@
 
 ### BUG-011: Orchestrator fails to consume tasks — Redis authentication required
 - **Severity:** P0
-- **Status:** OPEN
+- **Status:** FIXED
 - **Found:** 2026-03-27
+- **Fixed:** 2026-03-27
 - **Component:** Backend — Agent containers / Docker Compose env vars
 - **Description:** After stack rebuild with `REDIS_PASSWORD=localdev` in `.env`, the orchestrator logs `ERROR: Registry pub/sub listener error: Authentication required.` and stops consuming tasks from the Broker. Tasks are published to the Broker stream but never picked up. The orchestrator does not poll `/messages/consume/` at all after this error.
-- **Root cause:** Agent containers connect to Redis for pub/sub but don't receive the `REDIS_PASSWORD` env var. The Broker, Gateway, Registry all get `REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379` but agent containers likely use a hardcoded or passwordless Redis URL.
+- **Root cause:** Two places in the base harness connect directly to Redis:
+  1. `mcp_bridge.py` — `_listen_registry_changes()` subscribes to `registry:agent_changed` pub/sub, using `REDIS_URL` env var with unauthenticated default `redis://redis:6379/0`
+  2. `harness.py` — cancel control channel (`control:{agent_id}`) subscribes to Redis pub/sub, using `REDIS_URL` with empty default → `redis://localhost:6379`
+  All 5 agent containers in `docker-compose.yml` (orchestrator, instagram-scraper, knowledge, reviewer, hello-world) were missing `REDIS_URL` in their `environment:` blocks, while all services (gateway, broker, registry, manager) correctly received `REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379`.
+- **Fix:** Added `REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379` to the `environment:` block of all 5 agent containers in `docker-compose.yml`. No harness code changes needed — the env var was always read correctly, just never passed in.
 - **Reproduction:**
   1. Set `REDIS_PASSWORD=localdev` in `.env`
   2. `docker compose up -d --build`
@@ -32,7 +37,7 @@
   4. Task stays at "Streaming..." forever — orchestrator never processes it
   5. `docker logs kubexclaw-orchestrator` shows `Authentication required` error
 - **Workaround:** Set `REDIS_PASSWORD=` (empty) in `.env` — but this broke Redis 7.4 earlier (BUG in `requirepass` config)
-- **Fix needed:** Pass `REDIS_URL` with password to agent containers in docker-compose, or configure agents to use passwordless Broker HTTP API only
+- **Fixed in:** (see commit)
 
 ---
 

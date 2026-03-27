@@ -199,6 +199,7 @@ services:
       - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
       - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
       - REGISTRY_URL=http://kubex-registry:8070
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
       - VAULT_PATH=/app/vault
     networks:
       - kubex-internal
@@ -228,6 +229,7 @@ services:
       - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
       - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
       - REGISTRY_URL=http://kubex-registry:8070
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
     networks:
       - kubex-internal
       - kubex-external
@@ -258,6 +260,7 @@ services:
       - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
       - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
       - REGISTRY_URL=http://kubex-registry:8070
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
       - VAULT_PATH=/app/vault
     networks:
       - kubex-internal
@@ -287,6 +290,7 @@ services:
       - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
       - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
       - REGISTRY_URL=http://kubex-registry:8070
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
     networks:
       - kubex-internal
     depends_on:
@@ -315,6 +319,7 @@ services:
       - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
       - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
       - REGISTRY_URL=http://kubex-registry:8070
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379
     networks:
       - kubex-internal
     depends_on:

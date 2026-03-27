@@ -148,6 +148,7 @@ Replaces the legacy 8-tool OpenAI function-calling loop with a FastMCP server. T
 sequenceDiagram
     participant MCPBridge as MCPBridgeServer
     participant Registry
+    participant Redis
     participant Broker
     participant Gateway
     participant LLM
@@ -166,10 +167,10 @@ sequenceDiagram
             alt worker capability tool
                 MCPBridge->>Gateway: POST /actions (dispatch_task)
                 Gateway-->>MCPBridge: {task_id}
-            alt kubex__poll_task
+            else kubex__poll_task
                 MCPBridge->>Gateway: GET /tasks/{id}/result
                 Gateway-->>MCPBridge: {status, result}
-            alt vault/meta tools
+            else vault/meta tools
                 MCPBridge->>MCPBridge: in-process vault_ops or Registry call
             end
         end

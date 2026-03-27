@@ -49,6 +49,15 @@ At every significant step of code advancement (phase completion, feature merge, 
 - Always prove to the user that all tests pass before declaring a step complete. Show the pytest summary output.
 - Never accept "pre-existing failures" as normal — every failure is a signal that must be resolved.
 
+## Architecture Documentation
+- After every successfully implemented and tested phase/feature, update the architecture docs in `docs/`:
+  - `docs/ARCHITECTURE.md` — service topology, request lifecycle, Docker infrastructure
+  - `docs/AGENT-SYSTEM.md` — harness modes, skills, deployed agents, HITL events
+  - `docs/POLICY-SECURITY.md` — policy engine, ESCALATE flow, security model
+  - `docs/SERVICES-API.md` — all service endpoints, Redis keys, SSE flows
+- These docs reflect **what is currently implemented**, not aspirational design. Keep them in sync with the codebase.
+- If a phase adds new endpoints, services, skills, agents, or changes event flows, the relevant doc(s) must be updated before the phase is declared complete.
+
 ## Bug Tracking
 - `command-center/docs/BUGS.md` is the shared bug tracker between backend and frontend teams.
 - At the start of every phase, pull from git and check this file for outstanding bugs before beginning work. Fix any relevant open bugs before new feature work.
