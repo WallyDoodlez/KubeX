@@ -66,15 +66,16 @@ SAMPLE_RECORD_DATA: dict[str, Any] = {
 class TestKubexRecordRedisRoundTrip:
     """KMGR-04: KubexRecord persists to and loads from Redis correctly."""
 
-    def test_kubex_record_redis_round_trip(self) -> None:
+    @pytest.mark.asyncio
+    async def test_kubex_record_redis_round_trip(self) -> None:
         """Write KubexRecord via KubexRecordStore.save(), read via load_all(),
         verify all fields match the original record."""
         fakeredis = pytest.importorskip(
             "fakeredis", reason="fakeredis not installed — install with: pip install fakeredis"
         )
 
-        # Create an in-memory Redis instance
-        fake_redis = fakeredis.FakeRedis(decode_responses=True)
+        # Create an async in-memory Redis instance
+        fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
         store = KubexRecordStore(redis_client=fake_redis)
 
         # Import KubexRecord from lifecycle to create a real record object
@@ -83,10 +84,10 @@ class TestKubexRecordRedisRoundTrip:
         record = KubexRecord(**SAMPLE_RECORD_DATA)
 
         # Save
-        store.save(record)
+        await store.save(record)
 
         # Load all records back
-        loaded_records = store.load_all()
+        loaded_records = await store.load_all()
 
         assert len(loaded_records) >= 1
         loaded = next(
@@ -104,50 +105,58 @@ class TestKubexRecordRedisRoundTrip:
         assert loaded.status == record.status
         assert loaded.image == record.image
 
-    def test_save_overwrites_existing_record(self) -> None:
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_save_overwrites_existing_record(self) -> None:
         """Calling save() twice with the same kubex_id overwrites the record."""
         fakeredis = pytest.importorskip(
             "fakeredis", reason="fakeredis not installed"
         )
 
-        fake_redis = fakeredis.FakeRedis(decode_responses=True)
+        fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
         store = KubexRecordStore(redis_client=fake_redis)
 
         from kubex_manager.lifecycle import KubexRecord
 
         record = KubexRecord(**SAMPLE_RECORD_DATA)
-        store.save(record)
+        await store.save(record)
 
         # Update status and save again
         record.status = "stopped"
-        store.save(record)
+        await store.save(record)
 
-        loaded_records = store.load_all()
+        loaded_records = await store.load_all()
         matching = [r for r in loaded_records if r.kubex_id == record.kubex_id]
         assert len(matching) == 1, "Should have exactly one record (no duplicates)"
         assert matching[0].status == "stopped"
 
-    def test_delete_removes_record(self) -> None:
+        await fake_redis.aclose()
+
+    @pytest.mark.asyncio
+    async def test_delete_removes_record(self) -> None:
         """KubexRecordStore.delete(kubex_id) removes the record from Redis."""
         fakeredis = pytest.importorskip(
             "fakeredis", reason="fakeredis not installed"
         )
 
-        fake_redis = fakeredis.FakeRedis(decode_responses=True)
+        fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
         store = KubexRecordStore(redis_client=fake_redis)
 
         from kubex_manager.lifecycle import KubexRecord
 
         record = KubexRecord(**SAMPLE_RECORD_DATA)
-        store.save(record)
+        await store.save(record)
 
         # Verify it's there
-        loaded = store.load_all()
+        loaded = await store.load_all()
         assert any(r.kubex_id == record.kubex_id for r in loaded)
 
         # Delete
-        store.delete(record.kubex_id)
+        await store.delete(record.kubex_id)
 
         # Verify it's gone
-        loaded_after = store.load_all()
+        loaded_after = await store.load_all()
         assert not any(r.kubex_id == record.kubex_id for r in loaded_after)
+
+        await fake_redis.aclose()

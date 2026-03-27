@@ -8,10 +8,10 @@ No TTL — records persist until explicit delete (locked decision).
 
 Usage::
 
-    store = KubexRecordStore(redis_client=redis_sync_client)
-    store.save(record)
-    records = store.load_all()   # returns list[KubexRecord]
-    store.delete(record.kubex_id)
+    store = KubexRecordStore(redis_client=async_redis_client)
+    await store.save(record)
+    records = await store.load_all()
+    await store.delete(record.kubex_id)
 """
 
 from __future__ import annotations
@@ -26,12 +26,11 @@ _KEY_PREFIX = "kubex:record:"
 
 
 class KubexRecordStore:
-    """Synchronous Redis write-through store for KubexRecord objects.
+    """Async Redis write-through store for KubexRecord objects.
 
     Args:
-        redis_client: A synchronous Redis client (e.g., ``redis.Redis`` or
-            ``fakeredis.FakeRedis``) with ``set``, ``get``, ``delete``, and
-            ``scan_iter`` methods.
+        redis_client: An async Redis client (``redis.asyncio.Redis``)
+            with ``set``, ``get``, ``delete``, and ``keys`` methods.
     """
 
     def __init__(self, redis_client: Any) -> None:
@@ -40,7 +39,7 @@ class KubexRecordStore:
     def _key(self, kubex_id: str) -> str:
         return f"{_KEY_PREFIX}{kubex_id}"
 
-    def save(self, record: KubexRecord) -> None:
+    async def save(self, record: KubexRecord) -> None:
         """Persist a KubexRecord to Redis.
 
         Overwrites any existing record with the same kubex_id.
@@ -50,33 +49,31 @@ class KubexRecordStore:
         """
         key = self._key(record.kubex_id)
         value = json.dumps(record.to_dict())
-        self._redis.set(key, value)
+        await self._redis.set(key, value)
 
-    def delete(self, kubex_id: str) -> None:
+    async def delete(self, kubex_id: str) -> None:
         """Remove a KubexRecord from Redis.
 
         Args:
             kubex_id: The kubex_id of the record to remove.
         """
-        self._redis.delete(self._key(kubex_id))
+        await self._redis.delete(self._key(kubex_id))
 
-    def load_all(self) -> list[KubexRecord]:
+    async def load_all(self) -> list[KubexRecord]:
         """Load all KubexRecords from Redis.
-
-        Uses ``scan_iter`` to iterate over keys matching the kubex:record:* pattern.
 
         Returns:
             List of KubexRecord objects. May be empty if no records are stored.
         """
         records: list[KubexRecord] = []
-        for key in self._redis.scan_iter(f"{_KEY_PREFIX}*"):
-            raw = self._redis.get(key)
+        keys = await self._redis.keys(f"{_KEY_PREFIX}*")
+        for key in keys:
+            raw = await self._redis.get(key)
             if raw is None:
                 continue
             try:
                 data = json.loads(raw)
                 records.append(KubexRecord.from_dict(data))
             except (json.JSONDecodeError, KeyError, TypeError):
-                # Skip corrupt records — log in production; silent here for simplicity
                 pass
         return records

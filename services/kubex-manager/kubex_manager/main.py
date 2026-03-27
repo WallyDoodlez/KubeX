@@ -409,7 +409,7 @@ async def install_dep(kubex_id: str, body: InstallDepBody, request: Request) -> 
             from .redis_store import KubexRecordStore
 
             store = KubexRecordStore(lifecycle._redis)
-            store.save(record)
+            await store.save(record)
 
         return JSONResponse(
             status_code=200,
@@ -658,7 +658,7 @@ class ManagerService(KubexService):
             self.app.state.lifecycle._redis = self.redis.client
 
         # Restore managed Kubex state from Redis on startup (KMGR-04)
-        self.app.state.lifecycle.load_from_redis()
+        await self.app.state.lifecycle.load_from_redis()
 
         try:
             import docker

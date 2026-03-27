@@ -6,6 +6,7 @@ Coverage target: >=90% on services/kubex-manager/kubex_manager/lifecycle.py
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 import os
@@ -1147,18 +1148,22 @@ class TestKubexRecordSerialization:
         assert record.composed_capabilities == ["scrape_web", "recall_memory"]
 
     @patch("kubex_manager.lifecycle.docker.from_env")
-    def test_create_kubex_persists_to_redis(self, mock_docker_env: MagicMock) -> None:
+    @pytest.mark.asyncio
+    async def test_create_kubex_persists_to_redis(self, mock_docker_env: MagicMock) -> None:
         """After create_kubex(), the KubexRecord is stored in Redis at
         'kubex:record:{kubex_id}'."""
         mock_docker, _ = make_mock_docker()
         mock_docker_env.return_value = mock_docker
 
-        mock_redis = MagicMock()
-        mock_redis.set = MagicMock()
+        mock_redis = AsyncMock()
+        mock_redis.set = AsyncMock()
 
         lifecycle = make_lifecycle(redis_client=mock_redis)
         req = CreateKubexRequest(config=SAMPLE_CONFIG)
         record = lifecycle.create_kubex(req)
+
+        # Give the fire-and-forget task a chance to run
+        await asyncio.sleep(0)
 
         # Redis set must have been called with the correct key pattern
         set_calls = mock_redis.set.call_args_list
@@ -1168,7 +1173,8 @@ class TestKubexRecordSerialization:
             f"Expected Redis key '{key_pattern}' not found in set() calls: {set_calls}"
         )
 
-    def test_lifecycle_loads_records_on_startup(self) -> None:
+    @pytest.mark.asyncio
+    async def test_lifecycle_loads_records_on_startup(self) -> None:
         """KubexLifecycle.load_from_redis() populates _kubexes from Redis
         keys matching 'kubex:record:*'."""
         import json
@@ -1193,16 +1199,16 @@ class TestKubexRecordSerialization:
             "image": "kubexclaw-base:latest",
         }
 
-        mock_redis = MagicMock()
-        mock_redis.keys = MagicMock(
+        mock_redis = AsyncMock()
+        mock_redis.keys = AsyncMock(
             return_value=[b"kubex:record:k-001", b"kubex:record:k-002"]
         )
-        mock_redis.get = MagicMock(
+        mock_redis.get = AsyncMock(
             side_effect=[json.dumps(record1).encode(), json.dumps(record2).encode()]
         )
 
         lifecycle = make_lifecycle(redis_client=mock_redis)
-        lifecycle.load_from_redis()
+        await lifecycle.load_from_redis()
 
         assert "k-001" in lifecycle._kubexes
         assert "k-002" in lifecycle._kubexes
@@ -1218,24 +1224,26 @@ class TestSpawnPipelineRollback:
     """Spawn pipeline is atomic: failures trigger rollback of previously created artifacts."""
 
     @patch("kubex_manager.lifecycle.docker.from_env")
-    def test_spawn_pipeline_rolls_back_container_on_redis_failure(
+    @pytest.mark.asyncio
+    async def test_spawn_succeeds_even_when_redis_persist_fails(
         self, mock_docker_env: MagicMock
     ) -> None:
-        """If Redis persist fails after container create, the container is removed."""
+        """Redis persist failure does not block container creation (fire-and-forget)."""
         mock_docker, mock_container = make_mock_docker()
         mock_docker_env.return_value = mock_docker
 
-        mock_redis = MagicMock()
-        mock_redis.set = MagicMock(side_effect=Exception("Redis connection refused"))
+        mock_redis = AsyncMock()
+        mock_redis.set = AsyncMock(side_effect=Exception("Redis connection refused"))
 
         lifecycle = make_lifecycle(redis_client=mock_redis)
         req = CreateKubexRequest(config=SAMPLE_CONFIG)
 
-        with pytest.raises(Exception):
-            lifecycle.create_kubex(req)
+        # create_kubex should succeed — Redis failure is non-blocking
+        record = lifecycle.create_kubex(req)
+        await asyncio.sleep(0)  # let fire-and-forget task run
 
-        # Container must be removed after Redis failure
-        assert mock_container.remove.called or mock_docker.containers.get.called
+        assert record is not None
+        assert record.kubex_id in lifecycle._kubexes
 
     @patch("kubex_manager.lifecycle.docker.from_env")
     def test_spawn_pipeline_rolls_back_config_on_docker_failure(

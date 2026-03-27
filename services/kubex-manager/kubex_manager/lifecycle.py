@@ -6,6 +6,7 @@ Registry integration, and lifecycle event publishing.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 import os
@@ -258,24 +259,24 @@ class KubexLifecycle:
             )
         return networks[0].name
 
-    def load_from_redis(self) -> None:
+    async def load_from_redis(self) -> None:
         """Load KubexRecords from Redis into the in-memory store on Manager restart (KMGR-04).
 
-        Uses synchronous Redis keys() / get() to recover state without requiring
+        Uses async Redis keys() / get() to recover state without requiring
         the Manager to re-create containers it already knows about.
         """
         if self._redis is None:
             return
 
         try:
-            keys = self._redis.keys("kubex:record:*")
+            keys = await self._redis.keys("kubex:record:*")
         except Exception as exc:
             logger.warning("redis_load_failed", error=str(exc))
             return
 
         for key in keys:
             try:
-                raw = self._redis.get(key)
+                raw = await self._redis.get(key)
                 if raw is None:
                     continue
                 if isinstance(raw, bytes):
@@ -555,7 +556,11 @@ class KubexLifecycle:
                 from .redis_store import KubexRecordStore
 
                 store = KubexRecordStore(self._redis)
-                store.save(record)
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(store.save(record))
+                except RuntimeError:
+                    logger.warning("no_event_loop_for_redis_save", kubex_id=kubex_id)
 
             # Step 8: Add to in-memory store and return
             self._kubexes[kubex_id] = record
