@@ -145,11 +145,11 @@ Plans:
 **Goal:** Emit `agent_joined` / `agent_left` structured progress events from MCP Bridge when workers interact via HITL, plus `source_agent` attribution on `hitl_request` events. Unblocks FE Iteration 96 conversation participant model.
 **Requirements**: FE-BE-REQUESTS.md — agent_joined/agent_left section
 **Depends on:** Phase 12
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 14-01-PLAN.md — Participant tracking infrastructure, agent_joined emission, hitl_request source_agent attribution
-- [ ] 14-02-PLAN.md — kubex__forward_hitl_response tool, agent_left emission, tracking cleanup on terminal states
+- [x] 14-02-PLAN.md — kubex__forward_hitl_response tool, agent_left emission, tracking cleanup on terminal states
 
 ## Progress
 
@@ -166,7 +166,7 @@ Plans:
 | 11. Gemini CLI Runtime | v1.2 | 1/1 | Complete    | 2026-03-23 |
 | 12. OAuth Command Center Web Flow | v1.2 | 2/2 | Complete    | 2026-03-24 |
 | 13. Error Observability Pipeline | v1.2 | 0/? | Not started | - |
-| 14. Orchestrator Participant Events | v1.2 | 1/2 | In Progress|  |
+| 14. Orchestrator Participant Events | v1.2 | 2/2 | Complete   | 2026-03-27 |
 
 ## Backlog
 

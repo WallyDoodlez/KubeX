@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: MCP Bridge + CLI Runtime
 status: unknown
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-03-27T02:44:02.994Z"
+stopped_at: Completed 14-02-PLAN.md
+last_updated: "2026-03-27T02:55:54.404Z"
 progress:
   total_phases: 12
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 19
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -59,6 +59,7 @@ Plan: 2 of 2
 | Phase 12-oauth-command-center-web-flow P01 | 237 | 3 tasks | 4 files |
 | Phase 12 P02 | 121 | 1 tasks | 1 files |
 | Phase 14-orchestrator-participant-events P01 | 155 | 1 tasks | 2 files |
+| Phase 14-orchestrator-participant-events P02 | 333 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,8 @@ Recent decisions affecting current work:
 - [Phase 12]: Handoff doc supersedes docs/HANDOFF-oauth-command-center.md (Phase 9) — Phase 9 doc described gaps; Phase 12 doc is the authoritative post-implementation reference
 - [Phase 12]: FE must use fetch() + ReadableStream instead of native EventSource for lifecycle SSE — EventSource API does not support custom headers required for Bearer auth
 - [Phase 14-orchestrator-participant-events]: _joined_sub_tasks set used for agent_joined dedup (D-14); _active_task_id cleared in finally block in _handle_message for safe cleanup; _post_progress failures in need_info block caught per-call so poll return is never blocked
+- [Phase 14-orchestrator-participant-events]: test_forward_hitl_tool_registered checks mock call_args_list (not real _tool_manager) because mock_fastmcp patches FastMCP with MagicMock
+- [Phase 14-orchestrator-participant-events]: Terminal status cleanup uses discard/pop — idempotent whether or not HITL forward already cleaned the dict
 
 ### Pending Todos
 
@@ -128,6 +131,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-27T02:44:02.991Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-03-27T02:55:54.401Z
+Stopped at: Completed 14-02-PLAN.md
 Resume file: None
