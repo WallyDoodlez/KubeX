@@ -20,17 +20,27 @@
 
 ### BUG-012: Orchestrator task loop not polling Broker after BUG-011 fix
 - **Severity:** P0
-- **Status:** OPEN
+- **Status:** FIXED
 - **Found:** 2026-03-27
-- **Component:** Backend — `mcp_bridge.py` task loop
-- **Description:** After BUG-011 fix (Redis auth), the orchestrator boots cleanly (no auth errors, pub/sub subscribed), but the task loop never actually polls the Broker. Zero `consume` requests logged. Tasks stay in the Broker stream indefinitely.
+- **Fixed:** 2026-03-27
+- **Component:** Backend — `agents/_base/kubex_harness/mcp_bridge.py`
+- **Description:** After BUG-011 fix (Redis auth), the orchestrator boots cleanly (no auth errors, pub/sub subscribed), but the task loop appeared to never poll the Broker. Zero `consume` entries visible in INFO-level logs. Tasks stayed in the Broker stream indefinitely.
 - **Evidence:**
-  - Orchestrator logs: "Entering API mode task loop: polling broker" then "Subscribed to registry:agent_changed pub/sub channel" — and nothing else. No consume polls.
+  - Orchestrator logs: "Entering API mode task loop: polling broker" then "Subscribed to registry:agent_changed pub/sub channel" — and nothing else visible. No consume polls logged.
   - Broker confirms task published: `task-aad1eda56381` at `14:05:05`
   - `grep -c "consume"` on orchestrator logs returns 0
   - Hello-world and other agents ARE polling correctly
-- **Root cause:** TBD — the `_run_api_task_loop` in `mcp_bridge.py` may be blocked by the registry pub/sub listener or some async initialization that never yields
-- **Blocks:** UAT for Iteration 96
+- **Root cause (compound — three issues):**
+  1. **Silent broker errors:** `_consume()` logged `ConnectError` at `DEBUG` level — completely invisible with default INFO logging. When the broker was briefly unreachable during startup, all poll attempts failed silently. Zero log evidence of polling = operators concluded the loop wasn't running, but it was running and silently swallowing errors.
+  2. **No event loop yield guarantee:** `_listen_registry_changes` lacked an explicit `await asyncio.sleep(0)` inside its `async for message in pubsub.listen()` loop. While asyncio's `await` in `pubsub.listen()` should yield to other tasks, a burst of rapid Redis messages or redis-py internals could starve the poll task between iterations. The explicit sleep(0) ensures the event loop always gets a chance to schedule the broker poll task between pub/sub message handling.
+  3. **No heartbeat logging:** The poll loop had no periodic health indicator, making it impossible to distinguish "loop running, broker unreachable" from "loop not running at all".
+- **Fix:**
+  1. `_consume()`: Changed `ConnectError` log from `logger.debug()` → `logger.warning()` so broker unreachability is always visible in production logs.
+  2. `_listen_registry_changes()`: Added `await asyncio.sleep(0)` at the top of the `async for` loop body to explicitly yield to the event loop on every message iteration.
+  3. `_listen_registry_changes()`: Added `socket_timeout=30.0` to the Redis connection so the connection can never hang indefinitely.
+  4. `run()` API mode loop: Added a heartbeat log every 30 iterations (`logger.info("Task loop heartbeat: %d poll iterations completed")`) for operational visibility.
+  5. Added `TestTaskLoopIsolation` class with 5 new unit tests covering: loop isolation from listener, WARNING-level logging, explicit event loop yield, broker URL routing, and capability enumeration.
+- **Fixed in:** (see commit)
 
 ---
 

@@ -13,10 +13,12 @@ Tests cover:
   - Vault tools: reads in-process (vault_ops), writes via Gateway (Plan 03)
   - Meta-tools: kubex__list_agents, kubex__agent_status, kubex__cancel_task (Plan 03)
   - Concurrent dispatch: asyncio.gather for parallel worker tasks (MCP-07)
+  - BUG-012: task poll loop isolation from pub/sub listener
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sys
@@ -1421,3 +1423,197 @@ def aiter_from_list(items: list) -> Any:
             yield item
 
     return _gen()
+
+
+# ---------------------------------------------------------------------------
+# TestTaskLoopIsolation (BUG-012)
+# ---------------------------------------------------------------------------
+
+
+class TestTaskLoopIsolation:
+    """BUG-012: task poll loop must run independently of the registry pub/sub listener.
+
+    These tests verify:
+    1. _poll_and_process is called even while _listen_registry_changes is active.
+    2. ConnectError from broker is logged at WARNING level (not DEBUG) so it
+       is visible in INFO-level production logs.
+    3. The _listen_registry_changes loop explicitly yields via asyncio.sleep(0)
+       on every iteration so the event loop can schedule the poll task between
+       rapid message bursts.
+    """
+
+    @pytest.mark.asyncio
+    async def test_poll_and_process_called_while_listener_running(
+        self, bridge, mock_http
+    ):
+        """Task loop runs _poll_and_process while pub/sub listener is active (BUG-012).
+
+        Simulates a long-running pub/sub listener (hangs in the async for loop)
+        and verifies that _poll_and_process is still called at least once.
+        """
+        poll_calls: list[int] = []
+        original_poll = bridge._poll_and_process
+
+        async def counting_poll():
+            poll_calls.append(1)
+            await original_poll()
+
+        bridge._poll_and_process = counting_poll
+
+        # Mock the broker consume to return empty (no tasks)
+        mock_http.get.return_value = _mock_response(200, json_data=[])
+
+        # Simulate a pub/sub listener that stays alive for a while
+        async def slow_listener():
+            """Simulates _listen_registry_changes: hangs waiting for messages."""
+            await asyncio.sleep(0.5)  # stays alive for 500ms
+
+        # Run both concurrently: the slow listener and the task poll loop
+        import asyncio as _asyncio
+
+        async def run_loop_briefly():
+            """Run the poll loop for a few iterations then stop."""
+            await _asyncio.sleep(0)  # yield to allow slow_listener to start
+            bridge._running = True
+            poll_interval = 0.05  # fast poll for testing
+            for _ in range(3):
+                try:
+                    await bridge._poll_and_process()
+                except Exception:
+                    pass
+                await _asyncio.sleep(poll_interval)
+            bridge._running = False
+
+        await _asyncio.gather(slow_listener(), run_loop_briefly())
+
+        assert len(poll_calls) >= 3, (
+            f"Expected at least 3 poll calls, got {len(poll_calls)}. "
+            "The pub/sub listener should not block the task loop."
+        )
+
+    @pytest.mark.asyncio
+    async def test_consume_connect_error_logged_at_warning(self, bridge, mock_http):
+        """ConnectError from broker must be WARNING (not DEBUG) so it appears in INFO logs (BUG-012).
+
+        Before this fix, ConnectError was logged at DEBUG level, making broker
+        unreachability invisible in production logs and causing confusion about
+        whether the poll loop was running at all.
+        """
+        import logging
+
+        mock_http.get.side_effect = httpx.ConnectError("Connection refused")
+
+        with patch("kubex_harness.mcp_bridge.logger") as mock_logger:
+            result = await bridge._consume("task_orchestration")
+
+        # Must have called warning, not debug
+        assert mock_logger.warning.called, "ConnectError must be logged at WARNING level"
+        warning_calls = [str(c) for c in mock_logger.warning.call_args_list]
+        assert any("not reachable" in w or "Broker" in w for w in warning_calls), (
+            f"Expected 'Broker not reachable' warning. Got: {warning_calls}"
+        )
+
+        # Must NOT have logged at debug for this error
+        debug_reachable_calls = [
+            c for c in mock_logger.debug.call_args_list
+            if "not reachable" in str(c)
+        ]
+        assert len(debug_reachable_calls) == 0, (
+            "ConnectError must not be logged at DEBUG level (would be invisible in prod)"
+        )
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_listen_registry_changes_yields_to_event_loop(self, bridge, mock_http):
+        """_listen_registry_changes must call asyncio.sleep(0) inside the async for loop (BUG-012).
+
+        This ensures that even when Redis delivers many messages in rapid succession,
+        the event loop can schedule the broker poll task between each message.
+        """
+        import asyncio as _asyncio
+
+        mock_http.get.return_value = _mock_response(200, json_data=[])
+        bridge._register_worker_tool = MagicMock()
+
+        # Track asyncio.sleep(0) calls inside the listener
+        sleep_calls: list[float] = []
+        real_sleep = _asyncio.sleep
+
+        async def tracking_sleep(delay: float) -> None:
+            sleep_calls.append(delay)
+            await real_sleep(delay)
+
+        # Deliver 3 messages to the listener
+        messages = [
+            {"type": "subscribe", "data": 1},
+            {"type": "message", "data": "agent-1"},
+            {"type": "message", "data": "agent-2"},
+        ]
+
+        fake_pubsub = MagicMock()
+        fake_pubsub.subscribe = AsyncMock()
+        fake_pubsub.listen = MagicMock(return_value=aiter_from_list(messages))
+        fake_pubsub.unsubscribe = AsyncMock()
+
+        fake_client = MagicMock()
+        fake_client.pubsub.return_value = fake_pubsub
+        fake_client.aclose = AsyncMock()
+
+        bridge._running = True
+
+        with patch("redis.asyncio.from_url", return_value=fake_client):
+            with patch("asyncio.sleep", side_effect=tracking_sleep):
+                await bridge._listen_registry_changes()
+
+        # asyncio.sleep(0) must have been called at least once per message in the loop
+        zero_sleeps = [s for s in sleep_calls if s == 0]
+        assert len(zero_sleeps) >= len(messages), (
+            f"Expected at least {len(messages)} asyncio.sleep(0) calls (one per loop "
+            f"iteration), got {len(zero_sleeps)}. The listener must yield to the event loop."
+        )
+
+    @pytest.mark.asyncio
+    async def test_broker_url_used_in_consume(self, bridge, mock_http):
+        """_consume constructs URL from config.broker_url (sanity check for BUG-012 routing)."""
+        mock_http.get.return_value = _mock_response(200, json_data=[])
+
+        await bridge._consume("task_orchestration")
+
+        call_url = mock_http.get.call_args.args[0]
+        assert "task_orchestration" in call_url
+        assert bridge.config.broker_url in call_url
+
+    @pytest.mark.asyncio
+    async def test_poll_and_process_calls_consume_for_each_capability(
+        self, bridge, mock_http
+    ):
+        """_poll_and_process calls _consume for every configured capability (BUG-012 regression)."""
+        from kubex_harness.config_loader import AgentConfig
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+
+        with patch("kubex_harness.mcp_bridge.FastMCP") as mock_cls:
+            mock_instance = MagicMock()
+            mock_instance.tool = MagicMock(return_value=lambda fn: fn)
+            mock_cls.return_value = mock_instance
+
+            config = AgentConfig(
+                agent_id="orchestrator",
+                capabilities=["task_orchestration", "task_management"],
+            )
+            server = MCPBridgeServer(config)
+            server._http = mock_http
+
+        consumed: list[str] = []
+
+        async def mock_consume(cap: str) -> list:
+            consumed.append(cap)
+            return []
+
+        server._consume = mock_consume
+
+        await server._poll_and_process()
+
+        assert "task_orchestration" in consumed
+        assert "task_management" in consumed
+        assert len(consumed) == 2

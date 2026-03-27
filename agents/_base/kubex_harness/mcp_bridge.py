@@ -541,6 +541,7 @@ class MCPBridgeServer:
     async def _poll_and_process(self) -> None:
         """Poll broker for tasks and process them (API mode task loop)."""
         assert self._http is not None
+        logger.debug("Polling broker for capabilities=%s", self.config.capabilities)
         for capability in self.config.capabilities:
             messages = await self._consume(capability)
             for msg in messages:
@@ -558,7 +559,7 @@ class MCPBridgeServer:
                 return resp.json()
             logger.warning("Broker consume returned %d", resp.status_code)
         except httpx.ConnectError:
-            logger.debug("Broker not reachable at %s", self.config.broker_url)
+            logger.warning("Broker not reachable at %s", self.config.broker_url)
         except Exception:
             logger.exception("Broker consume error")
         return []
@@ -1007,16 +1008,25 @@ class MCPBridgeServer:
             return {"status": "error", "message": str(exc)}
 
     async def _listen_registry_changes(self) -> None:
-        """Background task: subscribe to registry:agent_changed, refresh tool cache."""
+        """Background task: subscribe to registry:agent_changed, refresh tool cache.
+
+        Runs as a background asyncio.Task so it never blocks the main task poll loop.
+        Uses socket_timeout so the read never hangs indefinitely if the Redis connection
+        stalls — the exception is caught and the listener restarts cleanly.
+        """
         import redis.asyncio as aioredis  # noqa: PLC0415
 
-        client = aioredis.from_url(self.redis_url, decode_responses=True)
+        client = aioredis.from_url(self.redis_url, decode_responses=True, socket_timeout=30.0)
         pubsub = client.pubsub()
         try:
             await pubsub.subscribe("registry:agent_changed")
             logger.info("Subscribed to registry:agent_changed pub/sub channel")
 
             async for message in pubsub.listen():
+                # Explicitly yield to the event loop on every iteration so the
+                # main task poll loop is never starved, regardless of message
+                # throughput or redis-py internals.
+                await asyncio.sleep(0)
                 if not self._running:
                     break
                 if message["type"] == "message":
@@ -1084,11 +1094,18 @@ class MCPBridgeServer:
                         "Entering API mode task loop: polling broker for capabilities=%s",
                         self.config.capabilities,
                     )
+                    _iteration = 0
                     while self._running:
                         try:
                             await self._poll_and_process()
                         except Exception:
                             logger.exception("Error in MCP bridge task loop iteration")
+                        _iteration += 1
+                        if _iteration % 30 == 0:
+                            logger.info(
+                                "Task loop heartbeat: %d poll iterations completed",
+                                _iteration,
+                            )
                         await asyncio.sleep(poll_interval)
             finally:
                 await self._shutdown()
