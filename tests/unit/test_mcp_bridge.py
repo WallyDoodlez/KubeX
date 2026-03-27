@@ -1213,6 +1213,154 @@ class TestParticipantEvents:
         assert isinstance(server._task_capability, dict)
         assert len(server._task_capability) == 0
 
+    # ------------------------------------------------------------------
+    # Plan 02: kubex__forward_hitl_response and agent_left emission
+    # ------------------------------------------------------------------
+
+    def test_forward_hitl_tool_registered(self, config, mock_fastmcp):
+        """kubex__forward_hitl_response is registered in the MCP tool manager."""
+        from kubex_harness.mcp_bridge import MCPBridgeServer
+        server = MCPBridgeServer(config)
+        tool_names = [t.name for t in server._mcp._tool_manager.list_tools()]
+        assert "kubex__forward_hitl_response" in tool_names
+
+    @pytest.mark.asyncio
+    async def test_agent_left_emitted_after_hitl_forward(self, participant_bridge):
+        """D-11: agent_left emitted on progress channel after forwarding HITL answer."""
+        participant_bridge._sub_task_agent["sub-task-123"] = "worker-agent-1"
+        participant_bridge._joined_sub_tasks.add("sub-task-123")
+        participant_bridge._http.post.return_value = _mock_response(200)
+
+        result = await participant_bridge._handle_forward_hitl(
+            sub_task_id="sub-task-123", answer="The answer is 42"
+        )
+
+        assert result["status"] == "forwarded"
+        assert result["sub_task_id"] == "sub-task-123"
+
+        calls = participant_bridge._post_progress.call_args_list
+        agent_left_calls = [
+            c for c in calls
+            if "agent_left" in (c.args[1] if c.args else c.kwargs.get("chunk", ""))
+        ]
+        assert len(agent_left_calls) >= 1
+        payload = json.loads(agent_left_calls[0].args[1])
+        assert payload["type"] == "agent_left"
+        assert payload["agent_id"] == "worker-agent-1"
+        assert payload["sub_task_id"] == "sub-task-123"
+        assert payload["status"] == "resolved"
+
+    @pytest.mark.asyncio
+    async def test_agent_left_uses_sub_task_agent_dict(self, participant_bridge):
+        """agent_left reads worker identity from _sub_task_agent (not guessed)."""
+        participant_bridge._sub_task_agent["sub-task-999"] = "specific-worker"
+        participant_bridge._active_task_id = "orch-task-1"
+        participant_bridge._http.post.return_value = _mock_response(200)
+
+        await participant_bridge._handle_forward_hitl(
+            sub_task_id="sub-task-999", answer="Yes"
+        )
+
+        calls = participant_bridge._post_progress.call_args_list
+        agent_left_calls = [
+            c for c in calls
+            if "agent_left" in (c.args[1] if c.args else c.kwargs.get("chunk", ""))
+        ]
+        assert len(agent_left_calls) >= 1
+        payload = json.loads(agent_left_calls[0].args[1])
+        assert payload["agent_id"] == "specific-worker"
+
+    @pytest.mark.asyncio
+    async def test_agent_left_joined_sub_tasks_cleaned_up(self, participant_bridge):
+        """Pitfall 2: sub_task_id removed from _joined_sub_tasks after forward."""
+        participant_bridge._sub_task_agent["sub-task-123"] = "worker-1"
+        participant_bridge._joined_sub_tasks.add("sub-task-123")
+        participant_bridge._http.post.return_value = _mock_response(200)
+
+        await participant_bridge._handle_forward_hitl(
+            sub_task_id="sub-task-123", answer="Done"
+        )
+
+        assert "sub-task-123" not in participant_bridge._joined_sub_tasks
+
+    @pytest.mark.asyncio
+    async def test_agent_left_sub_task_agent_cleaned_up(self, participant_bridge):
+        """_sub_task_agent cleared for sub_task_id after forward."""
+        participant_bridge._sub_task_agent["sub-task-123"] = "worker-1"
+        participant_bridge._joined_sub_tasks.add("sub-task-123")
+        participant_bridge._http.post.return_value = _mock_response(200)
+
+        await participant_bridge._handle_forward_hitl(
+            sub_task_id="sub-task-123", answer="Done"
+        )
+
+        assert "sub-task-123" not in participant_bridge._sub_task_agent
+
+    @pytest.mark.asyncio
+    async def test_forward_hitl_stores_answer_via_broker(self, participant_bridge):
+        """HITL answer stored via Broker POST /tasks/{sub_task_id}/result with hitl_answer status."""
+        participant_bridge._sub_task_agent["sub-task-123"] = "worker-1"
+        participant_bridge._http.post.return_value = _mock_response(200)
+
+        await participant_bridge._handle_forward_hitl(
+            sub_task_id="sub-task-123", answer="My answer here"
+        )
+
+        participant_bridge._http.post.assert_called_once()
+        call_args = participant_bridge._http.post.call_args
+        url = call_args.args[0] if call_args.args else call_args.kwargs.get("url", "")
+        assert "sub-task-123" in url
+        assert "result" in url
+        call_json = call_args.kwargs.get("json") or call_args[1].get("json")
+        assert call_json["result"]["status"] == "hitl_answer"
+        assert call_json["result"]["output"] == "My answer here"
+
+    @pytest.mark.asyncio
+    async def test_forward_hitl_broker_failure_returns_error_dict(self, participant_bridge):
+        """If Broker POST fails, _handle_forward_hitl returns error dict (not raise)."""
+        participant_bridge._sub_task_agent["sub-task-123"] = "worker-1"
+        participant_bridge._http.post.return_value = _mock_response(500, text="Server error")
+
+        result = await participant_bridge._handle_forward_hitl(
+            sub_task_id="sub-task-123", answer="Done"
+        )
+
+        assert result["status"] == "error"
+        assert "500" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_forward_hitl_post_progress_failure_does_not_block_result(self, participant_bridge):
+        """If _post_progress fails during agent_left, forward still returns forwarded status."""
+        participant_bridge._sub_task_agent["sub-task-123"] = "worker-1"
+        participant_bridge._joined_sub_tasks.add("sub-task-123")
+        participant_bridge._http.post.return_value = _mock_response(200)
+        participant_bridge._post_progress.side_effect = RuntimeError("Progress down")
+
+        result = await participant_bridge._handle_forward_hitl(
+            sub_task_id="sub-task-123", answer="Done"
+        )
+
+        assert result["status"] == "forwarded"
+
+    @pytest.mark.asyncio
+    async def test_agent_left_emitted_even_when_not_in_joined_sub_tasks(self, participant_bridge):
+        """agent_left is still emitted when sub_task_id was never in _joined_sub_tasks."""
+        # Do not add to _joined_sub_tasks
+        participant_bridge._sub_task_agent["sub-task-orphan"] = "worker-1"
+        participant_bridge._http.post.return_value = _mock_response(200)
+
+        result = await participant_bridge._handle_forward_hitl(
+            sub_task_id="sub-task-orphan", answer="Answer"
+        )
+
+        assert result["status"] == "forwarded"
+        calls = participant_bridge._post_progress.call_args_list
+        agent_left_calls = [
+            c for c in calls
+            if "agent_left" in (c.args[1] if c.args else c.kwargs.get("chunk", ""))
+        ]
+        assert len(agent_left_calls) >= 1
+
 
 def aiter_from_list(items: list) -> Any:
     """Create an async iterator from a list (for mocking pubsub.listen())."""
