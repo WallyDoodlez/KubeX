@@ -177,6 +177,13 @@ class MCPBridgeServer:
                         "data": data.get("data", {}),
                     }
 
+                # Phase 14: Clean up participant tracking on terminal status
+                if result_status in ("completed", "failed", "cancelled"):
+                    self._joined_sub_tasks.discard(task_id)
+                    self._sub_task_agent.pop(task_id, None)
+                    self._task_capability.pop(task_id, None)
+                    self._delegation_depth.pop(task_id, None)
+
                 return {"status": "completed", **data}
             return {"status": "error", "code": resp.status_code, "message": resp.text[:200]}
         except Exception as exc:

@@ -1366,6 +1366,52 @@ class TestParticipantEvents:
         ]
         assert len(agent_left_calls) >= 1
 
+    # ------------------------------------------------------------------
+    # Task 2: Cleanup on terminal poll status
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_tracking_cleanup_on_completed(self, participant_bridge):
+        """Pitfall 2: all tracking dicts cleared when poll returns status=completed."""
+        task_id = "sub-task-done"
+        participant_bridge._joined_sub_tasks.add(task_id)
+        participant_bridge._sub_task_agent[task_id] = "worker-1"
+        participant_bridge._task_capability[task_id] = "scrape_instagram"
+        participant_bridge._delegation_depth[task_id] = 1
+
+        participant_bridge._http.get.return_value = _mock_response(
+            200, json_data={"status": "completed", "output": "Done!"}
+        )
+
+        result = await participant_bridge._handle_poll_task(task_id)
+
+        assert result["status"] == "completed"
+        assert task_id not in participant_bridge._joined_sub_tasks
+        assert task_id not in participant_bridge._sub_task_agent
+        assert task_id not in participant_bridge._task_capability
+        assert task_id not in participant_bridge._delegation_depth
+
+    @pytest.mark.asyncio
+    async def test_tracking_cleanup_on_failed(self, participant_bridge):
+        """Pitfall 2: all tracking dicts cleared when poll returns status=failed."""
+        task_id = "sub-task-failed"
+        participant_bridge._joined_sub_tasks.add(task_id)
+        participant_bridge._sub_task_agent[task_id] = "worker-2"
+        participant_bridge._task_capability[task_id] = "knowledge_management"
+        participant_bridge._delegation_depth[task_id] = 2
+
+        participant_bridge._http.get.return_value = _mock_response(
+            200, json_data={"status": "failed", "output": "Error occurred"}
+        )
+
+        result = await participant_bridge._handle_poll_task(task_id)
+
+        assert result["status"] == "failed"  # data's status overrides the 'completed' prefix in the dict merge
+        assert task_id not in participant_bridge._joined_sub_tasks
+        assert task_id not in participant_bridge._sub_task_agent
+        assert task_id not in participant_bridge._task_capability
+        assert task_id not in participant_bridge._delegation_depth
+
 
 def aiter_from_list(items: list) -> Any:
     """Create an async iterator from a list (for mocking pubsub.listen())."""
