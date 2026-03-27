@@ -18,6 +18,30 @@
 
 ## Open Bugs
 
+### BUG-009: Orchestrator dispatch to hello-world agent — task stays pending
+- **Severity:** P1
+- **Status:** OPEN
+- **Found:** 2026-03-27
+- **Component:** Backend — Orchestrator / Broker dispatch pipeline
+- **Description:** When the orchestrator dispatches a sub-task to the hello-world agent (capability `hitl-test`), the hello-world agent never picks it up. The task stays `pending` through all the orchestrator's polling iterations. The orchestrator then returns an error wrapped as a "completed" result (see BUG-008).
+- **Evidence:**
+  - Orchestrator dispatches task via `kubex__dispatch_task` to capability `hitl-test`
+  - Hello-world agent is running and actively polling both `hello` and `hitl-test` capabilities from the Broker (`GET /messages/consume/hitl-test` returning 200 every 2s)
+  - But the task never arrives — hello-world logs show only empty consume responses
+  - Orchestrator polls `kubex__poll_task` until max iterations, gets `pending` every time, then gives up
+- **Root cause:** TBD — possible issues:
+  1. Orchestrator dispatches to a different stream key than what hello-world is consuming
+  2. Broker creates the task under a different capability or routing key
+  3. The dispatch creates a task record but doesn't publish to the Redis stream that hello-world reads
+- **Reproduction:**
+  1. Start full stack with hello-world agent configured with `hitl-test` capability
+  2. Send "Run the hitl-test skill on the hello-world agent" to the orchestrator chat
+  3. Observe: orchestrator dispatches but hello-world never receives the task
+- **Workaround:** None
+- **Blocks:** UAT for Iteration 96 (conversation participant model / HITL flow)
+
+---
+
 ### BUG-007: Chat stuck on "Streaming" — SSE race condition on fast tasks
 - **Severity:** P1
 - **Status:** BLOCKED — FE fixed (Iteration 88), waiting on BE to emit cached result on SSE connect
