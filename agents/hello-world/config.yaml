@@ -3,7 +3,9 @@ agent:
   model: "gpt-5.2"
   skills:
     - "hello-world"
+    - "hitl-test"
   capabilities:
     - "hello"
+    - "hitl-test"
   gateway_url: "http://gateway:8080"
   broker_url: "http://kubex-broker:8060"

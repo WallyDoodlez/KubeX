@@ -301,6 +301,34 @@ services:
           cpus: '0.5'
     restart: unless-stopped
 
+  hello-world:
+    image: kubexclaw-base:latest
+    container_name: kubexclaw-hello-world
+    labels:
+      kubex.agent_id: "hello-world"
+      kubex.boundary: "default"
+    volumes:
+      - ./agents/hello-world/config.yaml:/app/config.yaml:ro
+      - ./skills/examples/hello-world:/app/skills/hello-world:ro
+      - ./skills/examples/hitl-test:/app/skills/hitl-test:ro
+    environment:
+      - ANTHROPIC_BASE_URL=http://gateway:8080/v1/proxy/anthropic
+      - OPENAI_BASE_URL=http://gateway:8080/v1/proxy/openai
+      - REGISTRY_URL=http://kubex-registry:8070
+    networks:
+      - kubex-internal
+    depends_on:
+      kubexclaw-base:
+        condition: service_started
+      gateway:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    restart: unless-stopped
+
   # ── Command Center (web admin dashboard) ─────────────────────────
 
   command-center:
