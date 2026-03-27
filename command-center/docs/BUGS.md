@@ -20,23 +20,17 @@
 
 ### BUG-010: Phase 14 participant events not emitted — no agent_joined/hitl_request chunks
 - **Severity:** P1
-- **Status:** OPEN
+- **Status:** FIXED
 - **Found:** 2026-03-27
-- **Component:** Backend — MCP Bridge orchestrator (`mcp_bridge.py`)
-- **Description:** When the orchestrator dispatches a sub-task to hello-world (hitl-test) and the worker returns `need_info`, the orchestrator does NOT emit `agent_joined` or `hitl_request` structured chunk events on the progress channel. Instead, it returns the raw `need_info` JSON as a regular result. The FE never sees the chunk events that Phase 14 was designed to emit.
-- **Evidence (live UAT 2026-03-27):**
-  - Sent: "Run the hitl-test skill on the hello-world agent"
-  - Hello-world responded with `need_info` containing "What is 1 + 1?"
-  - FE received: two duplicate result bubbles containing raw JSON `{"status": "need_info", "result": {"question": "What is 1 + 1?", ...}}`
-  - FE did NOT receive: any `agent_joined`, `hitl_request`, or `agent_left` chunk events
-  - No HITL prompt appeared — no `hitl_request` chunk was parsed
-  - System messages only show "Task dispatched" — no "{agent} joined the chat"
-- **Expected behavior:**
-  1. On first `need_info` from hello-world: emit `agent_joined` chunk event → FE shows "hello-world joined the chat"
-  2. On each `need_info` poll: emit `hitl_request` chunk event with `source_agent: "hello-world"` → FE shows HITL prompt with attribution
-  3. HITL prompt appears with "What is 1 + 1?" and "hello-world — Input Required" header
-- **Additional issue:** Two duplicate result bubbles appeared for the same `need_info` — possible duplicate SSE delivery
-- **Blocks:** Full UAT for Iteration 96 (conversation participant model)
+- **Fixed:** 2026-03-27
+- **Component:** Backend — `agents/_base/kubex_harness/standalone.py` + Frontend — `command-center/src/components/OrchestratorChat.tsx`
+- **Description:** When the orchestrator dispatched a sub-task to hello-world (hitl-test) and the worker returned `need_info`, the orchestrator never emitted `agent_joined` or `hitl_request` events, and the FE received two duplicate raw JSON result bubbles instead.
+- **Root cause (primary — backend):** `StandaloneAgent._store_result` in `standalone.py` always stored the LLM output as `{status: "completed", agent_id: ..., output: "<text>"}`. The hello-world LLM output was a JSON string like `{"status": "need_info", "request": "What is 1 + 1?", ...}`, but it was wrapped with `status: "completed"`. When the orchestrator called `_handle_poll_task`, it checked `result_status == "need_info"` but got `"completed"` instead. The `need_info` branch (which emits `agent_joined` and `hitl_request` events) was never entered.
+- **Root cause (secondary — frontend duplicate bubble):** `handleSSEComplete` in `OrchestratorChat.tsx` correctly sets `sending=false` synchronously via `setSending(() => false)` when it resolves the result, but never cleared `activeTaskIdRef.current`. The BUG-007 2-second post-dispatch poll checked `activeTaskIdRef.current !== capturedTaskId` (still equal), saw `sending` was `false` but had no guard for it, got the result again, and rendered a second result bubble.
+- **Fix:**
+  1. **Backend:** Added `_build_result_payload()` to `StandaloneAgent`. Detects when `result_text` is a JSON string with `status: "need_info"` and passes through the structured fields (`status`, `agent_id`, `request`, `data`) directly without the `completed` envelope. All other responses use the existing envelope. 13 new unit tests added to `test_orchestrator_loop.py`.
+  2. **Frontend:** `handleSSEComplete` now clears `activeTaskIdRef.current = null` after resolving. BUG-007 2-second poll now also guards on `!sendingRef.current` to prevent firing after `handleSSEComplete` has already resolved the task.
+- **Fixed in:** da107d9
 
 ---
 
