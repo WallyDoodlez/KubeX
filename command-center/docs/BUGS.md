@@ -18,6 +18,24 @@
 
 ## Open Bugs
 
+### BUG-011: Orchestrator fails to consume tasks — Redis authentication required
+- **Severity:** P0
+- **Status:** OPEN
+- **Found:** 2026-03-27
+- **Component:** Backend — Agent containers / Docker Compose env vars
+- **Description:** After stack rebuild with `REDIS_PASSWORD=localdev` in `.env`, the orchestrator logs `ERROR: Registry pub/sub listener error: Authentication required.` and stops consuming tasks from the Broker. Tasks are published to the Broker stream but never picked up. The orchestrator does not poll `/messages/consume/` at all after this error.
+- **Root cause:** Agent containers connect to Redis for pub/sub but don't receive the `REDIS_PASSWORD` env var. The Broker, Gateway, Registry all get `REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379` but agent containers likely use a hardcoded or passwordless Redis URL.
+- **Reproduction:**
+  1. Set `REDIS_PASSWORD=localdev` in `.env`
+  2. `docker compose up -d --build`
+  3. Send a message to orchestrator chat
+  4. Task stays at "Streaming..." forever — orchestrator never processes it
+  5. `docker logs kubexclaw-orchestrator` shows `Authentication required` error
+- **Workaround:** Set `REDIS_PASSWORD=` (empty) in `.env` — but this broke Redis 7.4 earlier (BUG in `requirepass` config)
+- **Fix needed:** Pass `REDIS_URL` with password to agent containers in docker-compose, or configure agents to use passwordless Broker HTTP API only
+
+---
+
 ### BUG-010: Phase 14 participant events not emitted — no agent_joined/hitl_request chunks
 - **Severity:** P1
 - **Status:** FIXED
