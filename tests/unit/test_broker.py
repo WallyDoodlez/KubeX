@@ -89,34 +89,118 @@ class TestBrokerStreams:
 
     @pytest.mark.asyncio
     async def test_consume_returns_empty_list_when_no_messages(self) -> None:
+        # Both pending (id="0") and new (id=">") calls return empty
         self.redis.xreadgroup = AsyncMock(return_value=[])
         result = await self.streams.consume("scraper")
         assert result == []
 
     @pytest.mark.asyncio
     async def test_consume_parses_messages(self) -> None:
-        self.redis.xreadgroup = AsyncMock(
-            return_value=[
-                (
-                    STREAM_NAME,
-                    [
-                        (
-                            "123-0",
-                            {
-                                "task_id": "t-1",
-                                "capability": "scrape_profile",
-                                "context_message": "Do it",
-                                "from_agent": "orchestrator",
-                            },
-                        )
-                    ],
-                )
-            ]
-        )
+        # First call (id="0", pending) returns empty; second call (id=">", new) returns message.
+        one_message = [
+            (
+                STREAM_NAME,
+                [
+                    (
+                        "123-0",
+                        {
+                            "task_id": "t-1",
+                            "capability": "scrape_profile",
+                            "context_message": "Do it",
+                            "from_agent": "orchestrator",
+                        },
+                    )
+                ],
+            )
+        ]
+        self.redis.xreadgroup = AsyncMock(side_effect=[[], one_message])
         result = await self.streams.consume("scraper")
         assert len(result) == 1
         assert result[0]["task_id"] == "t-1"
         assert result[0]["message_id"] == "123-0"
+
+    @pytest.mark.asyncio
+    async def test_consume_redelivers_pending_messages(self) -> None:
+        """Pending (unacked) messages are re-delivered before new ones (BUG-009 fix)."""
+        pending_message = [
+            (
+                STREAM_NAME,
+                [
+                    (
+                        "100-0",
+                        {
+                            "task_id": "t-pending",
+                            "capability": "hitl-test",
+                            "context_message": "Pending task",
+                            "from_agent": "orchestrator",
+                        },
+                    )
+                ],
+            )
+        ]
+        new_message = [
+            (
+                STREAM_NAME,
+                [
+                    (
+                        "200-0",
+                        {
+                            "task_id": "t-new",
+                            "capability": "hitl-test",
+                            "context_message": "New task",
+                            "from_agent": "orchestrator",
+                        },
+                    )
+                ],
+            )
+        ]
+        # First call (id="0") returns the stuck pending message; second (id=">") returns new
+        self.redis.xreadgroup = AsyncMock(side_effect=[pending_message, new_message])
+        result = await self.streams.consume("hitl-test")
+        assert len(result) == 2
+        # Pending message comes first
+        assert result[0]["task_id"] == "t-pending"
+        assert result[0]["message_id"] == "100-0"
+        assert result[1]["task_id"] == "t-new"
+        assert result[1]["message_id"] == "200-0"
+
+    @pytest.mark.asyncio
+    async def test_consume_pending_only_no_new(self) -> None:
+        """Consumer picks up stuck pending message even when no new messages exist."""
+        pending_message = [
+            (
+                STREAM_NAME,
+                [
+                    (
+                        "100-0",
+                        {
+                            "task_id": "t-stuck",
+                            "capability": "hitl-test",
+                            "context_message": "Stuck task",
+                            "from_agent": "orchestrator",
+                        },
+                    )
+                ],
+            )
+        ]
+        # Pending call returns message; new call returns empty
+        self.redis.xreadgroup = AsyncMock(side_effect=[pending_message, []])
+        result = await self.streams.consume("hitl-test")
+        assert len(result) == 1
+        assert result[0]["task_id"] == "t-stuck"
+
+    @pytest.mark.asyncio
+    async def test_consume_calls_xreadgroup_twice(self) -> None:
+        """consume() always calls xreadgroup twice: once for pending (id=0) and once for new (id=>)."""
+        self.redis.xreadgroup = AsyncMock(return_value=[])
+        await self.streams.consume("hitl-test")
+        assert self.redis.xreadgroup.call_count == 2
+        calls = self.redis.xreadgroup.call_args_list
+        # First call: pending messages (id="0")
+        assert calls[0].kwargs.get("streams") == {STREAM_NAME: "0"} or calls[0][1].get("streams") == {STREAM_NAME: "0"}
+        # Second call: new messages (id=">")
+        second_streams = calls[1].kwargs.get("streams") or calls[1][1].get("streams")
+        assert second_streams == {STREAM_NAME: ">"}
 
     @pytest.mark.asyncio
     async def test_acknowledge_calls_xack(self) -> None:

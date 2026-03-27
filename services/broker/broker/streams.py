@@ -113,10 +113,28 @@ class BrokerStreams:
         name) are silently acknowledged and skipped.  This ensures that
         capability-based consumer groups only receive their own tasks
         even though all messages share a single Redis stream.
+
+        Reliable delivery: pending messages (delivered but not yet acked)
+        are re-delivered first (id="0"), followed by new messages (id=">").
+        This ensures messages are never lost if a consumer crashes between
+        delivery and acknowledgement.
         """
         await self.ensure_stream_and_group(agent_id)
 
-        messages = await self._redis.xreadgroup(
+        # Step 1: re-deliver any pending (previously delivered but unacked) messages.
+        # Using id="0" fetches all PEL entries for this consumer that have not been acked.
+        # This handles the case where the consumer crashed or was restarted after receiving
+        # a message but before acknowledging it.
+        pending_messages = await self._redis.xreadgroup(
+            groupname=agent_id,
+            consumername=agent_id,
+            streams={STREAM_NAME: "0"},
+            count=count,
+        )
+
+        # Step 2: fetch new messages not yet delivered to any consumer in this group.
+        # block only applies to new messages (not pending re-delivery).
+        new_messages = await self._redis.xreadgroup(
             groupname=agent_id,
             consumername=agent_id,
             streams={STREAM_NAME: ">"},
@@ -124,22 +142,29 @@ class BrokerStreams:
             block=block_ms if block_ms > 0 else None,
         )
 
+        # Combine pending + new, pending first so stuck messages are resolved before
+        # accepting new work.
+        all_raw: list[tuple[str, list[tuple[str, dict[str, Any]]]]] = []
+        if pending_messages:
+            all_raw.extend(pending_messages)
+        if new_messages:
+            all_raw.extend(new_messages)
+
         result = []
-        if messages:
-            for _stream_name, entries in messages:
-                for message_id, fields in entries:
-                    # Filter by capability when the consumer group represents
-                    # a capability (not a generic agent consumer).
-                    if filter_by_capability:
-                        msg_capability = fields.get("capability", "")
-                        if msg_capability and msg_capability != agent_id:
-                            # Auto-ack messages not meant for this consumer group
-                            try:
-                                await self._redis.xack(STREAM_NAME, agent_id, message_id)
-                            except Exception:
-                                pass
-                            continue
-                    result.append({"message_id": message_id, **fields})
+        for _stream_name, entries in all_raw:
+            for message_id, fields in entries:
+                # Filter by capability when the consumer group represents
+                # a capability (not a generic agent consumer).
+                if filter_by_capability:
+                    msg_capability = fields.get("capability", "")
+                    if msg_capability and msg_capability != agent_id:
+                        # Auto-ack messages not meant for this consumer group
+                        try:
+                            await self._redis.xack(STREAM_NAME, agent_id, message_id)
+                        except Exception:
+                            pass
+                        continue
+                result.append({"message_id": message_id, **fields})
 
         return result
 
