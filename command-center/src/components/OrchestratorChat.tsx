@@ -110,7 +110,10 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
   // SSE state
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [terminalLines, setTerminalLines] = useState<OutputLine[]>([]);
-  const [hitlRequest, setHitlRequest] = useState<{ taskId: string; prompt: string } | null>(null);
+  const [hitlRequest, setHitlRequest] = useState<{ taskId: string; prompt: string; sourceAgent?: string } | null>(null);
+
+  // Participant tracking — set of active agent IDs currently in the conversation
+  const activeParticipantsRef = useRef<Set<string>>(new Set());
   const activeTaskIdRef = useRef<string | null>(null);
   const activeCapRef = useRef<string>('');
   const sendingRef = useRef(false); // synchronous guard against double-fire
@@ -222,15 +225,78 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
     return id;
   }
 
+  /** Inject a system message when a non-orchestrator agent joins the chat */
+  function maybeEmitJoin(agentId: string, _capability?: string) {
+    if (!agentId || agentId === 'orchestrator' || activeParticipantsRef.current.has(agentId)) return;
+    activeParticipantsRef.current.add(agentId);
+    addMessage({
+      role: 'system',
+      content: `${agentId} joined the chat`,
+      timestamp: new Date(),
+      task_id: activeTaskIdRef.current ?? undefined,
+    });
+  }
+
+  /** Inject a system message when an agent leaves the chat */
+  function maybeEmitLeave(agentId: string, status?: string) {
+    if (!agentId || !activeParticipantsRef.current.has(agentId)) return;
+    activeParticipantsRef.current.delete(agentId);
+    const suffix = status === 'failed' ? ' — task failed' : '';
+    addMessage({
+      role: 'system',
+      content: `${agentId} left the chat${suffix}`,
+      timestamp: new Date(),
+      task_id: activeTaskIdRef.current ?? undefined,
+    });
+  }
+
   // Clear chat messages (keeps welcome message)
   function handleClearChat() {
     setMessages((prev) => prev.slice(0, 1));
+    activeParticipantsRef.current.clear();
   }
 
   // SSE message handler
   const handleSSEMessage = useCallback((data: { type: string; [key: string]: unknown }) => {
     const taskId = activeTaskIdRef.current;
     const cap = activeCapRef.current;
+
+    // Try parsing chunk as structured event (agent_joined, agent_left, hitl_request)
+    if (typeof data.chunk === 'string' && (data.chunk as string).startsWith('{')) {
+      try {
+        const event = JSON.parse(data.chunk as string) as { type: string; [key: string]: unknown };
+
+        if (event.type === 'agent_joined') {
+          maybeEmitJoin(event.agent_id as string, event.capability as string | undefined);
+          return;
+        }
+
+        if (event.type === 'agent_left') {
+          maybeEmitLeave(event.agent_id as string, event.status as string | undefined);
+          return;
+        }
+
+        if (event.type === 'hitl_request') {
+          const prompt = (event.prompt as string) ?? 'Input required';
+          const sourceAgent = (event.source_agent as string) ?? undefined;
+          if (taskId) {
+            setHitlRequest({ taskId, prompt, sourceAgent });
+            setTerminalLines((prev) => [
+              ...prev,
+              {
+                text: `[HITL${sourceAgent ? ` from ${sourceAgent}` : ''}] ${prompt}`,
+                stream: 'system',
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+          }
+          return;
+        }
+        // Unknown structured event type — fall through to stdout handling
+      } catch {
+        // Not valid JSON — fall through to existing stdout handling
+      }
+    }
 
     if (data.type === 'stdout' || data.type === 'stderr') {
       // Any output means we're actively streaming
@@ -268,6 +334,11 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
 
       const extracted = extractResultContent(data as Record<string, unknown>);
 
+      // Emit leave for any agent that produced this result
+      if (extracted.agentId) {
+        maybeEmitLeave(extracted.agentId, 'completed');
+      }
+
       addMessage({
         role: 'result',
         content: extracted.text,
@@ -298,6 +369,12 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
       setStreamUrl(null);
       setHitlRequest(null);
       setLivePhases([]);
+
+      // Emit leave for any agent associated with the failure
+      const failedAgentId = typeof data.agent_id === 'string' ? data.agent_id : undefined;
+      if (failedAgentId) {
+        maybeEmitLeave(failedAgentId, 'failed');
+      }
 
       const reason =
         (data.error as string) ??
@@ -1284,6 +1361,7 @@ export default function OrchestratorChat({ onTrafficEntry, messages, setMessages
               prompt={hitlRequest.prompt}
               taskId={hitlRequest.taskId}
               onSubmit={handleHITLSubmit}
+              sourceAgent={hitlRequest.sourceAgent}
             />
           </div>
         )}

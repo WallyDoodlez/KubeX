@@ -43,6 +43,28 @@
 
 ---
 
+### BUG-008: LLM 500 error displays as "completed" — failed tasks shown green
+- **Severity:** P1
+- **Status:** OPEN
+- **Found:** 2026-03-27
+- **Component:** `src/components/OrchestratorChat.tsx` (likely) + potentially Backend
+- **Description:** When a Kubex task fails with an LLM error (e.g., `LLM returned 500: Internal Server Error`), the chat UI shows the error text but marks the task as "completed" (green). Failed tasks should not appear as successful — the status badge/indicator should reflect the failure.
+- **Root cause:** TBD — likely one of:
+  1. The BE sends a `result` SSE event (not `failed`) even when the LLM errors, with the error message stuffed into the output field
+  2. The FE `handleSSEMessage` treats any terminal event as "completed" regardless of whether the content indicates an error
+  3. The error arrives as a progress chunk containing the error text, and the final status is still `completed`
+- **Reproduction:**
+  1. Open Command Center → Orchestrator Chat
+  2. Type "test" (or any message that triggers an LLM call)
+  3. If the LLM returns a 500 error, observe: error message appears but status shows "completed" (green)
+- **Fix needed:**
+  1. Investigate whether the BE sends `failed` status or incorrectly sends `completed` with error content
+  2. If BE sends correct `failed` status: FE needs to render it as an error (red badge, error styling)
+  3. If BE sends `completed` with error: BE bug — should send `failed` status with the error message
+- **Workaround:** None — misleading status
+
+---
+
 ## Fixed Bugs
 
 ### BUG-006: Tasks dispatch but never complete — Redis disconnected

@@ -933,3 +933,57 @@ Events are emitted as **progress chunks** — the participant event JSON is insi
 ```
 
 **FE parsing note:** Same as above — must parse `data.chunk` to extract `type`, `prompt`, and `source_agent`.
+
+---
+
+## Future Feature Requests
+
+### 🔴 CLI Kubex Terminal Output Rendering
+
+- **Requested:** 2026-03-27
+- **Priority:** Future iteration
+- **Feature:** For CLI-runtime kubexes (claude-code, gemini-cli, codex), stream their stdout/stderr as terminal-style output in the chat UI — render it like a terminal view rather than plain text bubbles.
+- **Why:** CLI kubex output is inherently terminal-formatted (ANSI codes, line-by-line progress). Showing it as chat bubbles loses the context. A terminal-style renderer would make the output immediately recognizable and useful.
+- **BE requirements:** May need to preserve ANSI escape codes in progress chunks (currently may be stripped). FE needs a terminal renderer component (e.g., xterm.js or similar).
+- **Depends on:** CLI orchestrator participant events gap (cli_runtime.py doesn't emit `agent_joined`/`agent_left` yet). Also depends on runtime type exposure (see below).
+
+---
+
+### 🔴 Kubex Runtime Type Exposure
+
+- **Requested:** 2026-03-27
+- **Priority:** Future iteration
+- **Feature:** The FE needs to know whether a Kubex is running a CLI-based runtime (`claude-code`, `gemini-cli`, `codex`) or an API-based runtime (`openai-api`). This should be surfaced in Kubex metadata — either in `agent_joined` events, Kubex list endpoints, or both.
+- **Why:** Runtime type drives rendering decisions (terminal view vs chat bubbles), helps the user understand what's running inside each Kubex, and could inform UX like showing a re-auth button only for OAuth-based CLI runtimes.
+- **Possible approaches:**
+  - Add `runtime_type: "cli" | "api"` to `agent_joined` event payload
+  - Add `runtime` field to `GET /agents` or `GET /agents/{id}` response (from `config.yaml` harness type)
+  - Both — event for real-time, endpoint for pre-fetching
+- **Source of truth:** Each Kubex's `config.yaml` already declares the harness (e.g., `openai-api`, `claude-code`). The BE just needs to forward this to the FE.
+
+---
+
+### 🔴 Enriched Capability Chooser in Spawn Kubex Wizard
+
+- **Requested:** 2026-03-27
+- **Priority:** Future iteration
+- **Feature:** The capability picker in the Spawn Kubex wizard currently shows bare capability names. It should show each capability with a description of what it does — so the user can make informed selections without having to know the skill names by heart.
+- **Why:** Capability names like `knowledge_management` or `hitl-test` are meaningless without context. The user needs to see what each capability actually enables the Kubex to do.
+- **BE requirements:** `GET /skills` (or equivalent) endpoint that returns skill metadata — at minimum `{ name, description }` per skill. The description can be extracted from each skill's `SKILL.md` frontmatter or first paragraph.
+- **FE work:** Replace the current bare list/chip picker with a richer selector showing name + description. Could be a searchable dropdown or card-based picker.
+
+---
+
+### 🔴 User-Defined Capability Import System
+
+- **Requested:** 2026-03-27
+- **Priority:** Future iteration (after enriched chooser)
+- **Feature:** Allow users to define and import custom capabilities directly from the Spawn Kubex wizard — instead of being limited to predefined skills in the repo. The user could paste or upload a skill definition (markdown) and attach it to the Kubex at spawn time.
+- **Why:** Currently, adding a new capability requires committing a new `SKILL.md` file to the repo and redeploying. For rapid experimentation or one-off tasks, users should be able to inject skills on the fly — true to the "stem cell Kubex" philosophy where any Kubex can pick up any skill.
+- **Possible approaches:**
+  - Inline skill editor in the wizard (paste markdown)
+  - Upload `.md` file that gets mounted as a skill
+  - Skill marketplace / registry that the wizard pulls from
+  - Hybrid: predefined skills from repo + user-added skills stored in a DB or object store
+- **BE requirements:** Kubex Manager needs to support ad-hoc skill injection at spawn time (not just repo-defined skills). May need a skill storage layer (DB or S3) for user-created skills.
+- **Depends on:** Enriched capability chooser (above) — the UX for browsing and selecting should work first before adding user-defined ones to the mix.

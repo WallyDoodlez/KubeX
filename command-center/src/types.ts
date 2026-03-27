@@ -145,6 +145,7 @@ export interface HITLRequest {
   task_id: string;
   prompt: string;
   timestamp: string;
+  source_agent?: string;
 }
 
 // ── Traffic filters ─────────────────────────────────────────────────

@@ -5,9 +5,10 @@ interface HITLPromptProps {
   taskId: string;
   onSubmit: (taskId: string, input: string) => void;
   disabled?: boolean;
+  sourceAgent?: string;
 }
 
-export default function HITLPrompt({ prompt, taskId, onSubmit, disabled = false }: HITLPromptProps) {
+export default function HITLPrompt({ prompt, taskId, onSubmit, disabled = false, sourceAgent }: HITLPromptProps) {
   const [input, setInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -30,7 +31,9 @@ export default function HITLPrompt({ prompt, taskId, onSubmit, disabled = false 
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-        <span className="text-xs font-semibold text-amber-400 uppercase tracking-widest">Input Required</span>
+        <span className="text-xs font-semibold text-amber-400 uppercase tracking-widest">
+          {sourceAgent ? `${sourceAgent} — Input Required` : 'Input Required'}
+        </span>
       </div>
 
       {/* Prompt text */}
