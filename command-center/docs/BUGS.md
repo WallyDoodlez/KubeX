@@ -18,6 +18,22 @@
 
 ## Open Bugs
 
+### BUG-012: Orchestrator task loop not polling Broker after BUG-011 fix
+- **Severity:** P0
+- **Status:** OPEN
+- **Found:** 2026-03-27
+- **Component:** Backend — `mcp_bridge.py` task loop
+- **Description:** After BUG-011 fix (Redis auth), the orchestrator boots cleanly (no auth errors, pub/sub subscribed), but the task loop never actually polls the Broker. Zero `consume` requests logged. Tasks stay in the Broker stream indefinitely.
+- **Evidence:**
+  - Orchestrator logs: "Entering API mode task loop: polling broker" then "Subscribed to registry:agent_changed pub/sub channel" — and nothing else. No consume polls.
+  - Broker confirms task published: `task-aad1eda56381` at `14:05:05`
+  - `grep -c "consume"` on orchestrator logs returns 0
+  - Hello-world and other agents ARE polling correctly
+- **Root cause:** TBD — the `_run_api_task_loop` in `mcp_bridge.py` may be blocked by the registry pub/sub listener or some async initialization that never yields
+- **Blocks:** UAT for Iteration 96
+
+---
+
 ### BUG-011: Orchestrator fails to consume tasks — Redis authentication required
 - **Severity:** P0
 - **Status:** FIXED
