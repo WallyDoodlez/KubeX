@@ -881,56 +881,55 @@ These UX questions must be resolved before implementation:
 
 ---
 
-### 🔴 Conversation Participant Events — agent_joined / agent_left
+### 🟢 Conversation Participant Events — agent_joined / agent_left
 
 - **Requested:** 2026-03-26
+- **Implemented:** 2026-03-27 (Phase 14)
 - **Feature:** Structured SSE progress events that tell the FE which worker kubexes are involved in an orchestrator task
-- **Why:** The FE wants to show the orchestrator chat as a group conversation — kubexes "join" when dispatched and "leave" when their sub-task resolves. Currently impossible because the orchestrator stamps its own `agent_id` on all progress events (`mcp_bridge.py:663`, `cli_runtime.py:904`), losing the worker's identity.
 
-**What the orchestrator sends today:**
+**Implemented in Phase 14 (`mcp_bridge.py`):**
 
-All progress events have `"agent_id": "orchestrator"`. The worker's agent_id is only inside the free-text `output` string — unreliable for FE parsing.
+Events are emitted as **progress chunks** — the participant event JSON is inside the `chunk` field of a standard progress payload. The FE must parse `data.chunk` as JSON when it starts with `{`.
 
-**What the FE needs:**
-
-Two new progress event types emitted by the orchestrator on its own progress channel (`progress:{orchestrator_task_id}`):
+**`agent_joined`** — emitted on first `need_info` poll for a sub-task (not at dispatch time):
 
 ```json
-{"type": "agent_joined", "agent_id": "instagram-scraper", "sub_task_id": "task-xxx", "capability": "scrape_instagram"}
+// Raw SSE data received by FE:
+{"task_id": "orch-task", "agent_id": "orchestrator", "chunk": "{\"type\":\"agent_joined\",\"agent_id\":\"instagram-scraper\",\"sub_task_id\":\"task-xxx\",\"capability\":\"scrape_instagram\"}", "final": false}
 ```
+
+**`agent_left`** — emitted when orchestrator forwards HITL answer via `kubex__forward_hitl_response`:
 
 ```json
-{"type": "agent_left", "agent_id": "instagram-scraper", "sub_task_id": "task-xxx", "status": "completed", "duration_ms": 4200}
+// Raw SSE data received by FE:
+{"task_id": "orch-task", "agent_id": "orchestrator", "chunk": "{\"type\":\"agent_left\",\"agent_id\":\"instagram-scraper\",\"sub_task_id\":\"task-xxx\",\"status\":\"resolved\"}", "final": false}
 ```
 
-**Where to emit in BE code:**
+**Deviations from original spec:**
 
-| Event | Trigger | File |
-|-------|---------|------|
-| `agent_joined` | `kubex__dispatch_task` tool call returns successfully | `mcp_bridge.py` — inside `_call_tool` or equivalent dispatch handler |
-| `agent_left` | `kubex__check_task_status` / `kubex__get_task_result` returns a terminal status (`completed`/`failed`/`cancelled`) | `mcp_bridge.py` — inside tool result handler |
+| Field | Original spec | Implemented | Reason |
+|-------|--------------|-------------|--------|
+| `agent_joined` trigger | At dispatch time | On first `need_info` detection | CONTEXT.md D-01: interaction-only model |
+| `agent_left` status | `"completed"` | `"resolved"` | CONTEXT.md D-02: HITL resolution, not task completion |
+| `agent_left` duration_ms | Included | Omitted | CONTEXT.md: not available at HITL resolution time |
 
-These are calls to the existing `_post_progress()` method — no new endpoints needed. The orchestrator already knows the target `agent_id` and `sub_task_id` from the tool call arguments/response.
+**FE parsing note:** These events do NOT have a top-level `type` field. They arrive as progress chunks. The FE must try `JSON.parse(data.chunk)` and check the parsed object's `type` field.
 
-**For CLI-based orchestrators** (`cli_runtime.py`): The orchestrator runs as a CLI subprocess (Claude Code, Gemini CLI). It doesn't call MCP tools — it writes to stdout. The FE cannot get structured participant events from a CLI orchestrator without a new mechanism (e.g., hook events for dispatch/completion). This is a harder problem and may be deferred.
-
-**FE fallback (works today, no BE change):** The FE already extracts `agent_id` from the result payload via `extractResultContent()`. If the inner JSON contains a non-orchestrator `agent_id`, the FE can show it. This is fragile but covers the common case.
-
-- **Blocker?** Yes — blocks Iteration 96 (conversation participant model)
-- **Priority:** Medium — FE has a degraded fallback via result extraction
-- **Complexity:** Low for MCP Bridge orchestrators (add 2 `_post_progress` calls). Higher for CLI orchestrators.
+**CLI orchestrator gap:** `cli_runtime.py` orchestrators do NOT emit participant events. Only MCP Bridge orchestrators are covered. Deferred.
 
 ---
 
-### 🟡 HITL source_agent Attribution — Not Yet Implemented
+### 🟢 HITL source_agent Attribution
 
 - **Requested:** 2026-03-26
-- **Feature:** The `hitl_request` SSE event should include `source_agent` field identifying which worker asked the question
-- **Design doc:** `docs/design-orchestrator-chat-hitl.md` line 63 specifies this:
-  ```json
-  {"type": "hitl_request", "prompt": "Which account?", "source_agent": "instagram-scraper"}
-  ```
-- **Current state:** The HITL forwarding path in `mcp_bridge.py` does not detect worker HITL requests or forward them with `source_agent`. The design is written but not implemented.
-- **FE use:** Show which kubex is asking the user a question in the chat UI
-- **Blocker?** No — FE can show HITL prompts without attribution (current behavior). But needed for the conversation participant model.
-- **Priority:** Medium — tied to Iteration 96
+- **Implemented:** 2026-03-27 (Phase 14)
+- **Feature:** `hitl_request` progress event includes `source_agent` identifying the worker
+
+**Implemented:** Emitted as a progress chunk on every `need_info` poll:
+
+```json
+// Raw SSE data received by FE:
+{"task_id": "orch-task", "agent_id": "orchestrator", "chunk": "{\"type\":\"hitl_request\",\"prompt\":\"Which account?\",\"source_agent\":\"instagram-scraper\"}", "final": false}
+```
+
+**FE parsing note:** Same as above — must parse `data.chunk` to extract `type`, `prompt`, and `source_agent`.

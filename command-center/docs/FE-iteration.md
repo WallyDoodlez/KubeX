@@ -1,45 +1,112 @@
 # Iteration 96: Conversation Participant Model — Kubex Join/Leave
 
-> Status: **BLOCKED — awaiting BE review of FE-BE-REQUESTS.md**
+> Status: **READY** — BE delivered Phase 14
 > Date: 2026-03-26
-> Depends on: `agent_joined`/`agent_left` progress events + HITL `source_agent` (see FE-BE-REQUESTS.md)
+> BE Phase: 14-orchestrator-participant-events (landed 2026-03-27)
 
 ---
 
 ## Concept
 
-The orchestrator chat is a **group conversation**. When the orchestrator dispatches work to a kubex, that kubex "joins the chat." When its task completes or fails, it "leaves." Each kubex gets its own named bubbles, so the user sees who's talking.
+The orchestrator chat is a **group conversation**. When a worker kubex starts interacting (HITL), it "joins the chat." When the orchestrator forwards the user's answer, it "leaves." Each kubex gets its own named bubbles.
 
 ---
 
-## FE Implementation Plan (ready to build once BE confirms)
+## Critical: SSE Event Parsing
 
-### A. Participant tracking
+Participant events arrive as **progress chunks**, not top-level SSE event types. The raw SSE data looks like:
 
-- `useRef<Set<string>>` for active participants
-- `maybeEmitJoin(agentId)` / `maybeEmitLeave(agentId, status)` helpers
-- System messages: "{agent_id} joined the chat" / "{agent_id} left the chat"
-- Orchestrator is implicit — never joins/leaves
-- Reset on `handleClearChat` or new send after idle
+```json
+{"task_id": "...", "agent_id": "orchestrator", "chunk": "{\"type\":\"agent_joined\",...}", "final": false}
+```
 
-### B. SSE event handling
+The `chunk` field contains a JSON string with the actual event. The FE must:
 
-- `agent_joined` event → add to participants, inject join system message
-- `agent_left` event → remove from participants, inject leave system message
-- `hitl_request` with `source_agent` → join (if new)
-- `result`/`failed`/`cancelled` with non-orchestrator `agent_id` → join + leave
-- Fallback: extract from `extractResultContent().agentId`
+1. Check if `data.chunk` exists and is a string
+2. Try `JSON.parse(data.chunk)`
+3. Check the parsed object's `type` field for `agent_joined`, `agent_left`, `hitl_request`
+4. If parse fails or `type` is not recognized, treat as plain stdout text (existing behavior)
 
-### C. Named bubbles
+This check should happen **before** the existing `data.type === 'stdout'` branch in `handleSSEMessage`.
 
-- Result bubbles show agent name as sender (group chat style)
-- HITL prompts show source agent name
+---
 
-### D. Tests
+## Event Shapes (from Phase 14)
 
-- E2E: mock `agent_joined`/`agent_left` SSE events, verify system messages
-- E2E: mock result with worker agent_id, verify named bubble
-- E2E: mock HITL with source_agent, verify attribution
+### agent_joined (parsed from chunk)
+
+```json
+{"type": "agent_joined", "agent_id": "knowledge", "sub_task_id": "task-xxx", "capability": "knowledge_management"}
+```
+
+Triggers: first `need_info` from a worker (not at dispatch time).
+
+### agent_left (parsed from chunk)
+
+```json
+{"type": "agent_left", "agent_id": "knowledge", "sub_task_id": "task-xxx", "status": "resolved"}
+```
+
+Triggers: orchestrator forwards HITL answer via `kubex__forward_hitl_response`.
+
+### hitl_request (parsed from chunk)
+
+```json
+{"type": "hitl_request", "prompt": "Which account?", "source_agent": "instagram-scraper"}
+```
+
+Triggers: every `need_info` poll from the worker.
+
+---
+
+## FE Implementation Plan
+
+### A. Chunk parsing in handleSSEMessage
+
+Add a new branch at the **top** of `handleSSEMessage`, before the `stdout`/`stderr` check:
+
+```ts
+// Try parsing chunk as structured event
+if (typeof data.chunk === 'string' && data.chunk.startsWith('{')) {
+  try {
+    const event = JSON.parse(data.chunk);
+    if (event.type === 'agent_joined') { /* handle join */ return; }
+    if (event.type === 'agent_left') { /* handle leave */ return; }
+    if (event.type === 'hitl_request') { /* handle HITL with source_agent */ return; }
+  } catch { /* not JSON — fall through to stdout */ }
+}
+```
+
+### B. Participant tracking
+
+- `useRef<Set<string>>` for `activeParticipantsRef`
+- `maybeEmitJoin(agentId, capability?)` — if agent_id is truthy, not "orchestrator", and not in set: inject system message, add to set
+- `maybeEmitLeave(agentId, status)` — if agent_id is in set: inject system message, remove from set
+- Reset on `handleClearChat`
+
+### C. System messages
+
+- Join: `"{agent_id} joined the chat"` (role: 'system')
+- Leave: `"{agent_id} left the chat"` (role: 'system')
+- Leave failed: `"{agent_id} left the chat — task failed"` (role: 'system')
+
+### D. HITL attribution
+
+When `hitl_request` has `source_agent`, use it instead of the current generic prompt. Pass `source_agent` to `setHitlRequest` so `HITLPrompt` can show who's asking.
+
+### E. Named bubbles
+
+Result bubbles with a non-orchestrator `agent_id` show the agent name as the sender.
+
+### F. Fallback for non-chunk events
+
+For `result`/`failed`/`cancelled` events that arrive as top-level SSE types (cached result path, BUG-007 fix), continue using `extractResultContent().agentId` for join/leave emission.
+
+### G. Tests
+
+- E2E: mock SSE with chunk-encoded `agent_joined`/`agent_left` events, verify system messages
+- E2E: mock SSE with chunk-encoded `hitl_request` with `source_agent`, verify attribution
+- E2E: verify result bubbles show agent name as sender
 
 ---
 
@@ -47,7 +114,7 @@ The orchestrator chat is a **group conversation**. When the orchestrator dispatc
 
 | Action | File |
 |--------|------|
-| Modify | `src/components/OrchestratorChat.tsx` — participant tracking, join/leave messages |
+| Modify | `src/components/OrchestratorChat.tsx` — chunk parsing, participant tracking, join/leave messages |
 | Modify | `src/components/HITLPrompt.tsx` — source agent display |
 | Create | `tests/e2e/conversation-participants.spec.ts` |
 
